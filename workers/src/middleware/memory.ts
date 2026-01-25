@@ -1,0 +1,319 @@
+/**
+ * Memory Middleware - KRONOS Integration
+ * Handles memory retrieval and storage with temporal windows
+ */
+
+import { Context } from 'hono';
+import { StorageManager } from '../services/storage';
+import { SearchResult, VectorMetadata } from '../vectors/workers-index';
+import { formatMemoryContext } from '../formatters';
+
+/**
+ * KRONOS time windows
+ */
+export interface KronosConfig {
+  hotWindowHours: number;      // Default: 4 hours
+  workingWindowDays: number;   // Default: 3 days
+  longtermWindowDays: number;  // Default: 90 days
+}
+
+export const DEFAULT_KRONOS_CONFIG: KronosConfig = {
+  hotWindowHours: 4,
+  workingWindowDays: 3,
+  longtermWindowDays: 90,
+};
+
+/**
+ * Memory options from request headers
+ */
+export interface MemoryOptions {
+  mode: 'auto' | 'read' | 'write' | 'off';
+  storeInput: boolean;
+  storeResponse: boolean;
+  contextLimit: number;
+}
+
+/**
+ * Parse memory options from request headers
+ */
+export function parseMemoryOptions(c: Context): MemoryOptions {
+  const mode = (c.req.header('X-Memory-Mode') ?? 'auto') as MemoryOptions['mode'];
+  const storeInput = c.req.header('X-Memory-Store') !== 'false';
+  const storeResponse = c.req.header('X-Memory-Store-Response') !== 'false';
+  const contextLimit = parseInt(c.req.header('X-Memory-Context-Limit') ?? '12', 10);
+  
+  return { mode, storeInput, storeResponse, contextLimit };
+}
+
+/**
+ * Memory retrieval result
+ */
+export interface MemoryRetrievalResult {
+  chunks: MemoryChunk[];
+  tokenCount: number;
+  windowBreakdown: {
+    hot: number;
+    working: number;
+    longterm: number;
+  };
+}
+
+export interface MemoryChunk {
+  id: number;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: number;
+  score: number;
+  window: 'hot' | 'working' | 'longterm';
+}
+
+/**
+ * KRONOS Memory Manager
+ * Handles retrieval across temporal windows
+ */
+export class KronosMemoryManager {
+  private storage: StorageManager;
+  private config: KronosConfig;
+
+  constructor(storage: StorageManager, config: KronosConfig = DEFAULT_KRONOS_CONFIG) {
+    this.storage = storage;
+    this.config = config;
+  }
+
+  /**
+   * Get timestamp cutoffs for KRONOS windows
+   */
+  private getWindowCutoffs(): { hot: number; working: number; longterm: number } {
+    const now = Date.now();
+    return {
+      hot: now - this.config.hotWindowHours * 60 * 60 * 1000,
+      working: now - this.config.workingWindowDays * 24 * 60 * 60 * 1000,
+      longterm: now - this.config.longtermWindowDays * 24 * 60 * 60 * 1000,
+    };
+  }
+
+  /**
+   * Allocate results equally across windows
+   * N/3 per window with remainder distributed
+   */
+  private allocatePerWindow(total: number): { hot: number; working: number; longterm: number } {
+    const base = Math.floor(total / 3);
+    const remainder = total % 3;
+    return {
+      hot: base + (remainder > 0 ? 1 : 0),
+      working: base + (remainder > 1 ? 1 : 0),
+      longterm: base,
+    };
+  }
+
+  /**
+   * Assign a result to its KRONOS window based on timestamp
+   */
+  private getWindow(timestamp: number, cutoffs: { hot: number; working: number; longterm: number }): 'hot' | 'working' | 'longterm' {
+    if (timestamp >= cutoffs.hot) return 'hot';
+    if (timestamp >= cutoffs.working) return 'working';
+    return 'longterm';
+  }
+
+  /**
+   * Search memory with KRONOS equal allocation
+   */
+  async search(
+    memoryKey: string,
+    queryEmbedding: Float32Array,
+    totalLimit: number = 12
+  ): Promise<MemoryRetrievalResult> {
+    const cutoffs = this.getWindowCutoffs();
+    const allocation = this.allocatePerWindow(totalLimit);
+    
+    // Search each window
+    const [hotResults, workingResults, longtermResults] = await Promise.all([
+      this.searchWindow(memoryKey, queryEmbedding, cutoffs.hot, Date.now(), allocation.hot),
+      this.searchWindow(memoryKey, queryEmbedding, cutoffs.working, cutoffs.hot, allocation.working),
+      this.searchWindow(memoryKey, queryEmbedding, cutoffs.longterm, cutoffs.working, allocation.longterm),
+    ]);
+    
+    // Get metadata for all results
+    const allIds = [
+      ...hotResults.map(r => r.id),
+      ...workingResults.map(r => r.id),
+      ...longtermResults.map(r => r.id),
+    ];
+    
+    const metadataMap = await this.storage.getMetadataBatch(memoryKey, allIds);
+    
+    // Build chunks with metadata
+    const chunks: MemoryChunk[] = [];
+    
+    const addChunks = (results: SearchResult[], window: 'hot' | 'working' | 'longterm') => {
+      for (const result of results) {
+        const meta = metadataMap.get(result.id);
+        if (meta) {
+          chunks.push({
+            id: result.id,
+            role: meta.role,
+            content: meta.content,
+            timestamp: meta.timestamp,
+            score: result.score,
+            window,
+          });
+        }
+      }
+    };
+    
+    addChunks(hotResults, 'hot');
+    addChunks(workingResults, 'working');
+    addChunks(longtermResults, 'longterm');
+    
+    // Sort by timestamp (most recent first within each window)
+    chunks.sort((a, b) => b.timestamp - a.timestamp);
+    
+    // Estimate token count (rough: ~4 chars per token)
+    const totalContent = chunks.map(c => c.content).join('');
+    const tokenCount = Math.ceil(totalContent.length / 4);
+    
+    return {
+      chunks,
+      tokenCount,
+      windowBreakdown: {
+        hot: hotResults.length,
+        working: workingResults.length,
+        longterm: longtermResults.length,
+      },
+    };
+  }
+
+  /**
+   * Search a specific time window
+   */
+  private async searchWindow(
+    memoryKey: string,
+    query: Float32Array,
+    minTimestamp: number,
+    maxTimestamp: number,
+    limit: number
+  ): Promise<SearchResult[]> {
+    if (limit <= 0) return [];
+    
+    return this.storage.search(memoryKey, query, {
+      limit,
+      minTimestamp,
+      maxTimestamp,
+    });
+  }
+
+  /**
+   * Store a chunk in memory
+   */
+  async store(
+    memoryKey: string,
+    embedding: Float32Array,
+    content: string,
+    role: 'user' | 'assistant',
+    model?: string,
+    requestId?: string
+  ): Promise<number> {
+    const vectorId = await this.storage.getNextVectorId(memoryKey);
+    const timestamp = Date.now();
+    
+    // Create content hash
+    const encoder = new TextEncoder();
+    const data = encoder.encode(content);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const contentHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
+    
+    const metadata: VectorMetadata = {
+      id: vectorId,
+      memoryKey,
+      role,
+      content,
+      contentHash,
+      timestamp,
+      model,
+      requestId,
+    };
+    
+    await this.storage.storeVector(memoryKey, vectorId, embedding, metadata);
+    
+    return vectorId;
+  }
+}
+
+/**
+ * Message type for compatibility
+ */
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+  memory?: boolean;
+}
+
+/**
+ * Extract query from messages for embedding
+ */
+export function extractQuery(messages: ChatMessage[]): string {
+  // Find last user message
+  const userMessages = messages.filter(m => m.role === 'user');
+  const lastUserMessage = userMessages[userMessages.length - 1];
+  
+  if (!lastUserMessage) {
+    return '';
+  }
+  
+  // Optionally include system message for better context
+  const systemMessage = messages.find(m => m.role === 'system');
+  if (systemMessage) {
+    return `${systemMessage.content}\n\n${lastUserMessage.content}`;
+  }
+  
+  return lastUserMessage.content;
+}
+
+/**
+ * Inject memory context into messages
+ */
+export function injectContext(
+  messages: ChatMessage[],
+  context: string,
+  model: string
+): ChatMessage[] {
+  if (!context) {
+    return messages;
+  }
+  
+  // Format context for the specific model
+  const formattedContext = formatMemoryContext(model, context);
+  
+  // Find existing system message
+  const systemIndex = messages.findIndex(m => m.role === 'system');
+  
+  if (systemIndex >= 0) {
+    // Prepend memory context to existing system message
+    const updated = [...messages];
+    updated[systemIndex] = {
+      ...updated[systemIndex],
+      content: `${formattedContext}\n\n${updated[systemIndex].content}`,
+    };
+    return updated;
+  }
+  
+  // Add new system message at the beginning
+  return [
+    { role: 'system' as const, content: formattedContext },
+    ...messages,
+  ];
+}
+
+/**
+ * Format retrieval results into context string
+ */
+export function formatRetrievalAsContext(retrieval: MemoryRetrievalResult): string {
+  if (retrieval.chunks.length === 0) {
+    return '';
+  }
+  
+  return retrieval.chunks
+    .map(chunk => `[${chunk.role.toUpperCase()}] ${chunk.content}`)
+    .join('\n\n');
+}
