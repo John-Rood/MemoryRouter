@@ -84,15 +84,16 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
     this.ensureSchema();
 
     // Get vault config from meta table
-    const stateRow = this.ctx.storage.sql.exec(
+    // NOTE: .one() throws if zero rows — use .toArray() instead
+    const stateRows = this.ctx.storage.sql.exec(
       `SELECT value FROM meta WHERE key = 'vault_state'`
-    ).one();
+    ).toArray();
 
     const defaultDims = parseInt(this.env.DEFAULT_EMBEDDING_DIMS || '3072', 10);
     const defaultMax = parseInt(this.env.MAX_IN_MEMORY_VECTORS || '5000', 10);
 
-    if (stateRow) {
-      this.vaultState = JSON.parse(stateRow.value as string);
+    if (stateRows.length > 0) {
+      this.vaultState = JSON.parse(stateRows[0].value as string);
     } else {
       this.vaultState = {
         vectorCount: 0,
@@ -292,24 +293,24 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
       .substring(0, 16);
 
     // Check for duplicate content
-    const existing = this.ctx.storage.sql.exec(
+    const existingRows = this.ctx.storage.sql.exec(
       `SELECT id FROM items WHERE content_hash = ?`,
       contentHash
-    ).one();
+    ).toArray();
 
-    if (existing) {
+    if (existingRows.length > 0) {
       return Response.json({
-        id: existing.id as number,
+        id: existingRows[0].id as number,
         stored: false,
         reason: 'duplicate',
       });
     }
 
     // Get next ID
-    const maxIdRow = this.ctx.storage.sql.exec(
+    const maxIdRows = this.ctx.storage.sql.exec(
       `SELECT MAX(id) as max_id FROM vectors`
-    ).one();
-    const nextId = ((maxIdRow?.max_id as number) ?? 0) + 1;
+    ).toArray();
+    const nextId = ((maxIdRows[0]?.max_id as number) ?? 0) + 1;
 
     // Estimate token count (~4 chars per token)
     const tokenCount = Math.ceil(body.content.length / 4);
