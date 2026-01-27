@@ -39,11 +39,10 @@ binding = "METADATA_KV"
 id = "40652c48ae9141d9b3a8f797b39bb9f6"
 
 # ========== R2 Buckets ==========
-# Cold backup for vault snapshots (enable R2 in CF dashboard first)
-# [[r2_buckets]]
-# binding = "VECTORS_R2"
-# bucket_name = "memoryrouter-vectors"
-# preview_bucket_name = "memoryrouter-vectors-preview"
+# Cold backup for vault snapshots
+[[r2_buckets]]
+binding = "VECTORS_R2"
+bucket_name = "memory-router"
 
 # ========== Environment Variables ==========
 [vars]
