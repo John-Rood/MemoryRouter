@@ -1,44 +1,50 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CreateMemoryKeyDialog } from "@/components/create-memory-key-dialog";
-import { mockProviderKeys, mockMemoryKeys, MEMORYROUTER_API_KEY, MEMORYROUTER_BASE_URL } from "@/lib/mock-data";
-import { PROVIDERS } from "@/lib/constants";
-import { formatTokens } from "@/lib/utils";
-import { Eye, EyeOff, Copy, Plus, MoreHorizontal, ClipboardCopy, BarChart3, Pencil, Trash2, Eraser, Check } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Eye, EyeOff, Copy, Plus, MoreHorizontal, Trash2, Pencil, BarChart3, Eraser, Check } from "lucide-react";
+import { formatTokens, PROVIDERS, RETENTION_OPTIONS } from "@/lib/constants";
+
+const mockApiKey = "mr_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+const mockProviderKeys = [
+  { id: "pk_1", provider: "OpenAI", maskedKey: "sk-proj-************xxxx", addedAt: "Jan 15, 2026", isDefault: true },
+  { id: "pk_2", provider: "Anthropic", maskedKey: "sk-ant-************xxxx", addedAt: "Jan 20, 2026", isDefault: false },
+];
+const mockMemoryKeys = [
+  { id: "mk_1", name: "main-assistant", keyId: "mk_xxxxxxxxxxxx", tokens: 3_200_000, lastUsed: "2 min ago" },
+  { id: "mk_2", name: "user-12345", keyId: "mk_yyyyyyyyyyyy", tokens: 890_000, lastUsed: "1 hour ago" },
+  { id: "mk_3", name: "project-alpha", keyId: "mk_zzzzzzzzzzzz", tokens: 12_100_000, lastUsed: "3 days ago" },
+];
 
 export default function KeysPage() {
-  const [revealed, setRevealed] = useState(false);
+  const [apiKeyRevealed, setApiKeyRevealed] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [newKeyOpen, setNewKeyOpen] = useState(false);
   const [addProviderOpen, setAddProviderOpen] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState("");
-  const [providerKeyInput, setProviderKeyInput] = useState("");
+  const [newKeyName, setNewKeyName] = useState("");
+  const [newKeyRetention, setNewKeyRetention] = useState("90");
+  const [newProvider, setNewProvider] = useState("");
+  const [newProviderKey, setNewProviderKey] = useState("");
 
-  const handleCopy = (text: string, id: string) => {
+  const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopied(id);
     setTimeout(() => setCopied(null), 2000);
   };
 
-  const displayKey = revealed ? MEMORYROUTER_API_KEY : "mr_live_" + "\u2022".repeat(48);
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Keys</h1>
-          <p className="text-muted-foreground">Manage your API keys and memory contexts.</p>
-        </div>
-        <CreateMemoryKeyDialog />
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Keys</h1>
+        <p className="text-muted-foreground">Manage your API keys and memory contexts.</p>
       </div>
 
       <Card>
@@ -48,58 +54,70 @@ export default function KeysPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center gap-2">
-            <code className="flex-1 overflow-hidden rounded-md border bg-muted px-3 py-2 text-sm font-mono">{displayKey}</code>
-            <Button variant="outline" size="icon" onClick={() => setRevealed(!revealed)}>
-              {revealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            <code className="flex-1 rounded-md bg-muted px-3 py-2 font-mono text-sm">
+              {apiKeyRevealed ? mockApiKey : "mr_live_****************************************"}
+            </code>
+            <Button variant="outline" size="icon" onClick={() => setApiKeyRevealed(!apiKeyRevealed)}>
+              {apiKeyRevealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </Button>
-            <Button variant="outline" size="icon" onClick={() => handleCopy(MEMORYROUTER_API_KEY, "mr-key")}>
-              {copied === "mr-key" ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+            <Button variant="outline" size="icon" onClick={() => copyToClipboard(mockApiKey, "api-key")}>
+              {copied === "api-key" ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">Base URL: <code className="rounded bg-muted px-1 py-0.5">{MEMORYROUTER_BASE_URL}</code></p>
+          <p className="text-xs text-muted-foreground">
+            Base URL: <code className="rounded bg-muted px-1 py-0.5">https://api.memoryrouter.ai/v1</code>
+          </p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <div><CardTitle className="text-base">Provider Keys</CardTitle><CardDescription>Your API keys for AI providers</CardDescription></div>
+          <div>
+            <CardTitle className="text-base">Provider Keys</CardTitle>
+            <CardDescription>Your underlying AI provider API keys</CardDescription>
+          </div>
           <Dialog open={addProviderOpen} onOpenChange={setAddProviderOpen}>
-            <DialogTrigger asChild><Button variant="outline" size="sm"><Plus className="mr-1 h-4 w-4" />Add Key</Button></DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader><DialogTitle>Add Provider Key</DialogTitle><DialogDescription>Add your AI provider API key. We encrypt it and never log it.</DialogDescription></DialogHeader>
-              <div className="space-y-4 py-2">
+            <DialogTrigger asChild><Button size="sm"><Plus className="mr-1 h-3 w-3" />Add Key</Button></DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Provider Key</DialogTitle>
+                <DialogDescription>Add your AI provider API key. It will be encrypted and stored securely.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
                 <div className="space-y-2">
                   <Label>Provider</Label>
-                  <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+                  <Select value={newProvider} onValueChange={setNewProvider}>
                     <SelectTrigger><SelectValue placeholder="Select a provider" /></SelectTrigger>
-                    <SelectContent>{PROVIDERS.map((p) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
+                    <SelectContent>
+                      {PROVIDERS.map((p) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
+                    </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>API Key</Label>
-                  <Input type="password" placeholder="sk-..." value={providerKeyInput} onChange={(e) => setProviderKeyInput(e.target.value)} />
+                  <Input type="password" placeholder="sk-..." value={newProviderKey} onChange={(e) => setNewProviderKey(e.target.value)} />
                   <p className="text-xs text-muted-foreground">Your key is encrypted and never logged.</p>
                 </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setAddProviderOpen(false)}>Cancel</Button>
-                <Button onClick={() => { setAddProviderOpen(false); setSelectedProvider(""); setProviderKeyInput(""); }}>Add Key</Button>
+                <Button onClick={() => { setAddProviderOpen(false); setNewProvider(""); setNewProviderKey(""); }} disabled={!newProvider || !newProviderKey}>Add Key</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </CardHeader>
         <CardContent className="space-y-3">
-          {mockProviderKeys.map((pk) => (
-            <div key={pk.id} className="flex items-center justify-between rounded-md border px-4 py-3">
-              <div>
+          {mockProviderKeys.map((key) => (
+            <div key={key.id} className="flex items-center justify-between rounded-md border px-4 py-3">
+              <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{pk.providerName}</span>
-                  {pk.isDefault && <Badge variant="secondary">DEFAULT</Badge>}
+                  <span className="font-medium text-sm">{key.provider}</span>
+                  {key.isDefault && <Badge variant="secondary" className="text-xs">DEFAULT</Badge>}
                 </div>
-                <div className="mt-1 font-mono text-xs text-muted-foreground">{pk.maskedKey}</div>
-                <div className="mt-1 text-xs text-muted-foreground">Added {pk.addedAt}</div>
+                <p className="text-xs font-mono text-muted-foreground">{key.maskedKey}</p>
+                <p className="text-xs text-muted-foreground">Added {key.addedAt}</p>
               </div>
-              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="sm" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
             </div>
           ))}
         </CardContent>
@@ -107,30 +125,61 @@ export default function KeysPage() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <div><CardTitle className="text-base">Memory Keys</CardTitle><CardDescription>Memory keys create isolated memory contexts. Use one per user, per project, or per conversation.</CardDescription></div>
-          <CreateMemoryKeyDialog />
+          <div>
+            <CardTitle className="text-base">Memory Keys</CardTitle>
+            <CardDescription>Isolated memory contexts for different use cases.</CardDescription>
+          </div>
+          <Dialog open={newKeyOpen} onOpenChange={setNewKeyOpen}>
+            <DialogTrigger asChild><Button size="sm"><Plus className="mr-1 h-3 w-3" />New Key</Button></DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create Memory Key</DialogTitle>
+                <DialogDescription>Create an isolated memory context.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Name (optional)</Label>
+                  <Input placeholder="customer-support-bot" value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)} />
+                </div>
+                <Separator />
+                <div className="space-y-2">
+                  <Label>Retention</Label>
+                  <Select value={newKeyRetention} onValueChange={setNewKeyRetention}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {RETENTION_OPTIONS.map((opt) => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setNewKeyOpen(false)}>Cancel</Button>
+                <Button onClick={() => { setNewKeyOpen(false); setNewKeyName(""); }}>Create Key</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </CardHeader>
         <CardContent className="space-y-3">
-          {mockMemoryKeys.map((mk) => (
-            <div key={mk.id} className="flex items-center justify-between rounded-md border px-4 py-3">
-              <div>
-                <div className="text-sm font-medium">{mk.name}</div>
-                <div className="mt-1 font-mono text-xs text-muted-foreground">{mk.key}</div>
-                <div className="mt-1 text-xs text-muted-foreground">{formatTokens(mk.tokensUsed)} tokens {"\u2022"} Last used {mk.lastUsed}</div>
+          {mockMemoryKeys.map((key) => (
+            <div key={key.id} className="flex items-center justify-between rounded-md border px-4 py-3">
+              <div className="space-y-1">
+                <span className="font-medium text-sm">{key.name}</span>
+                <p className="text-xs font-mono text-muted-foreground">{key.keyId}</p>
+                <p className="text-xs text-muted-foreground">{formatTokens(key.tokens)} tokens - Last used {key.lastUsed}</p>
               </div>
               <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleCopy(mk.key, mk.id)}>
-                  {copied === mk.id ? <Check className="h-4 w-4 text-green-500" /> : <ClipboardCopy className="h-4 w-4" />}
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyToClipboard(key.keyId, key.id)}>
+                  {copied === key.id ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem><ClipboardCopy className="mr-2 h-4 w-4" />Copy Key ID</DropdownMenuItem>
+                    <DropdownMenuItem><Copy className="mr-2 h-4 w-4" />Copy Key ID</DropdownMenuItem>
                     <DropdownMenuItem><BarChart3 className="mr-2 h-4 w-4" />View Usage</DropdownMenuItem>
                     <DropdownMenuItem><Pencil className="mr-2 h-4 w-4" />Rename</DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem><Eraser className="mr-2 h-4 w-4" />Clear Memory</DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
+                    <DropdownMenuItem className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>

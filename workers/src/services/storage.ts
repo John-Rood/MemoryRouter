@@ -8,7 +8,7 @@ import { WorkersVectorIndex, VectorMetadata, SearchResult } from '../vectors/wor
 export interface StorageBindings {
   VECTORS_KV: KVNamespace;
   METADATA_KV: KVNamespace;
-  VECTORS_R2: R2Bucket;
+  VECTORS_R2?: R2Bucket;
 }
 
 export interface IndexManifest {
@@ -35,7 +35,7 @@ export interface ShardInfo {
 export class StorageManager {
   private kv: KVNamespace;
   private metaKv: KVNamespace;
-  private r2: R2Bucket;
+  private r2: R2Bucket | undefined;
   
   // Config
   private readonly maxVectorsPerShard = 4000;

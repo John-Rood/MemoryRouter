@@ -1,34 +1,54 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { mockStats, mockTransactions, mockPaymentMethod } from "@/lib/mock-data";
-import { formatCurrency, formatTokens } from "@/lib/utils";
-import { CreditCard, Plus, Trash2 } from "lucide-react";
+import { CreditCard, Plus, Trash2, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { formatTokens } from "@/lib/constants";
 
-const ADD_AMOUNTS = [20, 50, 100];
+const mockBilling = {
+  creditBalance: 15.42,
+  creditTokens: 15_420_000,
+  autoReup: { amount: 20, trigger: 5 },
+  paymentMethods: [{ id: "pm_1", brand: "visa", last4: "4242", expMonth: 12, expYear: 2028, isDefault: true }],
+  transactions: [
+    { id: "tx_1", date: "Jan 26, 2026", description: "Auto-reup", amount: 20.0, balance: 35.42, type: "credit" as const },
+    { id: "tx_2", date: "Jan 24, 2026", description: "Auto-reup", amount: 20.0, balance: 15.42, type: "credit" as const },
+  ],
+  usage: { tokensStored: 36_200_000, storedCost: 36.2, tokensRetrieved: 142_800_000, savedUsd: 428 },
+};
 
 export default function BillingPage() {
+  const [addingFunds, setAddingFunds] = useState(false);
+
+  const handleAddFunds = async (amount: number) => {
+    setAddingFunds(true);
+    console.log("Add funds:", amount);
+    setTimeout(() => setAddingFunds(false), 1000);
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Billing</h1>
-        <p className="text-muted-foreground">Manage your credits, payment methods, and view transaction history.</p>
+        <p className="text-muted-foreground">Manage credits, payment methods, and view history.</p>
       </div>
 
       <Card>
         <CardHeader><CardTitle className="text-base">Credit Balance</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div className="text-center">
-            <div className="text-4xl font-bold">{formatCurrency(mockStats.creditBalance)}</div>
-            <p className="text-sm text-muted-foreground">{formatTokens(mockStats.creditBalance * 1_000_000)} tokens</p>
+          <div className="text-center py-4">
+            <p className="text-4xl font-bold">${mockBilling.creditBalance.toFixed(2)}</p>
+            <p className="text-sm text-muted-foreground mt-1">{formatTokens(mockBilling.creditTokens)} tokens</p>
+            <p className="text-xs text-muted-foreground mt-2">Auto-reup: ${mockBilling.autoReup.amount} when balance &lt; ${mockBilling.autoReup.trigger}</p>
           </div>
-          <p className="text-center text-sm text-muted-foreground">Auto-reup: $20 when balance &lt; $5</p>
-          <div className="flex items-center justify-center gap-3">
-            {ADD_AMOUNTS.map((amount) => (
-              <Button key={amount} variant="outline"><Plus className="mr-1 h-3 w-3" />Add {formatCurrency(amount)}</Button>
+          <div className="flex flex-wrap justify-center gap-2">
+            {[20, 50, 100].map((amount) => (
+              <Button key={amount} variant="outline" onClick={() => handleAddFunds(amount)} disabled={addingFunds}>
+                <Plus className="mr-1 h-3 w-3" />Add ${amount}
+              </Button>
             ))}
           </div>
         </CardContent>
@@ -36,73 +56,82 @@ export default function BillingPage() {
 
       <Card>
         <CardHeader><CardTitle className="text-base">Payment Method</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center justify-between rounded-md border px-4 py-3">
-            <div className="flex items-center gap-3">
-              <CreditCard className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{mockPaymentMethod.brand} {"\u2022\u2022\u2022\u2022"} {mockPaymentMethod.last4}</span>
-                  <Badge variant="secondary">DEFAULT</Badge>
+        <CardContent className="space-y-4">
+          {mockBilling.paymentMethods.map((pm) => (
+            <div key={pm.id} className="flex items-center justify-between rounded-md border px-4 py-3">
+              <div className="flex items-center gap-3">
+                <CreditCard className="h-8 w-8 text-muted-foreground" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm uppercase">{pm.brand}</span>
+                    <span className="text-sm text-muted-foreground">**** {pm.last4}</span>
+                    {pm.isDefault && <Badge variant="secondary" className="text-xs">DEFAULT</Badge>}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Expires {pm.expMonth}/{pm.expYear}</p>
                 </div>
-                <p className="text-xs text-muted-foreground">Expires {mockPaymentMethod.expiry}</p>
               </div>
+              <Button variant="ghost" size="sm" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
             </div>
-            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
-          </div>
-          <Button variant="outline" size="sm"><Plus className="mr-1 h-4 w-4" />Add Payment Method</Button>
+          ))}
+          <Button variant="outline" size="sm"><Plus className="mr-1 h-3 w-3" />Add Payment Method</Button>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader><CardTitle className="text-base">Transaction History</CardTitle></CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th className="pb-2 pr-4 font-medium">Date</th>
-                  <th className="pb-2 pr-4 font-medium">Description</th>
-                  <th className="pb-2 pr-4 text-right font-medium">Amount</th>
-                  <th className="pb-2 text-right font-medium">Balance</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mockTransactions.map((tx) => (
-                  <tr key={tx.id} className="border-b last:border-0">
-                    <td className="py-3 pr-4 text-sm text-muted-foreground">{tx.date}</td>
-                    <td className="py-3 pr-4 text-sm">{tx.description}</td>
-                    <td className="py-3 pr-4 text-right text-sm font-medium text-green-500">+{formatCurrency(tx.amount)}</td>
-                    <td className="py-3 text-right text-sm">{formatCurrency(tx.balance)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-0">
+            {mockBilling.transactions.map((tx, i) => (
+              <div key={tx.id}>
+                <div className="flex items-center justify-between py-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-full ${tx.type === "credit" ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"}`}>
+                      {tx.type === "credit" ? <ArrowDownRight className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{tx.description}</p>
+                      <p className="text-xs text-muted-foreground">{tx.date}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-sm font-medium ${tx.type === "credit" ? "text-green-500" : "text-red-500"}`}>
+                      {tx.type === "credit" ? "+" : "-"}${tx.amount.toFixed(2)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">${tx.balance.toFixed(2)}</p>
+                  </div>
+                </div>
+                {i < mockBilling.transactions.length - 1 && <Separator />}
+              </div>
+            ))}
           </div>
-          <Button variant="ghost" className="mt-3 w-full" size="sm">Load More</Button>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Usage Summary</CardTitle><CardDescription>This month</CardDescription></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base">Usage Summary</CardTitle>
+          <CardDescription>This month</CardDescription>
+        </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Tokens stored</span>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Tokens stored</span>
             <div className="text-right">
-              <span className="text-sm font-medium">{formatTokens(mockStats.tokensUsed)}</span>
-              <span className="ml-2 text-sm text-muted-foreground">{formatCurrency(mockStats.tokensUsed / 1_000_000)}</span>
+              <span>{formatTokens(mockBilling.usage.tokensStored)}</span>
+              <span className="text-muted-foreground ml-2">${mockBilling.usage.storedCost.toFixed(2)}</span>
             </div>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Tokens retrieved</span>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Tokens retrieved</span>
             <div className="text-right">
-              <span className="text-sm font-medium">{formatTokens(mockStats.tokensSaved)}</span>
-              <Badge variant="secondary" className="ml-2">FREE</Badge>
+              <span>{formatTokens(mockBilling.usage.tokensRetrieved)}</span>
+              <Badge variant="secondary" className="ml-2 text-xs">FREE</Badge>
             </div>
           </div>
           <Separator />
-          <div className="rounded-md border bg-green-500/10 px-4 py-3 text-center">
-            <p className="text-sm font-medium text-green-500">Memory saved you an estimated {formatCurrency(mockStats.savingsAmount)} in inference costs this month.</p>
+          <div className="flex items-start gap-2 rounded-md bg-green-500/10 px-4 py-3">
+            <p className="text-sm font-medium text-green-500">
+              Memory saved you an estimated ${mockBilling.usage.savedUsd} in inference costs this month.
+            </p>
           </div>
         </CardContent>
       </Card>

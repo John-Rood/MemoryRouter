@@ -237,15 +237,20 @@ export class WorkersVectorIndex {
    *   [4 bytes] count (uint32)
    *   [4 bytes] reserved
    *   [count * 4 bytes] ids (uint32 array)
+   *   [0-4 bytes] padding (for 8-byte alignment)
    *   [count * 8 bytes] timestamps (float64 array)
    *   [count * dims * 4 bytes] vectors (float32 array)
    */
   serialize(): ArrayBuffer {
     const headerSize = 12;
     const idsSize = this.count * 4;
+    // Pad to 8-byte alignment for Float64Array timestamps
+    const idsSectionEnd = headerSize + idsSize;
+    const timestampsStart = Math.ceil(idsSectionEnd / 8) * 8;
     const timestampsSize = this.count * 8;
+    const vectorsStart = timestampsStart + timestampsSize;
     const vectorsSize = this.count * this.dims * 4;
-    const totalSize = headerSize + idsSize + timestampsSize + vectorsSize;
+    const totalSize = vectorsStart + vectorsSize;
     
     const buffer = new ArrayBuffer(totalSize);
     const view = new DataView(buffer);
@@ -259,12 +264,12 @@ export class WorkersVectorIndex {
     const idsArray = new Uint32Array(buffer, headerSize, this.count);
     idsArray.set(this.ids.subarray(0, this.count));
     
-    // Timestamps
-    const timestampsArray = new Float64Array(buffer, headerSize + idsSize, this.count);
+    // Timestamps (at 8-byte aligned offset)
+    const timestampsArray = new Float64Array(buffer, timestampsStart, this.count);
     timestampsArray.set(this.timestamps.subarray(0, this.count));
     
     // Vectors
-    const vectorsArray = new Float32Array(buffer, headerSize + idsSize + timestampsSize);
+    const vectorsArray = new Float32Array(buffer, vectorsStart, this.count * this.dims);
     vectorsArray.set(this.vectors.subarray(0, this.count * this.dims));
     
     return buffer;
@@ -282,19 +287,29 @@ export class WorkersVectorIndex {
     
     const headerSize = 12;
     const idsSize = count * 4;
+    // Calculate 8-byte aligned offset for timestamps (same as serialize)
+    const idsSectionEnd = headerSize + idsSize;
+    const timestampsStart = Math.ceil(idsSectionEnd / 8) * 8;
     const timestampsSize = count * 8;
+    const vectorsStart = timestampsStart + timestampsSize;
     
-    const index = new WorkersVectorIndex(dims, count);
+    const index = new WorkersVectorIndex(dims, Math.max(count, 1));
     index.count = count;
     
     // Read IDs
-    index.ids.set(new Uint32Array(buffer, headerSize, count));
+    if (count > 0) {
+      index.ids.set(new Uint32Array(buffer, headerSize, count));
+    }
     
-    // Read timestamps
-    index.timestamps.set(new Float64Array(buffer, headerSize + idsSize, count));
+    // Read timestamps (at 8-byte aligned offset)
+    if (count > 0) {
+      index.timestamps.set(new Float64Array(buffer, timestampsStart, count));
+    }
     
     // Read vectors
-    index.vectors.set(new Float32Array(buffer, headerSize + idsSize + timestampsSize, count * dims));
+    if (count > 0) {
+      index.vectors.set(new Float32Array(buffer, vectorsStart, count * dims));
+    }
     
     return index;
   }

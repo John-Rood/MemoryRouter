@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MemoryRouter — The AI Tax You're Not Paying (But Should Be)</title>
+    <meta name="description" content="Persistent memory for any AI model. Every $1 on memory saves $2-3 on inference. Drop-in API. Works with OpenAI, Anthropic, and 100+ models.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-green: #39ff14;
+            --electric-blue: #00d4ff;
+            --hot-pink: #ff006e;
+            --deep-purple: #8338ec;
+        }
+        body { 
+            font-family: 'Space Grotesk', sans-serif; 
+            background: #09090b;
+        }
+        code, pre { font-family: 'JetBrains Mono', monospace; }
+        
+        .neon-text {
+            color: var(--neon-green);
+            text-shadow: 0 0 10px rgba(57, 255, 20, 0.5);
+        }
+        .gradient-text-hero {
+            background: linear-gradient(135deg, #39ff14 0%, #00d4ff 50%, #ff006e 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .money-gradient {
+            background: linear-gradient(135deg, #39ff14 0%, #00ff88 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #39ff14 0%, #00d4ff 100%);
+            color: #000;
+            font-weight: 700;
+        }
+        .btn-primary:hover {
+            box-shadow: 0 0 30px rgba(57, 255, 20, 0.4);
+        }
+        .card-glass {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+        }
+        .card-glow:hover {
+            border-color: rgba(57, 255, 20, 0.3);
+            box-shadow: 0 0 40px rgba(57, 255, 20, 0.1);
+        }
+        .line-glow {
+            background: linear-gradient(90deg, transparent, var(--neon-green), transparent);
+            height: 1px;
+        }
+        .grid-bg {
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+        .stat-card {
+            background: linear-gradient(180deg, rgba(57, 255, 20, 0.05) 0%, transparent 100%);
+            border: 1px solid rgba(57, 255, 20, 0.1);
+        }
+        .code-window {
+            background: linear-gradient(180deg, #0f0f13 0%, #09090b 100%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .typing-cursor::after {
+            content: '|';
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        .scroll-mt { scroll-margin-top: 100px; }
+        
+        /* Calculator */
+        input[type="range"] {
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 999px;
+            height: 8px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            background: var(--neon-green);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(57, 255, 20, 0.5);
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.6s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="text-white antialiased overflow-x-hidden">
+    <!-- Ambient background -->
+    <div class="fixed inset-0 pointer-events-none">
+        <div class="absolute top-0 left-1/4 w-96 h-96 bg-green-500/5 rounded-full blur-[150px]"></div>
+        <div class="absolute bottom-0 right-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-[150px]"></div>
+    </div>
+
+    <!-- Nav -->
+    <nav class="fixed w-full z-50 bg-[#09090b]/80 backdrop-blur-xl border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-green-400 to-cyan-400 flex items-center justify-center">
+                    <span class="text-black font-bold text-sm">M</span>
+                </div>
+                <span class="text-xl font-bold">MemoryRouter</span>
+            </div>
+            <div class="hidden md:flex items-center gap-8">
+                <a href="#calculator" class="text-gray-400 hover:text-white transition text-sm">Calculator</a>
+                <a href="#use-cases" class="text-gray-400 hover:text-white transition text-sm">Use Cases</a>
+                <a href="#how-it-works" class="text-gray-400 hover:text-white transition text-sm">How It Works</a>
+                <a href="#pricing" class="text-gray-400 hover:text-white transition text-sm">Pricing</a>
+                <a href="#faq" class="text-gray-400 hover:text-white transition text-sm">FAQ</a>
+            </div>
+            <a href="#waitlist" class="btn-primary px-5 py-2.5 rounded-lg text-sm transition">Get Early Access</a>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="pt-32 pb-16 px-6 relative grid-bg">
+        <div class="max-w-5xl mx-auto text-center relative">
+            <!-- Badge -->
+            <div class="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-full px-4 py-2 mb-8">
+                <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                <span class="text-green-400 text-sm font-medium">Private Beta — 500+ devs on waitlist</span>
+            </div>
+
+            <h1 class="text-5xl md:text-7xl lg:text-[5.5rem] font-bold mb-8 leading-[1.05] tracking-tight">
+                Your AI Has<br>
+                <span class="gradient-text-hero">Amnesia</span>
+            </h1>
+            
+            <p class="text-xl md:text-2xl text-gray-400 mb-8 max-w-2xl mx-auto leading-relaxed">
+                Every API call starts from zero. You're paying to re-teach the same context, over and over.
+                <span class="text-white font-semibold">That ends today.</span>
+            </p>
+
+            <!-- Value prop banner -->
+            <div class="inline-block bg-black/50 border border-green-500/30 rounded-2xl p-6 mb-10">
+                <div class="flex flex-col sm:flex-row items-center gap-4 sm:gap-8">
+                    <div class="text-center">
+                        <div class="text-4xl md:text-5xl font-bold money-gradient">$1</div>
+                        <div class="text-gray-500 text-sm">spent on memory</div>
+                    </div>
+                    <div class="text-4xl text-gray-600">=</div>
+                    <div class="text-center">
+                        <div class="text-4xl md:text-5xl font-bold money-gradient">$2-3</div>
+                        <div class="text-gray-500 text-sm">saved on inference</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+                <a href="#calculator" class="btn-primary px-8 py-4 rounded-xl text-lg transition inline-flex items-center justify-center gap-2">
+                    Calculate Your Savings
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </a>
+                <a href="#how-it-works" class="bg-white/5 border border-white/10 px-8 py-4 rounded-xl text-lg font-semibold hover:bg-white/10 transition">
+                    See How It Works
+                </a>
+            </div>
+
+            <p class="text-gray-600 text-sm">Works with OpenAI, Anthropic, Google, and 100+ models</p>
+        </div>
+    </section>
+
+    <!-- Live code demo -->
+    <section class="pb-20 px-6">
+        <div class="max-w-3xl mx-auto">
+            <div class="code-window rounded-2xl overflow-hidden shadow-2xl shadow-black/50">
+                <div class="flex items-center gap-2 px-5 py-4 border-b border-white/10 bg-white/5">
+                    <div class="flex gap-2">
+                        <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                    </div>
+                    <span class="text-gray-500 text-sm ml-4 font-mono">the entire integration</span>
+                </div>
+                <div class="p-6 text-sm md:text-base">
+                    <pre><code><span class="text-gray-600">// Before: AI forgets everything</span>
+<span class="text-purple-400">const</span> client = <span class="text-purple-400">new</span> <span class="text-cyan-300">OpenAI</span>({
+  baseURL: <span class="text-red-400 line-through">"https://api.openai.com/v1"</span>
+});
+
+<span class="text-gray-600">// After: AI remembers everything</span>
+<span class="text-purple-400">const</span> client = <span class="text-purple-400">new</span> <span class="text-cyan-300">OpenAI</span>({
+  baseURL: <span class="neon-text">"https://api.memoryrouter.ai/v1"</span>
+});
+
+<span class="text-gray-600">// That's it. Same code. Now with memory.</span></code></pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats bar -->
+    <section class="py-8 px-6">
+        <div class="max-w-5xl mx-auto">
+            <div class="line-glow mb-8 opacity-50"></div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div class="stat-card rounded-xl p-5 text-center">
+                    <div class="text-3xl md:text-4xl font-bold money-gradient">50-70%</div>
+                    <div class="text-gray-500 text-sm mt-1">Token Reduction</div>
+                </div>
+                <div class="stat-card rounded-xl p-5 text-center">
+                    <div class="text-3xl md:text-4xl font-bold text-cyan-400">&lt;50ms</div>
+                    <div class="text-gray-500 text-sm mt-1">Memory Retrieval</div>
+                </div>
+                <div class="stat-card rounded-xl p-5 text-center">
+                    <div class="text-3xl md:text-4xl font-bold text-purple-400">100+</div>
+                    <div class="text-gray-500 text-sm mt-1">Models Supported</div>
+                </div>
+                <div class="stat-card rounded-xl p-5 text-center">
+                    <div class="text-3xl md:text-4xl font-bold text-pink-400">∞</div>
+                    <div class="text-gray-500 text-sm mt-1">Memory Contexts</div>
+                </div>
+            </div>
+            <div class="line-glow mt-8 opacity-50"></div>
+        </div>
+    </section>
+
+    <!-- Interactive Savings Calculator -->
+    <section id="calculator" class="py-24 px-6 scroll-mt">
+        <div class="max-w-4xl mx-auto">
+            <div class="text-center mb-12">
+                <p class="text-green-400 font-medium text-sm tracking-wide uppercase mb-3">💰 Savings Calculator</p>
+                <h2 class="text-3xl md:text-5xl font-bold mb-4">How Much Are You Wasting?</h2>
+                <p class="text-xl text-gray-400">Drag the slider. Watch your money come back.</p>
+            </div>
+
+            <div class="card-glass rounded-3xl p-8 md:p-12">
+                <div class="mb-10">
+                    <label class="block text-gray-400 mb-4 text-lg">Your monthly AI spend</label>
+                    <input type="range" id="spend-slider" min="100" max="50000" value="5000" class="w-full mb-4">
+                    <div class="flex justify-between text-sm text-gray-500">
+                        <span>$100</span>
+                        <span class="text-2xl font-bold text-white">$<span id="spend-display">5,000</span>/mo</span>
+                        <span>$50,000</span>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8">
+                    <!-- Without -->
+                    <div class="bg-red-500/5 border border-red-500/20 rounded-2xl p-6">
+                        <div class="text-red-400 text-sm font-medium mb-4">❌ Without MemoryRouter</div>
+                        <div class="space-y-3 mb-6">
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-400">Monthly inference</span>
+                                <span class="text-white font-mono">$<span id="without-inference">5,000</span></span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-400">Wasted on re-context</span>
+                                <span class="text-red-400 font-mono">~$<span id="without-waste">2,500</span></span>
+                            </div>
+                        </div>
+                        <div class="border-t border-red-500/20 pt-4">
+                            <div class="text-3xl font-bold text-red-400">$<span id="without-total">5,000</span><span class="text-base font-normal text-gray-500">/mo</span></div>
+                        </div>
+                    </div>
+
+                    <!-- With -->
+                    <div class="bg-green-500/5 border border-green-500/20 rounded-2xl p-6">
+                        <div class="text-green-400 text-sm font-medium mb-4">✓ With MemoryRouter</div>
+                        <div class="space-y-3 mb-6">
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-400">Reduced inference</span>
+                                <span class="text-white font-mono">$<span id="with-inference">2,000</span></span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-400">Memory cost</span>
+                                <span class="text-white font-mono">$<span id="with-memory">450</span></span>
+                            </div>
+                        </div>
+                        <div class="border-t border-green-500/20 pt-4">
+                            <div class="text-3xl font-bold money-gradient">$<span id="with-total">2,450</span><span class="text-base font-normal text-gray-500">/mo</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Savings summary -->
+                <div class="mt-8 bg-gradient-to-r from-green-500/10 to-cyan-500/10 border border-green-500/20 rounded-2xl p-6 text-center">
+                    <div class="text-gray-400 mb-2">You save</div>
+                    <div class="text-5xl md:text-6xl font-bold money-gradient mb-2">$<span id="savings-amount">2,550</span>/mo</div>
+                    <div class="text-2xl text-cyan-400 font-semibold"><span id="savings-percent">51</span>% reduction in AI costs</div>
+                    <div class="mt-4 text-gray-500">That's <span class="text-green-400 font-bold">$<span id="savings-yearly">30,600</span></span> back in your pocket per year</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- The Problem -->
+    <section class="py-24 px-6">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-16">
+                <p class="text-red-400 font-medium text-sm tracking-wide uppercase mb-3">The Problem</p>
+                <h2 class="text-3xl md:text-5xl font-bold mb-4">The Hidden Tax on Every AI Call</h2>
+                <p class="text-xl text-gray-400 max-w-2xl mx-auto">You're not just paying for AI. You're paying for AI to re-learn what it already knew.</p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-6 mb-12">
+                <div class="card-glass rounded-2xl p-6 card-glow transition-all">
+                    <div class="text-4xl mb-4">🔄</div>
+                    <h3 class="text-xl font-bold mb-2">Groundhog Day Prompts</h3>
+                    <p class="text-gray-400">Every session, you re-explain user preferences, project context, conversation history. Again. And again.</p>
+                </div>
+                <div class="card-glass rounded-2xl p-6 card-glow transition-all">
+                    <div class="text-4xl mb-4">📦</div>
+                    <h3 class="text-xl font-bold mb-2">Bloated Context Windows</h3>
+                    <p class="text-gray-400">Stuffing 50k+ tokens into every request because the alternative is an AI that doesn't know anything.</p>
+                </div>
+                <div class="card-glass rounded-2xl p-6 card-glow transition-all">
+                    <div class="text-4xl mb-4">💸</div>
+                    <h3 class="text-xl font-bold mb-2">Token Inflation</h3>
+                    <p class="text-gray-400">50-70% of your tokens are redundant. You're paying for the same information over and over.</p>
+                </div>
+            </div>
+
+            <!-- Comparison -->
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-gradient-to-br from-red-500/5 to-transparent rounded-2xl border border-red-500/10 p-8">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-red-400">✗</div>
+                        <h3 class="text-xl font-bold text-red-400">Standard AI Integration</h3>
+                    </div>
+                    <div class="font-mono text-sm bg-black/30 rounded-xl p-4 mb-4 overflow-x-auto">
+                        <div class="text-gray-500">// Support chat - EVERY message:</div>
+                        <div class="text-gray-300">messages: [</div>
+                        <div class="text-red-400 pl-4">system: "Customer context... (2000 tokens)",</div>
+                        <div class="text-red-400 pl-4">system: "Product catalog... (5000 tokens)",</div>
+                        <div class="text-red-400 pl-4">system: "Past tickets... (3000 tokens)",</div>
+                        <div class="text-gray-300 pl-4">user: "What's my order status?"</div>
+                        <div class="text-gray-300">]</div>
+                    </div>
+                    <div class="text-red-400 text-sm">10,000+ tokens per simple question</div>
+                </div>
+
+                <div class="bg-gradient-to-br from-green-500/5 to-transparent rounded-2xl border border-green-500/10 p-8">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center text-green-400">✓</div>
+                        <h3 class="text-xl font-bold text-green-400">With MemoryRouter</h3>
+                    </div>
+                    <div class="font-mono text-sm bg-black/30 rounded-xl p-4 mb-4 overflow-x-auto">
+                        <div class="text-gray-500">// Support chat - EVERY message:</div>
+                        <div class="text-gray-300">messages: [</div>
+                        <div class="text-gray-300 pl-4">user: "What's my order status?"</div>
+                        <div class="text-gray-300">]</div>
+                        <div class="text-green-400 mt-2">// Memory auto-injects: customer context,</div>
+                        <div class="text-green-400">// relevant orders, past conversations</div>
+                    </div>
+                    <div class="text-green-400 text-sm">Only send what's new. Memory handles the rest.</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Use Cases - FRESH examples, no Claude Code -->
+    <section id="use-cases" class="py-24 px-6 scroll-mt">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-16">
+                <p class="text-cyan-400 font-medium text-sm tracking-wide uppercase mb-3">Use Cases</p>
+                <h2 class="text-3xl md:text-5xl font-bold mb-4">Memory Changes Everything</h2>
+                <p class="text-xl text-gray-400">Real products. Real savings. Real results.</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- Customer Support -->
+                <div class="card-glass rounded-2xl p-8 card-glow transition-all">
+                    <div class="flex items-start justify-between mb-6">
+                        <div>
+                            <div class="text-3xl mb-3">🎧</div>
+                            <h3 class="text-2xl font-bold mb-2">Customer Support Bots</h3>
+                            <p class="text-gray-400">AI that actually knows your customers.</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm text-gray-500">Token savings</div>
+                            <div class="text-2xl font-bold text-green-400">73%</div>
+                        </div>
+                    </div>
+                    <div class="bg-black/30 rounded-xl p-4 mb-6">
+                        <div class="text-sm text-gray-500 mb-2">Before: Every message</div>
+                        <div class="text-xs text-red-400 font-mono">"Load customer profile... past 50 tickets... product history... account status..."</div>
+                        <div class="text-sm text-gray-500 mb-2 mt-4">After: Just the message</div>
+                        <div class="text-xs text-green-400 font-mono">"Why was my refund delayed?"</div>
+                        <div class="text-xs text-gray-500 mt-1">Memory: Customer context, refund history, account status auto-injected</div>
+                    </div>
+                    <ul class="space-y-2 text-sm text-gray-400">
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Remembers customer preferences</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Knows past interactions across channels</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> No more "As I mentioned before..."</li>
+                    </ul>
+                </div>
+
+                <!-- Sales Assistant -->
+                <div class="card-glass rounded-2xl p-8 card-glow transition-all">
+                    <div class="flex items-start justify-between mb-6">
+                        <div>
+                            <div class="text-3xl mb-3">📈</div>
+                            <h3 class="text-2xl font-bold mb-2">Sales Intelligence</h3>
+                            <p class="text-gray-400">AI that remembers every deal detail.</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm text-gray-500">Prep time saved</div>
+                            <div class="text-2xl font-bold text-green-400">90%</div>
+                        </div>
+                    </div>
+                    <div class="bg-black/30 rounded-xl p-4 mb-6">
+                        <div class="text-sm text-gray-500 mb-2">How reps use it</div>
+                        <div class="text-xs text-cyan-400 font-mono">"Brief me on the Acme Corp deal before my call"</div>
+                        <div class="text-xs text-gray-400 mt-2">→ AI recalls all past emails, objections, stakeholders, pricing discussions, competitor mentions, and decision timeline — instantly.</div>
+                    </div>
+                    <ul class="space-y-2 text-sm text-gray-400">
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Full deal context, always available</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Remembers past objections & responses</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Tracks relationship history over months</li>
+                    </ul>
+                </div>
+
+                <!-- Healthcare Intake -->
+                <div class="card-glass rounded-2xl p-8 card-glow transition-all">
+                    <div class="flex items-start justify-between mb-6">
+                        <div>
+                            <div class="text-3xl mb-3">🏥</div>
+                            <h3 class="text-2xl font-bold mb-2">Healthcare Assistants</h3>
+                            <p class="text-gray-400">Patient context that persists.</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm text-gray-500">Context accuracy</div>
+                            <div class="text-2xl font-bold text-green-400">100%</div>
+                        </div>
+                    </div>
+                    <div class="bg-black/30 rounded-xl p-4 mb-6">
+                        <div class="text-sm text-gray-500 mb-2">Continuity of care</div>
+                        <div class="text-xs text-gray-400">Patient returns 3 months later. AI immediately knows:</div>
+                        <div class="text-xs text-green-400 font-mono mt-2">• Previous symptoms discussed<br>• Medications mentioned<br>• Allergies noted<br>• Preferred communication style</div>
+                    </div>
+                    <ul class="space-y-2 text-sm text-gray-400">
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Per-patient memory isolation</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Longitudinal context tracking</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> HIPAA-ready architecture</li>
+                    </ul>
+                </div>
+
+                <!-- Documentation Q&A -->
+                <div class="card-glass rounded-2xl p-8 card-glow transition-all">
+                    <div class="flex items-start justify-between mb-6">
+                        <div>
+                            <div class="text-3xl mb-3">📚</div>
+                            <h3 class="text-2xl font-bold mb-2">Docs & Knowledge Base</h3>
+                            <p class="text-gray-400">AI that learns what teams ask about.</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm text-gray-500">Query accuracy</div>
+                            <div class="text-2xl font-bold text-green-400">+40%</div>
+                        </div>
+                    </div>
+                    <div class="bg-black/30 rounded-xl p-4 mb-6">
+                        <div class="text-sm text-gray-500 mb-2">Smart context building</div>
+                        <div class="text-xs text-gray-400">AI remembers which docs users reference most, common follow-up questions, and successful answer patterns.</div>
+                        <div class="text-xs text-purple-400 font-mono mt-2">"How do I set up OAuth?" → AI knows you're using Node.js, already tried the basic guide, need enterprise SSO</div>
+                    </div>
+                    <ul class="space-y-2 text-sm text-gray-400">
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Learns from every interaction</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Per-user context awareness</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> No re-explaining your setup</li>
+                    </ul>
+                </div>
+
+                <!-- Personal AI Companion -->
+                <div class="card-glass rounded-2xl p-8 card-glow transition-all">
+                    <div class="flex items-start justify-between mb-6">
+                        <div>
+                            <div class="text-3xl mb-3">🤖</div>
+                            <h3 class="text-2xl font-bold mb-2">Personal AI Companions</h3>
+                            <p class="text-gray-400">AI that actually knows you.</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm text-gray-500">Engagement</div>
+                            <div class="text-2xl font-bold text-green-400">3x</div>
+                        </div>
+                    </div>
+                    <div class="bg-black/30 rounded-xl p-4 mb-6">
+                        <div class="text-sm text-gray-500 mb-2">True personalization</div>
+                        <div class="text-xs text-gray-400">Week 1: Learning your communication style<br>Month 1: Knows your goals, preferences, habits<br>Month 6: Feels like talking to an old friend</div>
+                    </div>
+                    <ul class="space-y-2 text-sm text-gray-400">
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Remembers conversations across months</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Learns communication preferences</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Builds genuine rapport over time</li>
+                    </ul>
+                </div>
+
+                <!-- Legal Research -->
+                <div class="card-glass rounded-2xl p-8 card-glow transition-all">
+                    <div class="flex items-start justify-between mb-6">
+                        <div>
+                            <div class="text-3xl mb-3">⚖️</div>
+                            <h3 class="text-2xl font-bold mb-2">Legal Assistants</h3>
+                            <p class="text-gray-400">Case context that sticks.</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm text-gray-500">Research time</div>
+                            <div class="text-2xl font-bold text-green-400">-60%</div>
+                        </div>
+                    </div>
+                    <div class="bg-black/30 rounded-xl p-4 mb-6">
+                        <div class="text-sm text-gray-500 mb-2">Per-case memory</div>
+                        <div class="text-xs text-gray-400">AI remembers every document reviewed, argument developed, precedent cited, and strategy discussed — across weeks of case prep.</div>
+                    </div>
+                    <ul class="space-y-2 text-sm text-gray-400">
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Full case history at query time</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Tracks evolving legal strategy</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Matter-level memory isolation</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section id="how-it-works" class="py-24 px-6 scroll-mt">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-16">
+                <p class="text-purple-400 font-medium text-sm tracking-wide uppercase mb-3">How It Works</p>
+                <h2 class="text-3xl md:text-5xl font-bold mb-4">Three Steps. Zero Complexity.</h2>
+                <p class="text-xl text-gray-400">No vector database. No embedding pipeline. No ops burden.</p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8 mb-16">
+                <div class="text-center">
+                    <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500/20 to-cyan-500/20 flex items-center justify-center mx-auto mb-6 border border-green-500/20">
+                        <span class="text-2xl font-bold text-green-400">1</span>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Add Your API Keys</h3>
+                    <p class="text-gray-400">Bring your OpenAI, Anthropic, or OpenRouter keys. You pay providers directly — we never touch your inference spend.</p>
+                </div>
+                <div class="text-center">
+                    <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 flex items-center justify-center mx-auto mb-6 border border-cyan-500/20">
+                        <span class="text-2xl font-bold text-cyan-400">2</span>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Create Memory Keys</h3>
+                    <p class="text-gray-400">Each MemoryRouter key is a memory context. Create one per user, per project, per conversation — unlimited.</p>
+                </div>
+                <div class="text-center">
+                    <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center mx-auto mb-6 border border-purple-500/20">
+                        <span class="text-2xl font-bold text-purple-400">3</span>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Memory Just Works</h3>
+                    <p class="text-gray-400">Every call builds memory. Every response uses it. Your AI gets smarter automatically. No extra code.</p>
+                </div>
+            </div>
+
+            <!-- Architecture diagram -->
+            <div class="card-glass rounded-2xl p-8">
+                <div class="text-center text-xs text-gray-500 font-medium tracking-widest uppercase mb-8">Powered by KRONOS — 3D Context Engine</div>
+                <div class="flex flex-col lg:flex-row items-center justify-center gap-4">
+                    <div class="bg-white/5 rounded-xl px-6 py-4 border border-white/10 text-center">
+                        <div class="text-lg font-bold">Your App</div>
+                        <div class="text-xs text-gray-500">Same SDK</div>
+                    </div>
+                    <svg class="w-8 h-8 text-gray-600 rotate-90 lg:rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                    </svg>
+                    <div class="bg-gradient-to-br from-green-500/20 to-cyan-500/20 rounded-xl px-8 py-4 border border-green-500/30 text-center relative">
+                        <div class="text-lg font-bold">MemoryRouter</div>
+                        <div class="text-xs text-green-400">KRONOS Engine</div>
+                        <div class="absolute -top-2 -right-2 bg-green-500 text-black text-xs font-bold px-2 py-0.5 rounded-full">&lt;50ms</div>
+                    </div>
+                    <svg class="w-8 h-8 text-gray-600 rotate-90 lg:rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                    </svg>
+                    <div class="bg-white/5 rounded-xl px-6 py-4 border border-white/10 text-center">
+                        <div class="text-lg font-bold">AI Provider</div>
+                        <div class="text-xs text-gray-500">+ memories</div>
+                    </div>
+                </div>
+                <div class="mt-8 text-center text-sm text-gray-500">
+                    <span class="text-cyan-400 font-semibold">KRONOS</span> analyzes context across 3 dimensions: 
+                    <span class="text-white">Semantic</span> (meaning), 
+                    <span class="text-white">Temporal</span> (time), 
+                    <span class="text-white">Spatial</span> (structure)
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Code Examples -->
+    <section class="py-24 px-6">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-16">
+                <p class="text-pink-400 font-medium text-sm tracking-wide uppercase mb-3">Integration</p>
+                <h2 class="text-3xl md:text-5xl font-bold mb-4">Your Code. Now With Memory.</h2>
+                <p class="text-xl text-gray-400">Drop-in compatible with every OpenAI SDK.</p>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-6">
+                <!-- Python -->
+                <div class="code-window rounded-2xl overflow-hidden">
+                    <div class="flex items-center gap-2 px-5 py-3 border-b border-white/10 bg-white/5">
+                        <span class="text-yellow-400 font-mono text-sm font-bold">Python</span>
+                    </div>
+                    <div class="p-5 text-sm overflow-x-auto">
+                        <pre><code><span class="text-gray-500"># pip install openai</span>
+<span class="text-purple-400">from</span> openai <span class="text-purple-400">import</span> OpenAI
+
+<span class="text-gray-500"># Memory key = isolated context</span>
+client = OpenAI(
+    base_url=<span class="text-green-400">"https://api.memoryrouter.ai/v1"</span>,
+    api_key=<span class="text-green-400">"mr-user-123-key"</span>
+)
+
+<span class="text-gray-500"># That's it. AI now remembers this user.</span>
+response = client.chat.completions.create(
+    model=<span class="text-green-400">"gpt-4o"</span>,
+    messages=[{<span class="text-green-400">"role"</span>: <span class="text-green-400">"user"</span>, <span class="text-green-400">"content"</span>: <span class="text-green-400">"..."</span>}]
+)</code></pre>
+                    </div>
+                </div>
+
+                <!-- TypeScript -->
+                <div class="code-window rounded-2xl overflow-hidden">
+                    <div class="flex items-center gap-2 px-5 py-3 border-b border-white/10 bg-white/5">
+                        <span class="text-blue-400 font-mono text-sm font-bold">TypeScript</span>
+                    </div>
+                    <div class="p-5 text-sm overflow-x-auto">
+                        <pre><code><span class="text-gray-500">// npm install openai</span>
+<span class="text-purple-400">import</span> OpenAI <span class="text-purple-400">from</span> <span class="text-green-400">'openai'</span>;
+
+<span class="text-gray-500">// Each key = separate memory context</span>
+<span class="text-purple-400">const</span> client = <span class="text-purple-400">new</span> OpenAI({
+  baseURL: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
+  apiKey: <span class="text-green-400">'mr-conversation-456'</span>
+});
+
+<span class="text-gray-500">// Same API. Memory handled automatically.</span>
+<span class="text-purple-400">const</span> response = <span class="text-purple-400">await</span> client.chat.completions.create({
+  model: <span class="text-green-400">'claude-3-5-sonnet-20241022'</span>,
+  messages: [{ role: <span class="text-green-400">'user'</span>, content: <span class="text-green-400">'...'</span> }]
+});</code></pre>
+                    </div>
+                </div>
+
+                <!-- Multi-tenant -->
+                <div class="code-window rounded-2xl overflow-hidden lg:col-span-2">
+                    <div class="flex items-center gap-2 px-5 py-3 border-b border-white/10 bg-white/5">
+                        <span class="text-purple-400 font-mono text-sm font-bold">Multi-Tenant Pattern</span>
+                        <span class="text-gray-500 text-sm">— One memory per user</span>
+                    </div>
+                    <div class="p-5 text-sm overflow-x-auto">
+                        <pre><code><span class="text-gray-500">// SaaS pattern: each user gets isolated memory</span>
+<span class="text-purple-400">function</span> <span class="text-cyan-400">getClientForUser</span>(userId: <span class="text-yellow-400">string</span>) {
+  <span class="text-purple-400">return new</span> OpenAI({
+    baseURL: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
+    apiKey: userMemoryKeys[userId]  <span class="text-gray-500">// Per-user memory isolation</span>
+  });
+}
+
+<span class="text-gray-500">// User A: "I prefer dark mode and brief responses"</span>
+<span class="text-gray-500">// User B: "I like detailed explanations with examples"</span>
+<span class="text-gray-500">// Each gets a personalized AI - memories never leak between users</span></code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing -->
+    <section id="pricing" class="py-24 px-6 scroll-mt">
+        <div class="max-w-5xl mx-auto">
+            <div class="text-center mb-16">
+                <p class="text-green-400 font-medium text-sm tracking-wide uppercase mb-3">Pricing</p>
+                <h2 class="text-3xl md:text-5xl font-bold mb-4">Memory That Pays for Itself</h2>
+                <p class="text-xl text-gray-400">The math is simple: spend a little, save a lot.</p>
+            </div>
+
+            <div class="card-glass rounded-3xl p-8 md:p-12 border-green-500/20 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-64 h-64 bg-green-500/5 rounded-full blur-3xl"></div>
+                <div class="relative">
+                    <div class="flex flex-col md:flex-row items-center justify-between gap-8 mb-8">
+                        <div>
+                            <div class="text-xs text-green-400 font-bold tracking-widest uppercase mb-2">Simple Pricing</div>
+                            <div class="flex items-baseline gap-2">
+                                <span class="text-6xl md:text-7xl font-bold">$1</span>
+                                <span class="text-xl text-gray-500">per 1M memory tokens</span>
+                            </div>
+                        </div>
+                        <div class="text-left md:text-right">
+                            <div class="text-4xl font-bold money-gradient mb-1">2-3x ROI</div>
+                            <div class="text-gray-500">guaranteed return</div>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6 mb-8">
+                        <ul class="space-y-3">
+                            <li class="flex items-center gap-3">
+                                <span class="text-green-400">✓</span>
+                                <span class="text-gray-300">Unlimited memory contexts</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="text-green-400">✓</span>
+                                <span class="text-gray-300">90-day retention included</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="text-green-400">✓</span>
+                                <span class="text-gray-300">All 100+ models supported</span>
+                            </li>
+                        </ul>
+                        <ul class="space-y-3">
+                            <li class="flex items-center gap-3">
+                                <span class="text-green-400">✓</span>
+                                <span class="text-gray-300">Sub-50ms retrieval</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="text-green-400">✓</span>
+                                <span class="text-gray-300">Ephemeral key auto-cleanup</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="text-green-400">✓</span>
+                                <span class="text-gray-300">No inference markup — ever</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-black/30 rounded-xl p-6 mb-8">
+                        <div class="text-sm text-gray-500 mb-3">How billing works</div>
+                        <div class="text-gray-300">
+                            You bring your own API keys and pay providers directly for inference at their prices. 
+                            We only charge for memory tokens — the storage and retrieval that makes your AI smarter. 
+                            <span class="text-green-400 font-semibold">No markup on inference. No hidden fees. Ever.</span>
+                        </div>
+                    </div>
+
+                    <a href="#waitlist" class="btn-primary px-8 py-4 rounded-xl text-lg w-full transition flex items-center justify-center gap-2">
+                        Join the Beta — Free Tier at Launch
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="py-24 px-6 scroll-mt">
+        <div class="max-w-4xl mx-auto">
+            <div class="text-center mb-16">
+                <p class="text-cyan-400 font-medium text-sm tracking-wide uppercase mb-3">FAQ</p>
+                <h2 class="text-3xl md:text-5xl font-bold mb-4">Questions? Answered.</h2>
+            </div>
+
+            <div class="space-y-4">
+                <details class="card-glass rounded-xl group" open>
+                    <summary class="p-6 cursor-pointer flex items-center justify-between font-semibold text-lg hover:text-green-400 transition">
+                        How does memory actually save me money?
+                        <span class="text-gray-500 group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div class="px-6 pb-6 text-gray-400">
+                        Without memory, you stuff context into every API call — user preferences, conversation history, project details. That's often 50-70% of your tokens. With MemoryRouter, relevant context is automatically retrieved and injected. You send less, get the same (or better) results. The $1/1M tokens you spend on memory saves $2-3/1M on inference.
+                    </div>
+                </details>
+
+                <details class="card-glass rounded-xl group">
+                    <summary class="p-6 cursor-pointer flex items-center justify-between font-semibold text-lg hover:text-green-400 transition">
+                        What's KRONOS? How is it different from RAG?
+                        <span class="text-gray-500 group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div class="px-6 pb-6 text-gray-400">
+                        KRONOS is our proprietary 3D context engine that analyzes memory across three dimensions: <strong class="text-white">Semantic</strong> (meaning and relationships), <strong class="text-white">Temporal</strong> (when things happened and in what sequence), and <strong class="text-white">Spatial</strong> (structure and hierarchy). Unlike basic RAG that just does similarity search, KRONOS understands context holistically — retrieving not just "similar" memories, but the right memories for your specific query.
+                    </div>
+                </details>
+
+                <details class="card-glass rounded-xl group">
+                    <summary class="p-6 cursor-pointer flex items-center justify-between font-semibold text-lg hover:text-green-400 transition">
+                        Do you markup inference costs?
+                        <span class="text-gray-500 group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div class="px-6 pb-6 text-gray-400">
+                        <strong class="text-green-400">Never.</strong> You bring your own API keys (OpenAI, Anthropic, OpenRouter, etc.) and pay providers directly at their published rates. We only charge for memory tokens. This keeps our incentives aligned: we make money when we save you money.
+                    </div>
+                </details>
+
+                <details class="card-glass rounded-xl group">
+                    <summary class="p-6 cursor-pointer flex items-center justify-between font-semibold text-lg hover:text-green-400 transition">
+                        How does memory isolation work?
+                        <span class="text-gray-500 group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div class="px-6 pb-6 text-gray-400">
+                        Each MemoryRouter API key represents an isolated memory context. User A's memories never touch User B's memories. Create one key per user, per conversation, per project — whatever granularity makes sense for your app. Memories are encrypted at rest and in transit.
+                    </div>
+                </details>
+
+                <details class="card-glass rounded-xl group">
+                    <summary class="p-6 cursor-pointer flex items-center justify-between font-semibold text-lg hover:text-green-400 transition">
+                        What happens to unused memory keys?
+                        <span class="text-gray-500 group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div class="px-6 pb-6 text-gray-400">
+                        Ephemeral keys that are never used are never persisted — no bloat, no cost. Active memories have a 90-day retention by default. You can extend retention for specific contexts or delete memories programmatically.
+                    </div>
+                </details>
+
+                <details class="card-glass rounded-xl group">
+                    <summary class="p-6 cursor-pointer flex items-center justify-between font-semibold text-lg hover:text-green-400 transition">
+                        Which models are supported?
+                        <span class="text-gray-500 group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div class="px-6 pb-6 text-gray-400">
+                        All of them. MemoryRouter is OpenRouter-compatible, which means 100+ models work out of the box: GPT-4o, GPT-4 Turbo, Claude 3.5 Sonnet, Claude 3 Opus, Gemini Pro, Llama 3, Mistral, and many more. If it works with the OpenAI SDK, it works with MemoryRouter.
+                    </div>
+                </details>
+
+                <details class="card-glass rounded-xl group">
+                    <summary class="p-6 cursor-pointer flex items-center justify-between font-semibold text-lg hover:text-green-400 transition">
+                        How fast is memory retrieval?
+                        <span class="text-gray-500 group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div class="px-6 pb-6 text-gray-400">
+                        Sub-50ms. KRONOS is optimized for real-time retrieval. In practice, memory lookup adds negligible latency to your API calls — usually less than the variance in provider response times.
+                    </div>
+                </details>
+
+                <details class="card-glass rounded-xl group">
+                    <summary class="p-6 cursor-pointer flex items-center justify-between font-semibold text-lg hover:text-green-400 transition">
+                        Can I control what gets remembered?
+                        <span class="text-gray-500 group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div class="px-6 pb-6 text-gray-400">
+                        Yes. You can mark specific messages as "do not remember," delete specific memories, or wipe an entire context. We also provide analytics so you can see what's being stored and retrieved.
+                    </div>
+                </details>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA / Waitlist -->
+    <section id="waitlist" class="py-24 px-6 scroll-mt">
+        <div class="max-w-3xl mx-auto text-center">
+            <div class="card-glass rounded-3xl p-12 border-green-500/20 relative overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-br from-green-500/5 to-cyan-500/5"></div>
+                <div class="relative">
+                    <div class="text-5xl mb-6">🚀</div>
+                    <h2 class="text-3xl md:text-4xl font-bold mb-4">Stop Paying for AI Amnesia</h2>
+                    <p class="text-xl text-gray-400 mb-8">Join 500+ developers in the private beta. Free tier at launch.</p>
+                    
+                    <form class="flex flex-col sm:flex-row gap-4 max-w-md mx-auto mb-6">
+                        <input type="email" placeholder="you@company.com" class="flex-1 bg-black/50 border border-white/10 rounded-xl px-5 py-4 text-white placeholder-gray-500 focus:outline-none focus:border-green-500/50">
+                        <button type="submit" class="btn-primary px-8 py-4 rounded-xl font-semibold whitespace-nowrap transition">
+                            Get Early Access
+                        </button>
+                    </form>
+
+                    <p class="text-gray-600 text-sm">No spam. Just beta access and launch updates.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-12 px-6 border-t border-white/5">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-green-400 to-cyan-400 flex items-center justify-center">
+                        <span class="text-black font-bold text-sm">M</span>
+                    </div>
+                    <span class="text-lg font-bold">MemoryRouter</span>
+                </div>
+                <div class="flex items-center gap-6 text-sm text-gray-500">
+                    <a href="#" class="hover:text-white transition">Docs</a>
+                    <a href="#" class="hover:text-white transition">GitHub</a>
+                    <a href="#" class="hover:text-white transition">Twitter</a>
+                    <a href="#" class="hover:text-white transition">Discord</a>
+                </div>
+                <div class="text-sm text-gray-600">
+                    © 2025 MemoryRouter
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Calculator Script -->
+    <script>
+        const slider = document.getElementById('spend-slider');
+        const spendDisplay = document.getElementById('spend-display');
+        const withoutInference = document.getElementById('without-inference');
+        const withoutWaste = document.getElementById('without-waste');
+        const withoutTotal = document.getElementById('without-total');
+        const withInference = document.getElementById('with-inference');
+        const withMemory = document.getElementById('with-memory');
+        const withTotal = document.getElementById('with-total');
+        const savingsAmount = document.getElementById('savings-amount');
+        const savingsPercent = document.getElementById('savings-percent');
+        const savingsYearly = document.getElementById('savings-yearly');
+
+        function formatNumber(num) {
+            return Math.round(num).toLocaleString();
+        }
+
+        function updateCalculator() {
+            const spend = parseInt(slider.value);
+            
+            // Without MemoryRouter
+            const waste = spend * 0.5; // 50% wasted on re-context
+            
+            // With MemoryRouter
+            const reducedInference = spend * 0.4; // 60% reduction
+            const memoryCost = spend * 0.09; // ~9% memory cost
+            const totalWith = reducedInference + memoryCost;
+            
+            // Savings
+            const savings = spend - totalWith;
+            const percent = Math.round((savings / spend) * 100);
+            
+            // Update display
+            spendDisplay.textContent = formatNumber(spend);
+            withoutInference.textContent = formatNumber(spend);
+            withoutWaste.textContent = formatNumber(waste);
+            withoutTotal.textContent = formatNumber(spend);
+            withInference.textContent = formatNumber(reducedInference);
+            withMemory.textContent = formatNumber(memoryCost);
+            withTotal.textContent = formatNumber(totalWith);
+            savingsAmount.textContent = formatNumber(savings);
+            savingsPercent.textContent = percent;
+            savingsYearly.textContent = formatNumber(savings * 12);
+        }
+
+        slider.addEventListener('input', updateCalculator);
+        updateCalculator(); // Initial calculation
+    </script>
+</body>
+</html>

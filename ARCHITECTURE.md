@@ -723,7 +723,7 @@ Where:
 
 ### 10.3 Free Tier (Launch)
 
-- 10M memory tokens free
+- 50M memory tokens free
 - 3 provider keys
 - 10 memory keys
 - 7-day retention (vs 90-day paid)

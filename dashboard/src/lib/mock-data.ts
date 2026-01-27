@@ -1,7 +1,4 @@
-export const mockUser = {
-  name: "John",
-  email: "john@example.com",
-};
+export const mockUser = { name: "John", email: "john@example.com" };
 
 export const mockStats = {
   creditBalance: 15.42,
@@ -11,14 +8,14 @@ export const mockStats = {
 };
 
 export const mockProviderKeys = [
-  { id: "pk_1", provider: "openai" as const, providerName: "OpenAI", maskedKey: "sk-proj-xxxx", addedAt: "Jan 15, 2026", isDefault: true },
-  { id: "pk_2", provider: "anthropic" as const, providerName: "Anthropic", maskedKey: "sk-ant-xxxx", addedAt: "Jan 20, 2026", isDefault: false },
+  { id: "pk_1", provider: "openai" as const, providerName: "OpenAI", maskedKey: "sk-proj-\u2022\u2022\u2022\u2022xxxx", addedAt: "Jan 15, 2026", isDefault: true },
+  { id: "pk_2", provider: "anthropic" as const, providerName: "Anthropic", maskedKey: "sk-ant-\u2022\u2022\u2022\u2022xxxx", addedAt: "Jan 20, 2026", isDefault: false },
 ];
 
 export const mockMemoryKeys = [
-  { id: "mk_1", name: "main-assistant", key: "mk_abc123def456", tokensUsed: 3_200_000, lastUsed: "2 min ago", createdAt: "Jan 10, 2026" },
-  { id: "mk_2", name: "user-12345", key: "mk_ghi789jkl012", tokensUsed: 890_000, lastUsed: "1 hour ago", createdAt: "Jan 12, 2026" },
-  { id: "mk_3", name: "project-alpha", key: "mk_mno345pqr678", tokensUsed: 12_100_000, lastUsed: "3 days ago", createdAt: "Jan 18, 2026" },
+  { id: "mk_1", name: "main-assistant", key: "mk_abc123def456", tokensUsed: 3_200_000, lastUsed: "2 min ago" },
+  { id: "mk_2", name: "user-12345", key: "mk_ghi789jkl012", tokensUsed: 890_000, lastUsed: "1 hour ago" },
+  { id: "mk_3", name: "project-alpha", key: "mk_mno345pqr678", tokensUsed: 12_100_000, lastUsed: "3 days ago" },
 ];
 
 export const mockTransactions = [
