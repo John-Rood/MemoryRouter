@@ -1,6 +1,8 @@
 /**
  * MemoryRouter on Cloudflare Workers
  * Model-agnostic AI memory layer with KRONOS temporal retrieval
+ * 
+ * Now with Durable Objects for sub-ms in-memory vector search.
  */
 
 import { Hono } from 'hono';
@@ -8,6 +10,9 @@ import { cors } from 'hono/cors';
 import { authMiddleware, createMemoryKey, UserContext } from './middleware/auth';
 import { createChatRouter, ChatEnv } from './routes/chat';
 import { StorageManager } from './services/storage';
+
+// Re-export VaultDurableObject for Cloudflare DO binding
+export { VaultDurableObject } from './durable-objects/vault';
 
 // Environment bindings
 interface Env extends ChatEnv {
@@ -17,6 +22,10 @@ interface Env extends ChatEnv {
   HOT_WINDOW_HOURS: string;
   WORKING_WINDOW_DAYS: string;
   LONGTERM_WINDOW_DAYS: string;
+  // Durable Objects
+  VAULT_DO: DurableObjectNamespace;
+  USE_DURABLE_OBJECTS: string;
+  MAX_IN_MEMORY_VECTORS: string;
 }
 
 // Variables available in context
@@ -34,9 +43,10 @@ app.use('*', cors());
 app.get('/', (c) => {
   return c.json({
     name: 'MemoryRouter API',
-    version: '1.0.0',
+    version: '2.0.0',
     runtime: 'Cloudflare Workers',
     status: 'ok',
+    storage: c.env.USE_DURABLE_OBJECTS === 'true' ? 'durable-objects' : 'kv-r2',
     docs: 'https://docs.memoryrouter.ai',
     endpoints: {
       chat: 'POST /v1/chat/completions',
@@ -50,6 +60,7 @@ app.get('/health', (c) => {
     status: 'healthy', 
     timestamp: new Date().toISOString(),
     environment: c.env.ENVIRONMENT,
+    storage: c.env.USE_DURABLE_OBJECTS === 'true' ? 'durable-objects' : 'kv-r2',
   });
 });
 
@@ -69,6 +80,35 @@ v1.route('/chat', chatRouter);
 // Memory management routes
 v1.get('/memory/stats', async (c) => {
   const userContext = c.get('userContext');
+  
+  // Durable Objects path
+  if (c.env.USE_DURABLE_OBJECTS === 'true' && c.env.VAULT_DO) {
+    try {
+      const doId = c.env.VAULT_DO.idFromName(`${userContext.memoryKey.key}:core`);
+      const stub = c.env.VAULT_DO.get(doId);
+      const response = await stub.fetch(new Request('https://do/stats'));
+      const stats = await response.json() as Record<string, unknown>;
+      
+      return c.json({
+        key: userContext.memoryKey.key,
+        storage: 'durable-objects',
+        ...stats,
+        kronos_config: {
+          hot_window_hours: parseInt(c.env.HOT_WINDOW_HOURS || '4'),
+          working_window_days: parseInt(c.env.WORKING_WINDOW_DAYS || '3'),
+          longterm_window_days: parseInt(c.env.LONGTERM_WINDOW_DAYS || '90'),
+        },
+      });
+    } catch (error) {
+      console.error('Failed to get DO memory stats:', error);
+      return c.json({ 
+        error: 'Failed to retrieve memory stats',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      }, 500);
+    }
+  }
+  
+  // Legacy KV+R2 path
   const storage = new StorageManager({
     VECTORS_KV: c.env.VECTORS_KV,
     METADATA_KV: c.env.METADATA_KV,
@@ -81,6 +121,7 @@ v1.get('/memory/stats', async (c) => {
     
     return c.json({
       key: userContext.memoryKey.key,
+      storage: 'kv-r2',
       total_vectors: stats.totalVectors,
       total_bytes: stats.totalBytes,
       shard_count: stats.shardCount,
@@ -104,6 +145,29 @@ v1.get('/memory/stats', async (c) => {
 
 v1.delete('/memory', async (c) => {
   const userContext = c.get('userContext');
+  
+  // Durable Objects path
+  if (c.env.USE_DURABLE_OBJECTS === 'true' && c.env.VAULT_DO) {
+    try {
+      const doId = c.env.VAULT_DO.idFromName(`${userContext.memoryKey.key}:core`);
+      const stub = c.env.VAULT_DO.get(doId);
+      await stub.fetch(new Request('https://do/clear', { method: 'POST' }));
+      
+      return c.json({
+        key: userContext.memoryKey.key,
+        deleted: true,
+        message: 'Memory cleared successfully',
+      });
+    } catch (error) {
+      console.error('Failed to clear DO memory:', error);
+      return c.json({ 
+        error: 'Failed to delete memory',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      }, 500);
+    }
+  }
+  
+  // Legacy KV+R2 path
   const storage = new StorageManager({
     VECTORS_KV: c.env.VECTORS_KV,
     METADATA_KV: c.env.METADATA_KV,
@@ -126,7 +190,7 @@ v1.delete('/memory', async (c) => {
   }
 });
 
-// Key management (simple stub - in production use proper auth)
+// Key management
 v1.post('/keys', async (c) => {
   const body = await c.req.json() as { name?: string };
   const userContext = c.get('userContext');

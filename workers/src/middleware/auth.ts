@@ -34,6 +34,8 @@ export interface UserContext {
   memoryKey: MemoryKeyInfo;
   providerKeys: ProviderKeys;
   userId: string;
+  /** Session ID from X-Session-ID header or request body */
+  sessionId?: string;
 }
 
 export interface AuthEnv {
@@ -217,11 +219,15 @@ export function authMiddleware(env: AuthEnv) {
     // Load provider keys for this user
     const providerKeys = await loadProviderKeys(keyInfo.userId, env.METADATA_KV);
     
+    // Extract session ID from X-Session-ID header
+    const sessionId = c.req.header('X-Session-ID') || undefined;
+    
     // Set context
     const userContext: UserContext = {
       memoryKey: keyInfo,
       providerKeys,
       userId: keyInfo.userId,
+      sessionId,
     };
     
     c.set('userContext', userContext);

@@ -2,6 +2,10 @@
  * Chat Completions Route
  * POST /v1/chat/completions
  * OpenAI-compatible endpoint with memory injection
+ * 
+ * Supports two storage backends:
+ *   - Durable Objects (USE_DURABLE_OBJECTS=true): sub-ms in-memory vector search
+ *   - KV+R2 (legacy): deserialized on every request
  */
 
 import { Hono } from 'hono';
@@ -9,6 +13,7 @@ import { stream } from 'hono/streaming';
 import { getUserContext, ProviderKeys } from '../middleware/auth';
 import { 
   parseMemoryOptions, 
+  extractSessionId,
   KronosMemoryManager, 
   extractQuery, 
   injectContext, 
@@ -21,16 +26,33 @@ import {
   forwardToProvider, 
   generateEmbedding,
   extractResponseContent,
-  captureStreamedResponse,
   type ChatCompletionRequest,
   type Provider,
 } from '../services/providers';
 import { StorageManager, StorageBindings } from '../services/storage';
-import { estimateTokens } from '../formatters';
+
+// DO imports
+import { resolveVaultsForQuery, resolveVaultForStore } from '../services/do-router';
+import { buildSearchPlan, executeSearchPlan, storeToVault } from '../services/kronos-do';
+import type { MemoryRetrievalResult as DOMemoryRetrievalResult } from '../types/do';
 
 export interface ChatEnv extends StorageBindings {
   METADATA_KV: KVNamespace;
-  OPENAI_API_KEY?: string;  // For embeddings
+  OPENAI_API_KEY?: string;
+  // Durable Objects
+  VAULT_DO?: DurableObjectNamespace;
+  USE_DURABLE_OBJECTS?: string;
+  // KRONOS config
+  HOT_WINDOW_HOURS?: string;
+  WORKING_WINDOW_DAYS?: string;
+  LONGTERM_WINDOW_DAYS?: string;
+}
+
+/**
+ * Check if Durable Objects are enabled
+ */
+function useDurableObjects(env: ChatEnv): boolean {
+  return env.USE_DURABLE_OBJECTS === 'true' && !!env.VAULT_DO;
 }
 
 /**
@@ -53,7 +75,7 @@ export function createChatRouter() {
     const memoryOptions = parseMemoryOptions(c);
     
     // Parse request body
-    let body: ChatCompletionRequest;
+    let body: ChatCompletionRequest & { session_id?: string };
     try {
       body = await c.req.json();
     } catch {
@@ -67,6 +89,12 @@ export function createChatRouter() {
     if (!body.messages || !Array.isArray(body.messages) || body.messages.length === 0) {
       return c.json({ error: 'Missing required field: messages (must be a non-empty array)' }, 400);
     }
+    
+    // Resolve session ID (body.session_id or X-Session-ID header)
+    const sessionId = extractSessionId(
+      body as Record<string, unknown>,
+      userContext.sessionId
+    );
     
     // Detect provider from model
     const provider = detectProvider(body.model);
@@ -88,21 +116,15 @@ export function createChatRouter() {
         hint: 'Set your OpenAI API key or use X-Memory-Mode: off',
       }, 400);
     }
-    
-    // Initialize storage and memory manager
-    const storage = new StorageManager({
-      VECTORS_KV: env.VECTORS_KV,
-      METADATA_KV: env.METADATA_KV,
-      VECTORS_R2: env.VECTORS_R2,
-    });
-    const kronos = new KronosMemoryManager(storage);
+
+    // Choose storage backend
+    const usesDO = useDurableObjects(env);
     
     // Memory retrieval
-    let retrieval: MemoryRetrievalResult | null = null;
+    let retrieval: MemoryRetrievalResult | DOMemoryRetrievalResult | null = null;
     let augmentedMessages: ChatMessage[] = body.messages as ChatMessage[];
     
     if (memoryOptions.mode !== 'off' && memoryOptions.mode !== 'write' && embeddingKey) {
-      // Extract query from messages
       const query = extractQuery(augmentedMessages);
       
       if (query) {
@@ -110,16 +132,48 @@ export function createChatRouter() {
           // Generate query embedding
           const queryEmbedding = await generateEmbedding(query, embeddingKey);
           
-          // Search memory with KRONOS
-          retrieval = await kronos.search(
-            userContext.memoryKey.key,
-            queryEmbedding,
-            memoryOptions.contextLimit
-          );
+          if (usesDO) {
+            // ===== DURABLE OBJECTS PATH =====
+            const kronosConfig = {
+              hotWindowHours: parseInt(env.HOT_WINDOW_HOURS || '4'),
+              workingWindowDays: parseInt(env.WORKING_WINDOW_DAYS || '3'),
+              longtermWindowDays: parseInt(env.LONGTERM_WINDOW_DAYS || '90'),
+            };
+            
+            // Resolve which vaults to query
+            const vaults = resolveVaultsForQuery(
+              env.VAULT_DO!,
+              userContext.memoryKey.key,
+              sessionId
+            );
+            
+            // Build KRONOS search plan
+            const plan = buildSearchPlan(
+              vaults,
+              memoryOptions.contextLimit,
+              kronosConfig
+            );
+            
+            // Execute parallel search across vaults and windows
+            retrieval = await executeSearchPlan(plan, queryEmbedding);
+          } else {
+            // ===== LEGACY KV+R2 PATH =====
+            const storage = new StorageManager({
+              VECTORS_KV: env.VECTORS_KV,
+              METADATA_KV: env.METADATA_KV,
+              VECTORS_R2: env.VECTORS_R2,
+            });
+            const kronos = new KronosMemoryManager(storage);
+            retrieval = await kronos.search(
+              userContext.memoryKey.key,
+              queryEmbedding,
+              memoryOptions.contextLimit
+            );
+          }
           
           // Inject context if we found relevant memory
-          if (retrieval.chunks.length > 0) {
-            const contextText = formatRetrievalAsContext(retrieval);
+          if (retrieval && retrieval.chunks.length > 0) {
+            const contextText = formatRetrievalAsContext(retrieval as MemoryRetrievalResult);
             augmentedMessages = injectContext(augmentedMessages, contextText, body.model);
           }
         } catch (error) {
@@ -171,6 +225,9 @@ export function createChatRouter() {
       c.header('Connection', 'keep-alive');
       c.header('X-Memory-Tokens-Retrieved', String(retrieval?.tokenCount ?? 0));
       c.header('X-Memory-Chunks-Retrieved', String(retrieval?.chunks.length ?? 0));
+      if (sessionId) {
+        c.header('X-Session-ID', sessionId);
+      }
       
       return stream(c, async (streamWriter) => {
         const reader = providerResponse.body?.getReader();
@@ -212,17 +269,38 @@ export function createChatRouter() {
         
         // Store conversation in background
         if (memoryOptions.mode !== 'off' && memoryOptions.mode !== 'read' && embeddingKey) {
-          ctx.waitUntil(
-            storeConversation(
-              userContext.memoryKey.key,
-              body.messages,
-              fullResponse,
-              body.model,
-              memoryOptions,
-              kronos,
-              embeddingKey
-            )
-          );
+          if (usesDO) {
+            ctx.waitUntil(
+              storeConversationDO(
+                env.VAULT_DO!,
+                userContext.memoryKey.key,
+                sessionId,
+                body.messages,
+                fullResponse,
+                body.model,
+                memoryOptions,
+                embeddingKey
+              )
+            );
+          } else {
+            const storage = new StorageManager({
+              VECTORS_KV: env.VECTORS_KV,
+              METADATA_KV: env.METADATA_KV,
+              VECTORS_R2: env.VECTORS_R2,
+            });
+            const kronos = new KronosMemoryManager(storage);
+            ctx.waitUntil(
+              storeConversationKV(
+                userContext.memoryKey.key,
+                body.messages,
+                fullResponse,
+                body.model,
+                memoryOptions,
+                kronos,
+                embeddingKey
+              )
+            );
+          }
         }
       });
     }
@@ -233,17 +311,38 @@ export function createChatRouter() {
     
     // Store conversation in background
     if (memoryOptions.mode !== 'off' && memoryOptions.mode !== 'read' && embeddingKey) {
-      ctx.waitUntil(
-        storeConversation(
-          userContext.memoryKey.key,
-          body.messages,
-          assistantResponse,
-          body.model,
-          memoryOptions,
-          kronos,
-          embeddingKey
-        )
-      );
+      if (usesDO) {
+        ctx.waitUntil(
+          storeConversationDO(
+            env.VAULT_DO!,
+            userContext.memoryKey.key,
+            sessionId,
+            body.messages,
+            assistantResponse,
+            body.model,
+            memoryOptions,
+            embeddingKey
+          )
+        );
+      } else {
+        const storage = new StorageManager({
+          VECTORS_KV: env.VECTORS_KV,
+          METADATA_KV: env.METADATA_KV,
+          VECTORS_R2: env.VECTORS_R2,
+        });
+        const kronos = new KronosMemoryManager(storage);
+        ctx.waitUntil(
+          storeConversationKV(
+            userContext.memoryKey.key,
+            body.messages,
+            assistantResponse,
+            body.model,
+            memoryOptions,
+            kronos,
+            embeddingKey
+          )
+        );
+      }
     }
     
     // Add memory metadata to response
@@ -251,6 +350,8 @@ export function createChatRouter() {
       ...(responseBody as object),
       _memory: {
         key: userContext.memoryKey.key,
+        session_id: sessionId ?? null,
+        storage: usesDO ? 'durable-objects' : 'kv-r2',
         tokens_retrieved: retrieval?.tokenCount ?? 0,
         chunks_retrieved: retrieval?.chunks.length ?? 0,
         window_breakdown: retrieval?.windowBreakdown ?? { hot: 0, working: 0, longterm: 0 },
@@ -275,7 +376,6 @@ function getProviderKey(
   const key = providerKeys[provider];
   if (key) return key;
   
-  // Fallback to environment variable
   switch (provider) {
     case 'openai':
       return env.OPENAI_API_KEY;
@@ -284,10 +384,52 @@ function getProviderKey(
   }
 }
 
+// ==================== Storage Functions ====================
+
 /**
- * Store conversation messages in memory
+ * Store conversation via Durable Objects
  */
-async function storeConversation(
+async function storeConversationDO(
+  doNamespace: DurableObjectNamespace,
+  memoryKey: string,
+  sessionId: string | undefined,
+  messages: Array<{ role: string; content: string; memory?: boolean }>,
+  assistantResponse: string,
+  model: string,
+  options: { storeInput: boolean; storeResponse: boolean },
+  embeddingKey: string
+): Promise<void> {
+  const requestId = crypto.randomUUID();
+  const stub = resolveVaultForStore(doNamespace, memoryKey, sessionId);
+  
+  try {
+    // Store user messages
+    if (options.storeInput) {
+      for (const msg of messages) {
+        if (msg.role === 'system') continue;
+        if (msg.memory === false) continue;
+        
+        if (msg.role === 'user') {
+          const embedding = await generateEmbedding(msg.content, embeddingKey);
+          await storeToVault(stub, embedding, msg.content, 'user', model, requestId);
+        }
+      }
+    }
+    
+    // Store assistant response
+    if (options.storeResponse && assistantResponse) {
+      const embedding = await generateEmbedding(assistantResponse, embeddingKey);
+      await storeToVault(stub, embedding, assistantResponse, 'assistant', model, requestId);
+    }
+  } catch (error) {
+    console.error('Failed to store conversation (DO):', error);
+  }
+}
+
+/**
+ * Store conversation via legacy KV+R2
+ */
+async function storeConversationKV(
   memoryKey: string,
   messages: Array<{ role: string; content: string; memory?: boolean }>,
   assistantResponse: string,
@@ -299,7 +441,6 @@ async function storeConversation(
   const requestId = crypto.randomUUID();
   
   try {
-    // Store user messages
     if (options.storeInput) {
       for (const msg of messages) {
         if (msg.role === 'system') continue;
@@ -319,7 +460,6 @@ async function storeConversation(
       }
     }
     
-    // Store assistant response
     if (options.storeResponse && assistantResponse) {
       const embedding = await generateEmbedding(assistantResponse, embeddingKey);
       await kronos.store(
@@ -332,8 +472,7 @@ async function storeConversation(
       );
     }
   } catch (error) {
-    console.error('Failed to store conversation:', error);
-    // Don't throw - this runs in background
+    console.error('Failed to store conversation (KV):', error);
   }
 }
 

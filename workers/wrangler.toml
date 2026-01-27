@@ -1,32 +1,51 @@
 # MemoryRouter Cloudflare Workers Configuration
+# Deploys to: api.memoryrouter.ai
 
-name = "memoryrouter"
+name = "memoryrouter-api"
 main = "src/index.ts"
-compatibility_date = "2024-11-12"
+compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
+
+# Enable workers.dev subdomain
+workers_dev = true
 
 # Development settings
 [dev]
 port = 8787
 
-# KV Namespaces for vector storage and metadata
+# ========== Durable Objects ==========
+
+# Vault Durable Object — one per memory key per vault type
+[durable_objects]
+bindings = [
+  { name = "VAULT_DO", class_name = "VaultDurableObject" }
+]
+
+# Migration: declare SQLite-backed DO class
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["VaultDurableObject"]
+
+# ========== KV Namespaces ==========
+# VECTORS_KV: Kept for migration period, then removed
+# METADATA_KV: Kept permanently (auth, user data, billing)
+
 [[kv_namespaces]]
 binding = "VECTORS_KV"
-id = "REPLACE_WITH_KV_ID"
-preview_id = "REPLACE_WITH_PREVIEW_KV_ID"
+id = "1e73c05d2cac424080e855cfd0d9c58e"
 
 [[kv_namespaces]]
 binding = "METADATA_KV"
-id = "REPLACE_WITH_METADATA_KV_ID"
-preview_id = "REPLACE_WITH_PREVIEW_METADATA_KV_ID"
+id = "40652c48ae9141d9b3a8f797b39bb9f6"
 
-# R2 Bucket for large index storage
+# ========== R2 Buckets ==========
+# Cold backup for vault snapshots
 [[r2_buckets]]
 binding = "VECTORS_R2"
 bucket_name = "memoryrouter-vectors"
 preview_bucket_name = "memoryrouter-vectors-preview"
 
-# Environment Variables
+# ========== Environment Variables ==========
 [vars]
 ENVIRONMENT = "development"
 DEFAULT_EMBEDDING_MODEL = "text-embedding-3-large"
@@ -34,15 +53,23 @@ DEFAULT_EMBEDDING_DIMS = "3072"
 HOT_WINDOW_HOURS = "4"
 WORKING_WINDOW_DAYS = "3"
 LONGTERM_WINDOW_DAYS = "90"
+# Feature flag: use Durable Objects instead of KV+R2
+USE_DURABLE_OBJECTS = "true"
+# Max vectors held in DO memory (override per env)
+MAX_IN_MEMORY_VECTORS = "5000"
 
 # Production environment
 [env.production]
 name = "memoryrouter-prod"
 [env.production.vars]
 ENVIRONMENT = "production"
+USE_DURABLE_OBJECTS = "true"
+MAX_IN_MEMORY_VECTORS = "5000"
 
 # Staging environment
 [env.staging]
 name = "memoryrouter-staging"
 [env.staging.vars]
 ENVIRONMENT = "staging"
+USE_DURABLE_OBJECTS = "true"
+MAX_IN_MEMORY_VECTORS = "5000"

@@ -1,6 +1,10 @@
 /**
  * Memory Middleware - KRONOS Integration
- * Handles memory retrieval and storage with temporal windows
+ * Handles memory retrieval and storage with temporal windows.
+ * 
+ * This module provides the legacy KV+R2 memory path.
+ * The new Durable Objects path uses services/kronos-do.ts instead.
+ * Both paths are feature-flagged via USE_DURABLE_OBJECTS.
  */
 
 import { Context } from 'hono';
@@ -46,6 +50,21 @@ export function parseMemoryOptions(c: Context): MemoryOptions {
 }
 
 /**
+ * Extract session_id from request body.
+ * Falls back to header (already extracted in auth middleware).
+ */
+export function extractSessionId(
+  body: Record<string, unknown>,
+  headerSessionId?: string
+): string | undefined {
+  // Body takes precedence over header
+  if (body.session_id && typeof body.session_id === 'string') {
+    return body.session_id;
+  }
+  return headerSessionId;
+}
+
+/**
  * Memory retrieval result
  */
 export interface MemoryRetrievalResult {
@@ -65,6 +84,8 @@ export interface MemoryChunk {
   timestamp: number;
   score: number;
   window: 'hot' | 'working' | 'longterm';
+  /** Which vault this came from (core, session, ephemeral) — used by DO path */
+  source?: string;
 }
 
 /**
