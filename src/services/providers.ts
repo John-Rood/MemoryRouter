@@ -1,16 +1,27 @@
 /**
  * AI Provider Service
  * Routes requests to OpenAI, Anthropic, or OpenRouter
+ * 
+ * Reference: memoryrouter-product-spec.md Section 4.6 (BYOK)
+ * 
+ * Provider detection from model string:
+ *   - "anthropic/claude-3-opus" → anthropic
+ *   - "openai/gpt-4" → openai
+ *   - "gpt-4" → openai (inferred)
+ *   - "claude-3-opus" → anthropic (inferred)
+ *   - unknown → openrouter (most flexible)
  */
 
-export type Provider = 'openai' | 'anthropic' | 'openrouter' | 'google';
+import type { Provider, ChatCompletionRequest, AnthropicMessageRequest, Message } from '../types';
+
+// =============================================================================
+// PROVIDER CONFIGS
+// =============================================================================
 
 export interface ProviderConfig {
   name: Provider;
   baseUrl: string;
   authHeader: string;
-  transformRequest?: (body: unknown) => unknown;
-  transformResponse?: (body: unknown) => unknown;
 }
 
 const PROVIDER_CONFIGS: Record<Provider, ProviderConfig> = {
@@ -36,42 +47,40 @@ const PROVIDER_CONFIGS: Record<Provider, ProviderConfig> = {
   },
 };
 
+// =============================================================================
+// PROVIDER DETECTION
+// =============================================================================
+
 /**
  * Detect provider from model string
- * Examples:
- *   - "anthropic/claude-3-opus" → anthropic
- *   - "openai/gpt-4" → openai
- *   - "gpt-4" → openai (fallback)
- *   - "claude-3-opus" → anthropic (fallback)
  */
 export function detectProvider(model: string): Provider {
   const modelLower = model.toLowerCase();
   
-  // Check for explicit provider prefix
+  // Explicit provider prefix
   if (modelLower.startsWith('anthropic/')) return 'anthropic';
   if (modelLower.startsWith('openai/')) return 'openai';
   if (modelLower.startsWith('google/')) return 'google';
+  if (modelLower.startsWith('openrouter/')) return 'openrouter';
   if (modelLower.startsWith('meta-llama/') || modelLower.startsWith('mistral/')) return 'openrouter';
   
   // Infer from model name
   if (modelLower.includes('claude')) return 'anthropic';
-  if (modelLower.includes('gpt') || modelLower.includes('o1') || modelLower.includes('o3')) return 'openai';
+  if (modelLower.includes('gpt') || modelLower.includes('o1') || modelLower.includes('o3') || modelLower.includes('o4')) return 'openai';
   if (modelLower.includes('gemini')) return 'google';
   
-  // Default to OpenRouter for unknown models (most flexible)
+  // Default to OpenRouter for unknown models
   return 'openrouter';
 }
 
 /**
- * Get the actual model name to send to the provider
- * Strips the provider prefix if present
+ * Strip provider prefix from model name
  */
 export function getModelName(model: string): string {
-  // Remove provider prefix (e.g., "anthropic/claude-3-opus" → "claude-3-opus")
   const parts = model.split('/');
   if (parts.length > 1) {
-    const possibleProvider = parts[0].toLowerCase();
-    if (['anthropic', 'openai', 'google', 'meta-llama', 'mistral'].includes(possibleProvider)) {
+    const prefix = parts[0].toLowerCase();
+    if (['anthropic', 'openai', 'google', 'openrouter', 'meta-llama', 'mistral'].includes(prefix)) {
       return parts.slice(1).join('/');
     }
   }
@@ -82,26 +91,15 @@ export function getProviderConfig(provider: Provider): ProviderConfig {
   return PROVIDER_CONFIGS[provider];
 }
 
-export interface Message {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-  memory?: boolean; // MemoryRouter extension: if false, don't store
-}
-
-export interface ChatCompletionRequest {
-  model: string;
-  messages: Message[];
-  stream?: boolean;
-  temperature?: number;
-  max_tokens?: number;
-  [key: string]: unknown;
-}
+// =============================================================================
+// REQUEST TRANSFORMATION
+// =============================================================================
 
 /**
- * Transform request for Anthropic API
- * Anthropic uses a different format (system as separate field)
+ * Transform request for Anthropic Messages API
+ * Anthropic uses system as a separate top-level field
  */
-function transformForAnthropic(body: ChatCompletionRequest): unknown {
+function transformForAnthropic(body: ChatCompletionRequest): Record<string, unknown> {
   const messages = body.messages;
   const systemMessages = messages.filter(m => m.role === 'system');
   const otherMessages = messages.filter(m => m.role !== 'system');
@@ -120,29 +118,37 @@ function transformForAnthropic(body: ChatCompletionRequest): unknown {
     anthropicBody.system = systemMessages.map(m => m.content).join('\n\n');
   }
   
-  if (body.temperature !== undefined) {
-    anthropicBody.temperature = body.temperature;
-  }
+  if (body.temperature !== undefined) anthropicBody.temperature = body.temperature;
+  if (body.top_p !== undefined) anthropicBody.top_p = body.top_p;
+  if (body.stop !== undefined) anthropicBody.stop_sequences = Array.isArray(body.stop) ? body.stop : [body.stop];
   
   return anthropicBody;
 }
 
 /**
- * Transform request for OpenAI-compatible APIs (OpenAI, OpenRouter)
+ * Transform request for OpenAI-compatible APIs
  */
-function transformForOpenAI(body: ChatCompletionRequest): unknown {
+function transformForOpenAI(body: ChatCompletionRequest): Record<string, unknown> {
+  // Strip MemoryRouter-specific fields, keep everything else
+  const { session_id, ...rest } = body;
+  
   return {
-    ...body,
+    ...rest,
     model: getModelName(body.model),
     messages: body.messages.map(m => ({
       role: m.role,
       content: m.content,
+      // Strip memory flag — providers don't understand it
     })),
   };
 }
 
+// =============================================================================
+// FORWARD TO PROVIDER
+// =============================================================================
+
 /**
- * Forward request to the provider and stream back
+ * Forward a chat completions request to the appropriate provider
  */
 export async function forwardToProvider(
   provider: Provider,
@@ -151,7 +157,6 @@ export async function forwardToProvider(
 ): Promise<Response> {
   const config = getProviderConfig(provider);
   
-  // Transform request based on provider
   let transformedBody: unknown;
   let endpoint: string;
   const headers: Record<string, string> = {
@@ -178,22 +183,66 @@ export async function forwardToProvider(
       break;
     
     case 'google':
-      // Google has a very different API, simplified for now
       transformedBody = transformForOpenAI(body);
       endpoint = `${config.baseUrl}/models/${getModelName(body.model)}:generateContent`;
       headers[config.authHeader] = apiKey;
       break;
+    
+    default:
+      throw new Error(`Unsupported provider: ${provider}`);
   }
   
   console.log(`[PROVIDER] Forwarding to ${provider}: ${endpoint}`);
   console.log(`[PROVIDER] Model: ${body.model} → ${getModelName(body.model)}`);
   console.log(`[PROVIDER] Stream: ${body.stream ?? false}`);
   
-  const response = await fetch(endpoint, {
+  return fetch(endpoint, {
     method: 'POST',
     headers,
     body: JSON.stringify(transformedBody),
   });
-  
-  return response;
 }
+
+/**
+ * Forward an Anthropic Messages API request directly
+ * (When someone hits POST /v1/messages — native Anthropic format)
+ */
+export async function forwardAnthropicMessages(
+  apiKey: string,
+  body: AnthropicMessageRequest
+): Promise<Response> {
+  const modelName = getModelName(body.model);
+  
+  // Strip MemoryRouter fields
+  const { session_id, ...rest } = body;
+  
+  // Ensure messages don't have the memory field
+  const cleanMessages = rest.messages.map(m => {
+    const { memory, ...msgRest } = m;
+    return msgRest;
+  });
+  
+  const anthropicBody = {
+    ...rest,
+    model: modelName,
+    messages: cleanMessages,
+  };
+  
+  const endpoint = 'https://api.anthropic.com/v1/messages';
+  
+  console.log(`[PROVIDER] Forwarding Anthropic Messages: ${modelName}`);
+  console.log(`[PROVIDER] Stream: ${body.stream ?? false}`);
+  
+  return fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify(anthropicBody),
+  });
+}
+
+// Re-export types used by other modules
+export type { ChatCompletionRequest, Message } from '../types';
