@@ -31,7 +31,7 @@ const PRODUCT_CONFIG = {
 
 const PRICE_CONFIG = {
   currency: 'usd',
-  unitAmount: 100, // $1.00 per unit (1 million tokens)
+  unitAmount: 50, // $0.50 per unit (1 million tokens)
   recurring: {
     interval: 'month' as const,
     usageType: 'metered' as const,
@@ -40,7 +40,7 @@ const PRICE_CONFIG = {
   metadata: {
     tokens_per_unit: '1000000',
     unit_label: 'million tokens',
-    price_per_million: '1.00',
+    price_per_million: '0.50',
     free_tier_tokens: '10000000',
   },
 };

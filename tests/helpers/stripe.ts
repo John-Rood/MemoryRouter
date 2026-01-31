@@ -180,7 +180,7 @@ export function createSubscriptionCreatedWebhook(
           price: {
             id: `price_memory_tokens`,
             object: 'price',
-            unit_amount: 100, // $1 per 1M tokens
+            unit_amount: 50, // $0.50 per 1M tokens
             currency: 'usd',
             recurring: {
               interval: 'month',

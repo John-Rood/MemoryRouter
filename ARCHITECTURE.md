@@ -13,7 +13,7 @@ MemoryRouter is an API proxy that wraps AI provider APIs (OpenAI, Anthropic, Ope
 
 ### Core Principles
 
-> **"Every $1 spent on memory saves $2-3 on inference."**
+> **"Every $0.50 spent on memory saves $2-3 on inference."**
 
 > **"Same memory, any model."**
 
@@ -199,7 +199,7 @@ We meter usage in **memory tokens**:
 - Output text that gets stored → memory tokens  
 - Retrieved context (RAG) → memory tokens
 
-**Pricing:** $1.00 per 1M memory tokens
+**Pricing:** $0.50 per 1M memory tokens
 
 ### 2.7 Data Retention & Privacy
 
@@ -716,9 +716,9 @@ Where:
 
 | Tier | Price | Includes |
 |------|-------|----------|
-| **Pay As You Go** | $1.00 / 1M tokens | No minimum, billed monthly |
-| **Pro** | $49/mo | 100M tokens included, then $0.80/1M |
-| **Team** | $199/mo | 500M tokens included, then $0.60/1M |
+| **Pay As You Go** | $0.50 / 1M tokens | No minimum, billed monthly |
+| **Pro** | $49/mo | 100M tokens included, then $0.40/1M |
+| **Team** | $199/mo | 500M tokens included, then $0.30/1M |
 | **Enterprise** | Custom | Volume discounts, SLA, support |
 
 ### 10.3 Free Tier (Launch)
@@ -822,7 +822,7 @@ Where:
 
 > **"Same memory, any model."**
 
-> **"Every $1 on memory saves $2-3 on inference."**
+> **"Every $0.50 on memory saves $2-3 on inference."**
 
 > **"The AI memory layer that works with every model."**
 

@@ -491,7 +491,7 @@ Great SaaS companies have NDR > 120%. With usage-based pricing:
 | "Free storage forever" | "10x memories at same price" | "Developer-first, not infra-first" |
 | "Transparent, no hidden fees" | "True pay-as-you-go available" | "Memory semantics included" |
 
-**Key differentiator:** "Every $1 you spend on MemoryRouter saves $2-5 on AI inference."
+**Key differentiator:** "Every $0.50 you spend on MemoryRouter saves $2-5 on AI inference."
 
 ---
 

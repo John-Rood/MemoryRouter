@@ -235,7 +235,7 @@ billingRoutes.get('/invoices/:id', async (c) => {
     ...invoice,
     line_items: [
       {
-        description: `Memory Tokens (${(invoice.tokens_billed ?? 0) / 1_000_000}M @ $1.00/M)`,
+        description: `Memory Tokens (${(invoice.tokens_billed ?? 0) / 1_000_000}M @ $0.50/M)`,
         quantity: invoice.tokens_billed ?? 0,
         unit_amount_usd: 0.000001,
         total_usd: invoice.amount_usd,

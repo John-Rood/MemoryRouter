@@ -9,7 +9,7 @@
 
 ## The Math
 
-> **$1 on memory saves $2-3 on inference.**
+> **$0.50 on memory saves $2-3 on inference.**
 
 That's it. That's the value prop.
 
@@ -20,7 +20,7 @@ That's it. That's the value prop.
 | Tier | Price |
 |------|-------|
 | **Free** | 50M tokens |
-| **Paid** | $1 per 1M tokens stored |
+| **Paid** | $0.50 per 1M tokens stored |
 | **Enterprise** | Custom (volume + SLA + compliance) |
 
 No tiers. No complexity. One number.
@@ -33,7 +33,7 @@ No tiers. No complexity. One number.
 Bold claim → Free trial → They prove it → They pay → We profit
 ```
 
-1. **Bold claim** — "$1 saves $2-3" plastered everywhere
+1. **Bold claim** — "$0.50 saves $2-3" plastered everywhere
 2. **Instant start** — 50M tokens free, one API call, no friction
 3. **They prove it** — Dashboard shows tokens stored, inference saved
 4. **They pay** — Hit the limit, card down, keep going
@@ -45,12 +45,12 @@ Bold claim → Free trial → They prove it → They pay → We profit
 
 ### For Developers
 - Familiar units (tokens/million — same as OpenAI/Anthropic)
-- Obvious ROI (spend $1, save $2-3)
+- Obvious ROI (spend $0.50, save $2-3)
 - No risk (free tier proves value first)
 - Predictable costs (one price, scales linearly)
 
 ### For Us
-- **90%+ gross margins** ($1/M revenue, ~$0.05-0.10 cost)
+- **80%+ gross margins** ($0.50/M revenue, ~$0.05-0.10 cost)
 - **CAC of ~$1-2** (free tier compute = marketing spend)
 - **LTV of $500+** (sticky data, low churn)
 - **No sales team** (product sells itself)
@@ -93,7 +93,7 @@ They're not paying for cheaper tokens. They're paying for guarantees.
 
 ## The One-Liners
 
-**Homepage:** "$1 on memory saves $2-3 on inference."
+**Homepage:** "$0.50 on memory saves $2-3 on inference."
 
 **Developers:** "50M tokens free. Watch your inference costs drop."
 
@@ -129,9 +129,9 @@ Publish these. Let results speak.
 | | |
 |---|---|
 | **Free** | 50M tokens |
-| **Paid** | $1 / 1M tokens |
+| **Paid** | $0.50 / 1M tokens |
 | **Enterprise** | Custom |
-| **Pitch** | $1 saves $2-3 |
+| **Pitch** | $0.50 saves $2-3 |
 
 Simple. Obvious. Prints money.
 

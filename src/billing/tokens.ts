@@ -139,7 +139,7 @@ export function countMemoryTokens(input: TokenMeteringInput): TokenCountResult {
 
 /**
  * Calculate cost in USD for a given number of tokens
- * Price: $1 per 1M tokens
+ * Price: $0.50 per 1M tokens
  */
 export function calculateCost(tokens: number): number {
   const cost = (tokens / 1_000_000) * PRICING.PRICE_PER_MILLION_TOKENS;

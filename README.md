@@ -119,4 +119,4 @@ OPENROUTER_API_KEY=sk-or-xxx
 
 ---
 
-*MemoryRouter: Every $1 on memory saves $2-3 on inference.* 🧠⚡
+*MemoryRouter: Every $0.50 on memory saves $2-3 on inference.* 🧠⚡

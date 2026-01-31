@@ -11,7 +11,7 @@
 
 export const PRICING = {
   /** Price per million tokens in USD */
-  PRICE_PER_MILLION_TOKENS: 1.00,
+  PRICE_PER_MILLION_TOKENS: 0.50,
   
   /** Free tier token limit */
   FREE_TIER_TOKENS: 50_000_000,
