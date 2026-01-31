@@ -9,7 +9,7 @@
 
 ## The Math
 
-> **$0.50 on memory saves $2-3 on inference.**
+> **$1 on memory saves $10 on inference.**
 
 That's it. That's the value prop.
 
@@ -93,7 +93,7 @@ They're not paying for cheaper tokens. They're paying for guarantees.
 
 ## The One-Liners
 
-**Homepage:** "$0.50 on memory saves $2-3 on inference."
+**Homepage:** "$1 on memory saves $10 on inference."
 
 **Developers:** "50M tokens free. Watch your inference costs drop."
 
