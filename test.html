@@ -961,12 +961,29 @@
         const endTime = performance.now();
         const totalTime = endTime - startTime;
         
+        // Log exact latency to console
+        console.log(`%c[MemoryRouter Latency]`, 'color: #22c55e; font-weight: bold', {
+          requestNumber: state.successCount + state.failCount + 1,
+          ttfb: `${ttfb.toFixed(2)}ms`,
+          total: `${totalTime.toFixed(2)}ms`,
+          overhead: `${(ttfb).toFixed(2)}ms`,
+          timestamp: new Date().toISOString()
+        });
+        
         finalizeAssistantMessage(assistantDiv, fullResponse, ttfb, totalTime);
         updateLatencyStats(ttfb, totalTime, true);
         
       } catch (error) {
         const endTime = performance.now();
         const totalTime = endTime - startTime;
+        
+        // Log error latency to console
+        console.log(`%c[MemoryRouter ERROR]`, 'color: #ef4444; font-weight: bold', {
+          error: error.message,
+          ttfb: ttfb ? `${ttfb.toFixed(2)}ms` : 'N/A',
+          total: `${totalTime.toFixed(2)}ms`,
+          timestamp: new Date().toISOString()
+        });
         
         updateAssistantMessage(assistantDiv, `Network error: ${error.message}`, ttfb, totalTime, true);
         updateLatencyStats(ttfb, totalTime, false);
@@ -996,6 +1013,55 @@
     
     apiKeyInput.addEventListener('change', saveConfig);
     modelInput.addEventListener('change', saveConfig);
+    
+    // Global function to dump latency stats - call from console: dumpLatencyStats()
+    window.dumpLatencyStats = function() {
+      if (state.ttfbTimes.length === 0) {
+        console.log('%c[MemoryRouter] No requests yet', 'color: #f59e0b');
+        return;
+      }
+      
+      const avgTTFB = state.ttfbTimes.reduce((a, b) => a + b, 0) / state.ttfbTimes.length;
+      const minTTFB = Math.min(...state.ttfbTimes);
+      const maxTTFB = Math.max(...state.ttfbTimes);
+      const avgTotal = state.totalTimes.reduce((a, b) => a + b, 0) / state.totalTimes.length;
+      
+      // Calculate P50, P95, P99
+      const sorted = [...state.ttfbTimes].sort((a, b) => a - b);
+      const p50 = sorted[Math.floor(sorted.length * 0.5)];
+      const p95 = sorted[Math.floor(sorted.length * 0.95)];
+      const p99 = sorted[Math.floor(sorted.length * 0.99)];
+      
+      console.log('%c╔════════════════════════════════════════╗', 'color: #22c55e');
+      console.log('%c║   MEMORYROUTER LATENCY SUMMARY         ║', 'color: #22c55e; font-weight: bold');
+      console.log('%c╠════════════════════════════════════════╣', 'color: #22c55e');
+      console.log(`%c║ Total Requests: ${state.successCount + state.failCount}`, 'color: #22c55e');
+      console.log(`%c║ Successful: ${state.successCount} | Failed: ${state.failCount}`, 'color: #22c55e');
+      console.log('%c╠════════════════════════════════════════╣', 'color: #22c55e');
+      console.log(`%c║ TTFB (Time to First Byte):`, 'color: #22c55e; font-weight: bold');
+      console.log(`%c║   Average: ${avgTTFB.toFixed(2)}ms`, 'color: #4ade80');
+      console.log(`%c║   Min: ${minTTFB.toFixed(2)}ms`, 'color: #4ade80');
+      console.log(`%c║   Max: ${maxTTFB.toFixed(2)}ms`, 'color: #4ade80');
+      console.log(`%c║   P50: ${p50.toFixed(2)}ms`, 'color: #4ade80');
+      console.log(`%c║   P95: ${p95.toFixed(2)}ms`, 'color: #4ade80');
+      console.log(`%c║   P99: ${p99.toFixed(2)}ms`, 'color: #4ade80');
+      console.log('%c╠════════════════════════════════════════╣', 'color: #22c55e');
+      console.log(`%c║ Total Response Time:`, 'color: #22c55e; font-weight: bold');
+      console.log(`%c║   Average: ${avgTotal.toFixed(2)}ms`, 'color: #4ade80');
+      console.log('%c╚════════════════════════════════════════╝', 'color: #22c55e');
+      
+      return {
+        requests: state.successCount + state.failCount,
+        success: state.successCount,
+        failed: state.failCount,
+        ttfb: { avg: avgTTFB, min: minTTFB, max: maxTTFB, p50, p95, p99 },
+        total: { avg: avgTotal },
+        raw: { ttfb: state.ttfbTimes, total: state.totalTimes }
+      };
+    };
+    
+    console.log('%c[MemoryRouter Test Page]', 'color: #22c55e; font-weight: bold', 
+      'Latency logging enabled. Each request logs exact TTFB. Call dumpLatencyStats() for summary.');
 
     // ========================
     // Init
