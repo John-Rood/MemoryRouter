@@ -1,0 +1,1007 @@
+<!--
+  MemoryRouter Latency Test
+  =========================
+  
+  PURPOSE: Measure MemoryRouter latency overhead before launch
+  
+  HOW TO USE:
+  1. Open this file in any browser
+  2. Enter your MemoryRouter API Key (mk_xxx)
+  3. Enter model (e.g., openai/gpt-4o)
+  4. Chat and watch latency metrics
+  
+  LATENCY METRICS:
+  - TTFB (Time to First Byte): When streaming starts — measures MemoryRouter overhead
+  - Total Time: Full request duration
+  - Min/Max/Avg: Tracked across session
+  
+  The key metric is TTFB — this shows how much latency MemoryRouter adds
+  before the AI provider starts responding.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MemoryRouter Latency Test</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    :root {
+      --bg: #0a0a0f;
+      --bg-secondary: #13131a;
+      --bg-tertiary: #1a1a24;
+      --text: #e4e4e7;
+      --text-muted: #71717a;
+      --accent: #22c55e;
+      --accent-bright: #4ade80;
+      --accent-dim: rgba(34, 197, 94, 0.15);
+      --border: #27272a;
+      --error: #ef4444;
+      --warning: #f59e0b;
+      --user-bg: #1e3a5f;
+      --assistant-bg: #1a1a24;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* Header */
+    header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .logo h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    
+    .logo span {
+      color: var(--accent);
+    }
+    
+    .logo .subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 400;
+      margin-left: 8px;
+      padding-left: 8px;
+      border-left: 1px solid var(--border);
+    }
+    
+    /* Config Panel */
+    .config {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    
+    .config-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    
+    .config-field label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .config-field input {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    
+    .config-field input:focus {
+      border-color: var(--accent);
+    }
+    
+    .config-field input::placeholder {
+      color: var(--text-muted);
+    }
+    
+    #apiKey {
+      width: 220px;
+      font-family: monospace;
+    }
+    
+    #model {
+      width: 200px;
+    }
+    
+    /* HERO: Latency Stats Panel */
+    .latency-panel {
+      background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 24px;
+    }
+    
+    .latency-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    
+    .latency-header h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .latency-header .badge {
+      background: var(--accent-dim);
+      color: var(--accent);
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    
+    .latency-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 16px;
+    }
+    
+    .latency-stat {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    
+    .latency-stat.hero {
+      border-color: var(--accent);
+      background: linear-gradient(135deg, var(--accent-dim) 0%, var(--bg) 100%);
+    }
+    
+    .latency-stat .label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .latency-stat .label .hint {
+      font-size: 10px;
+      color: var(--text-muted);
+      opacity: 0.7;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    
+    .latency-stat .value {
+      font-size: 28px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--accent-bright);
+      line-height: 1;
+    }
+    
+    .latency-stat.hero .value {
+      font-size: 36px;
+    }
+    
+    .latency-stat .unit {
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--accent);
+      margin-left: 2px;
+    }
+    
+    .latency-stat .secondary {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+    
+    .latency-stat.warning .value {
+      color: var(--warning);
+    }
+    
+    .latency-stat.error .value {
+      color: var(--error);
+    }
+    
+    /* Request counter row */
+    .request-stats {
+      display: flex;
+      gap: 24px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    
+    .request-stat {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+    
+    .request-stat .label {
+      color: var(--text-muted);
+    }
+    
+    .request-stat .value {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+    }
+    
+    .request-stat.success .value {
+      color: var(--accent);
+    }
+    
+    .request-stat.error .value {
+      color: var(--error);
+    }
+    
+    /* Chat Container */
+    .chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    
+    /* Messages */
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding-bottom: 24px;
+    }
+    
+    .message {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: 85%;
+    }
+    
+    .message.user {
+      align-self: flex-end;
+    }
+    
+    .message.assistant {
+      align-self: flex-start;
+    }
+    
+    .message-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    .message.user .message-header {
+      justify-content: flex-end;
+    }
+    
+    .message-role {
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .message-latency {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-variant-numeric: tabular-nums;
+    }
+    
+    .message-latency .ttfb {
+      color: var(--accent);
+      font-weight: 600;
+    }
+    
+    .message-latency .total {
+      color: var(--text-muted);
+    }
+    
+    .message-content {
+      padding: 14px 18px;
+      border-radius: 12px;
+      font-size: 15px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    
+    .message.user .message-content {
+      background: var(--user-bg);
+      border-bottom-right-radius: 4px;
+    }
+    
+    .message.assistant .message-content {
+      background: var(--assistant-bg);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+    
+    .message.error .message-content {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid var(--error);
+      color: var(--error);
+    }
+    
+    /* Streaming indicator */
+    .streaming-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 16px;
+      background: var(--accent);
+      animation: blink 0.7s infinite;
+      margin-left: 2px;
+      vertical-align: text-bottom;
+    }
+    
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+    
+    /* Input Area */
+    .input-area {
+      display: flex;
+      gap: 12px;
+      background: var(--bg-secondary);
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    
+    #messageInput {
+      flex: 1;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-size: 15px;
+      outline: none;
+      resize: none;
+      min-height: 48px;
+      max-height: 150px;
+      font-family: inherit;
+    }
+    
+    #messageInput:focus {
+      border-color: var(--accent);
+    }
+    
+    #messageInput::placeholder {
+      color: var(--text-muted);
+    }
+    
+    #sendBtn {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    #sendBtn:hover {
+      opacity: 0.9;
+    }
+    
+    #sendBtn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    /* Empty state */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      gap: 16px;
+      padding: 48px;
+      text-align: center;
+    }
+    
+    .empty-state svg {
+      width: 64px;
+      height: 64px;
+      opacity: 0.5;
+    }
+    
+    .empty-state h2 {
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--text);
+    }
+    
+    .empty-state p {
+      font-size: 14px;
+      max-width: 400px;
+    }
+    
+    .empty-state code {
+      background: var(--bg-tertiary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    
+    /* Context indicator */
+    .context-info {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 8px;
+    }
+    
+    .context-info span {
+      color: var(--accent);
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      .config {
+        width: 100%;
+      }
+      
+      .config-field input {
+        width: 100% !important;
+      }
+      
+      .latency-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .latency-stat .value {
+        font-size: 22px;
+      }
+      
+      .latency-stat.hero .value {
+        font-size: 28px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <h1>Memory<span>Router</span></h1>
+      <span class="subtitle">Latency Test</span>
+    </div>
+    
+    <div class="config">
+      <div class="config-field">
+        <label>API Key</label>
+        <input type="password" id="apiKey" placeholder="mk_xxxxxxxx">
+      </div>
+      <div class="config-field">
+        <label>Model</label>
+        <input type="text" id="model" placeholder="openai/gpt-4o">
+      </div>
+    </div>
+  </header>
+  
+  <!-- HERO: Latency Metrics -->
+  <div class="latency-panel">
+    <div class="latency-header">
+      <h2>⚡ Latency Metrics</h2>
+      <span class="badge">STREAMING</span>
+    </div>
+    
+    <div class="latency-grid">
+      <div class="latency-stat hero" id="ttfbStat">
+        <span class="label">
+          TTFB
+          <span class="hint">(Time to First Byte)</span>
+        </span>
+        <span class="value"><span id="lastTTFB">—</span><span class="unit">ms</span></span>
+        <span class="secondary">MemoryRouter overhead</span>
+      </div>
+      
+      <div class="latency-stat">
+        <span class="label">Avg TTFB</span>
+        <span class="value"><span id="avgTTFB">—</span><span class="unit">ms</span></span>
+        <span class="secondary" id="ttfbRange">—</span>
+      </div>
+      
+      <div class="latency-stat">
+        <span class="label">Min TTFB</span>
+        <span class="value"><span id="minTTFB">—</span><span class="unit">ms</span></span>
+      </div>
+      
+      <div class="latency-stat">
+        <span class="label">Max TTFB</span>
+        <span class="value"><span id="maxTTFB">—</span><span class="unit">ms</span></span>
+      </div>
+      
+      <div class="latency-stat">
+        <span class="label">Total Time</span>
+        <span class="value"><span id="lastTotal">—</span><span class="unit">ms</span></span>
+        <span class="secondary">Last request</span>
+      </div>
+      
+      <div class="latency-stat">
+        <span class="label">Avg Total</span>
+        <span class="value"><span id="avgTotal">—</span><span class="unit">ms</span></span>
+      </div>
+    </div>
+    
+    <div class="request-stats">
+      <div class="request-stat">
+        <span class="label">Requests:</span>
+        <span class="value" id="totalRequests">0</span>
+      </div>
+      <div class="request-stat success">
+        <span class="label">Success:</span>
+        <span class="value" id="successCount">0</span>
+      </div>
+      <div class="request-stat error">
+        <span class="label">Failed:</span>
+        <span class="value" id="failCount">0</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="chat-container">
+    <div class="messages" id="messages">
+      <div class="empty-state" id="emptyState">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h2>Test MemoryRouter Latency</h2>
+        <p>
+          Measures <code>TTFB</code> (Time to First Byte) — the latency MemoryRouter adds before streaming starts.
+          <br><br>
+          Last 3 messages sent as context. Uses streaming to measure real latency.
+        </p>
+      </div>
+    </div>
+    
+    <div class="context-info" id="contextInfo" style="display: none;">
+      Sending <span id="contextCount">0</span> messages as context
+    </div>
+    
+    <div class="input-area">
+      <textarea id="messageInput" placeholder="Type a message..." rows="1"></textarea>
+      <button id="sendBtn">
+        Send
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // ========================
+    // State
+    // ========================
+    const state = {
+      messages: [],
+      ttfbTimes: [],      // Time to first byte (ms)
+      totalTimes: [],     // Total request time (ms)
+      successCount: 0,
+      failCount: 0,
+      isLoading: false
+    };
+
+    // ========================
+    // DOM Elements
+    // ========================
+    const apiKeyInput = document.getElementById('apiKey');
+    const modelInput = document.getElementById('model');
+    const messagesContainer = document.getElementById('messages');
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const emptyState = document.getElementById('emptyState');
+    const contextInfo = document.getElementById('contextInfo');
+    const contextCount = document.getElementById('contextCount');
+    
+    // Latency elements
+    const lastTTFBEl = document.getElementById('lastTTFB');
+    const avgTTFBEl = document.getElementById('avgTTFB');
+    const minTTFBEl = document.getElementById('minTTFB');
+    const maxTTFBEl = document.getElementById('maxTTFB');
+    const ttfbRangeEl = document.getElementById('ttfbRange');
+    const ttfbStatEl = document.getElementById('ttfbStat');
+    const lastTotalEl = document.getElementById('lastTotal');
+    const avgTotalEl = document.getElementById('avgTotal');
+    
+    // Request stats
+    const totalRequestsEl = document.getElementById('totalRequests');
+    const successCountEl = document.getElementById('successCount');
+    const failCountEl = document.getElementById('failCount');
+
+    // ========================
+    // LocalStorage
+    // ========================
+    function loadConfig() {
+      const savedKey = localStorage.getItem('memoryrouter_apikey');
+      const savedModel = localStorage.getItem('memoryrouter_model');
+      
+      if (savedKey) apiKeyInput.value = savedKey;
+      if (savedModel) modelInput.value = savedModel;
+      else modelInput.value = 'openai/gpt-4o';
+    }
+
+    function saveConfig() {
+      localStorage.setItem('memoryrouter_apikey', apiKeyInput.value);
+      localStorage.setItem('memoryrouter_model', modelInput.value);
+    }
+
+    // ========================
+    // Latency Stats
+    // ========================
+    function updateLatencyStats(ttfb, total, success = true) {
+      if (ttfb !== null) {
+        state.ttfbTimes.push(ttfb);
+        state.totalTimes.push(total);
+        
+        // Last TTFB (hero metric)
+        lastTTFBEl.textContent = Math.round(ttfb);
+        
+        // Color code TTFB
+        ttfbStatEl.classList.remove('warning', 'error');
+        if (ttfb > 500) ttfbStatEl.classList.add('error');
+        else if (ttfb > 200) ttfbStatEl.classList.add('warning');
+        
+        // Average TTFB
+        const avgTTFB = state.ttfbTimes.reduce((a, b) => a + b, 0) / state.ttfbTimes.length;
+        avgTTFBEl.textContent = Math.round(avgTTFB);
+        
+        // Min/Max TTFB
+        const minTTFB = Math.min(...state.ttfbTimes);
+        const maxTTFB = Math.max(...state.ttfbTimes);
+        minTTFBEl.textContent = Math.round(minTTFB);
+        maxTTFBEl.textContent = Math.round(maxTTFB);
+        
+        // Range display
+        ttfbRangeEl.textContent = `Range: ${Math.round(minTTFB)}–${Math.round(maxTTFB)}ms`;
+        
+        // Total time
+        lastTotalEl.textContent = formatTime(total);
+        const avgTotal = state.totalTimes.reduce((a, b) => a + b, 0) / state.totalTimes.length;
+        avgTotalEl.textContent = formatTime(avgTotal);
+      }
+      
+      // Update counts
+      if (success) state.successCount++;
+      else state.failCount++;
+      
+      totalRequestsEl.textContent = state.successCount + state.failCount;
+      successCountEl.textContent = state.successCount;
+      failCountEl.textContent = state.failCount;
+    }
+
+    function formatTime(ms) {
+      if (ms < 1000) return Math.round(ms);
+      return (ms / 1000).toFixed(1) + 'k';
+    }
+
+    function formatTimeDisplay(ms) {
+      if (ms < 1000) return Math.round(ms) + 'ms';
+      return (ms / 1000).toFixed(2) + 's';
+    }
+
+    // ========================
+    // Context Management
+    // ========================
+    function getContextMessages() {
+      return state.messages.slice(-3).map(m => ({
+        role: m.role,
+        content: m.content
+      }));
+    }
+
+    function updateContextInfo() {
+      const count = Math.min(state.messages.length, 3);
+      if (count > 0) {
+        contextInfo.style.display = 'block';
+        contextCount.textContent = count;
+      } else {
+        contextInfo.style.display = 'none';
+      }
+    }
+
+    // ========================
+    // Chat UI
+    // ========================
+    function addUserMessage(content) {
+      if (emptyState) emptyState.style.display = 'none';
+      
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'message user';
+      messageDiv.innerHTML = `
+        <div class="message-header">
+          <span class="message-role">You</span>
+        </div>
+        <div class="message-content">${escapeHtml(content)}</div>
+      `;
+      
+      messagesContainer.appendChild(messageDiv);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      
+      state.messages.push({ role: 'user', content });
+      updateContextInfo();
+    }
+
+    function createAssistantMessage() {
+      if (emptyState) emptyState.style.display = 'none';
+      
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'message assistant';
+      messageDiv.innerHTML = `
+        <div class="message-header">
+          <span class="message-role">Assistant</span>
+          <div class="message-latency">
+            <span class="ttfb" id="currentTTFB">...</span>
+            <span class="total" id="currentTotal"></span>
+          </div>
+        </div>
+        <div class="message-content"><span class="streaming-indicator"></span></div>
+      `;
+      
+      messagesContainer.appendChild(messageDiv);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      
+      return messageDiv;
+    }
+
+    function updateAssistantMessage(messageDiv, content, ttfb = null, total = null, isError = false) {
+      const contentEl = messageDiv.querySelector('.message-content');
+      const ttfbEl = messageDiv.querySelector('#currentTTFB');
+      const totalEl = messageDiv.querySelector('#currentTotal');
+      
+      if (isError) {
+        messageDiv.classList.add('error');
+        contentEl.innerHTML = escapeHtml(content);
+      } else {
+        contentEl.innerHTML = escapeHtml(content) + '<span class="streaming-indicator"></span>';
+      }
+      
+      if (ttfb !== null) {
+        ttfbEl.textContent = `TTFB: ${Math.round(ttfb)}ms`;
+      }
+      
+      if (total !== null) {
+        totalEl.textContent = ` · Total: ${formatTimeDisplay(total)}`;
+      }
+      
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function finalizeAssistantMessage(messageDiv, content, ttfb, total) {
+      const contentEl = messageDiv.querySelector('.message-content');
+      const ttfbEl = messageDiv.querySelector('#currentTTFB');
+      const totalEl = messageDiv.querySelector('#currentTotal');
+      
+      contentEl.innerHTML = escapeHtml(content);
+      ttfbEl.textContent = `TTFB: ${Math.round(ttfb)}ms`;
+      totalEl.textContent = ` · Total: ${formatTimeDisplay(total)}`;
+      
+      state.messages.push({ role: 'assistant', content });
+      updateContextInfo();
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ========================
+    // Streaming API Call
+    // ========================
+    async function sendMessage() {
+      const apiKey = apiKeyInput.value.trim();
+      const model = modelInput.value.trim();
+      const userMessage = messageInput.value.trim();
+      
+      if (!apiKey) {
+        alert('Please enter your MemoryRouter API key');
+        apiKeyInput.focus();
+        return;
+      }
+      
+      if (!model) {
+        alert('Please enter a model (e.g., openai/gpt-4o)');
+        modelInput.focus();
+        return;
+      }
+      
+      if (!userMessage) return;
+      
+      saveConfig();
+      
+      messageInput.value = '';
+      messageInput.style.height = 'auto';
+      state.isLoading = true;
+      sendBtn.disabled = true;
+      
+      addUserMessage(userMessage);
+      
+      // Build context (last 3 messages BEFORE new message)
+      const contextMessages = getContextMessages();
+      const messages = [
+        ...contextMessages.slice(0, -1),
+        { role: 'user', content: userMessage }
+      ];
+      
+      const assistantDiv = createAssistantMessage();
+      
+      // Timing
+      const startTime = performance.now();
+      let ttfb = null;
+      let fullResponse = '';
+      
+      try {
+        const response = await fetch('https://api.memoryrouter.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: messages,
+            stream: true
+          })
+        });
+        
+        if (!response.ok) {
+          const endTime = performance.now();
+          const errorData = await response.json().catch(() => ({ error: { message: response.statusText } }));
+          const errorMsg = errorData.error?.message || errorData.error?.provider_error?.error?.message || 'Request failed';
+          updateAssistantMessage(assistantDiv, `Error: ${errorMsg}`, null, endTime - startTime, true);
+          updateLatencyStats(null, null, false);
+          return;
+        }
+        
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          
+          if (done) break;
+          
+          // Record TTFB on first chunk
+          if (ttfb === null) {
+            ttfb = performance.now() - startTime;
+            updateAssistantMessage(assistantDiv, '', ttfb);
+          }
+          
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ') && !line.includes('[DONE]')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                const content = data.choices?.[0]?.delta?.content;
+                const anthropicContent = data.delta?.text;
+                
+                if (content) fullResponse += content;
+                if (anthropicContent) fullResponse += anthropicContent;
+                
+                if (content || anthropicContent) {
+                  updateAssistantMessage(assistantDiv, fullResponse, ttfb);
+                }
+              } catch {
+                // Ignore parse errors
+              }
+            }
+          }
+        }
+        
+        const endTime = performance.now();
+        const totalTime = endTime - startTime;
+        
+        finalizeAssistantMessage(assistantDiv, fullResponse, ttfb, totalTime);
+        updateLatencyStats(ttfb, totalTime, true);
+        
+      } catch (error) {
+        const endTime = performance.now();
+        const totalTime = endTime - startTime;
+        
+        updateAssistantMessage(assistantDiv, `Network error: ${error.message}`, ttfb, totalTime, true);
+        updateLatencyStats(ttfb, totalTime, false);
+      } finally {
+        state.isLoading = false;
+        sendBtn.disabled = false;
+        messageInput.focus();
+      }
+    }
+
+    // ========================
+    // Event Listeners
+    // ========================
+    sendBtn.addEventListener('click', sendMessage);
+    
+    messageInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (!state.isLoading) sendMessage();
+      }
+    });
+    
+    messageInput.addEventListener('input', () => {
+      messageInput.style.height = 'auto';
+      messageInput.style.height = Math.min(messageInput.scrollHeight, 150) + 'px';
+    });
+    
+    apiKeyInput.addEventListener('change', saveConfig);
+    modelInput.addEventListener('change', saveConfig);
+
+    // ========================
+    // Init
+    // ========================
+    loadConfig();
+    messageInput.focus();
+  </script>
+</body>
+</html>
