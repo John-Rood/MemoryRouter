@@ -420,7 +420,14 @@ function getProviderKey(
 // ==================== Storage Functions ====================
 
 /**
- * Store conversation via Durable Objects
+ * Store conversation via Durable Objects with intelligent chunking.
+ * 
+ * FLOW:
+ * 1. Send each message to DO's /store-chunked endpoint
+ * 2. DO manages buffer, returns any complete 300-token chunks
+ * 3. Worker embeds each chunk and stores via /store
+ * 
+ * Chunks are ~300 tokens with 30 token overlap for context continuity.
  */
 async function storeConversationDO(
   doNamespace: DurableObjectNamespace,
@@ -436,23 +443,43 @@ async function storeConversationDO(
   const stub = resolveVaultForStore(doNamespace, memoryKey, sessionId);
   
   try {
-    // Store user messages
+    // Collect all content to process
+    const contentToProcess: Array<{ role: string; content: string }> = [];
+    
     if (options.storeInput) {
       for (const msg of messages) {
         if (msg.role === 'system') continue;
         if (msg.memory === false) continue;
-        
-        if (msg.role === 'user') {
-          const embedding = await generateEmbedding(msg.content, embeddingKey);
-          await storeToVault(stub, embedding, msg.content, 'user', model, requestId);
-        }
+        contentToProcess.push({ role: msg.role, content: msg.content });
       }
     }
     
-    // Store assistant response
     if (options.storeResponse && assistantResponse) {
-      const embedding = await generateEmbedding(assistantResponse, embeddingKey);
-      await storeToVault(stub, embedding, assistantResponse, 'assistant', model, requestId);
+      contentToProcess.push({ role: 'assistant', content: assistantResponse });
+    }
+    
+    // Process each piece of content through the chunking buffer
+    for (const item of contentToProcess) {
+      // Send to DO's chunking endpoint
+      const chunkResponse = await stub.fetch(new Request('https://do/store-chunked', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: item.content,
+          role: item.role,
+        }),
+      }));
+      
+      const chunkResult = await chunkResponse.json() as {
+        chunksToEmbed: string[];
+        bufferTokens: number;
+      };
+      
+      // Embed and store each complete chunk
+      for (const chunkContent of chunkResult.chunksToEmbed) {
+        const embedding = await generateEmbedding(chunkContent, embeddingKey);
+        await storeToVault(stub, embedding, chunkContent, 'chunk', model, requestId);
+      }
     }
   } catch (error) {
     console.error('Failed to store conversation (DO):', error);

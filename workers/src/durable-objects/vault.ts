@@ -65,6 +65,13 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
         value TEXT NOT NULL
       );
       
+      CREATE TABLE IF NOT EXISTS pending_buffer (
+        id INTEGER PRIMARY KEY DEFAULT 1,
+        content TEXT NOT NULL DEFAULT '',
+        token_count INTEGER NOT NULL DEFAULT 0,
+        last_updated REAL NOT NULL DEFAULT 0
+      );
+      
       CREATE INDEX IF NOT EXISTS idx_vectors_timestamp 
         ON vectors(timestamp);
       CREATE INDEX IF NOT EXISTS idx_items_timestamp 
@@ -173,6 +180,10 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
           return await this.handleSearch(request);
         case '/store':
           return await this.handleStore(request);
+        case '/store-chunked':
+          return await this.handleStoreChunked(request);
+        case '/buffer':
+          return await this.handleBuffer(request);
         case '/delete':
           return await this.handleDelete(request);
         case '/stats':
@@ -359,6 +370,154 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
       tokenCount,
       totalVectors: this.vaultState!.vectorCount,
     });
+  }
+
+  // ==================== Chunked Storage ====================
+
+  /**
+   * Process content through chunking buffer.
+   * Returns any complete chunks that need to be embedded and stored.
+   * 
+   * FLOW:
+   * 1. Worker calls /process-chunk with new content
+   * 2. DO adds to buffer, extracts complete 300-token chunks
+   * 3. DO returns chunks that need embedding
+   * 4. Worker embeds each chunk and calls /store
+   * 
+   * REQUEST:  { content: string, role: string }
+   * RESPONSE: { chunksToEmbed: string[], bufferTokens: number }
+   */
+  private async handleStoreChunked(request: Request): Promise<Response> {
+    this.loadVectorsIntoMemory();
+
+    const body = await request.json() as {
+      content: string;
+      role: string;
+    };
+
+    const TARGET_TOKENS = 300;
+    const OVERLAP_TOKENS = 30;
+    const CHARS_PER_TOKEN = 4;
+
+    const estimateTokens = (text: string) => Math.ceil(text.length / CHARS_PER_TOKEN);
+    const tokensToChars = (tokens: number) => tokens * CHARS_PER_TOKEN;
+
+    // Format content with role and timestamp
+    const now = Date.now();
+    const formattedContent = `[${body.role.toUpperCase()}] ${body.content}`;
+
+    // Get current pending buffer
+    const bufferRows = this.ctx.storage.sql.exec(
+      `SELECT content, token_count FROM pending_buffer WHERE id = 1`
+    ).toArray();
+
+    let currentBuffer = '';
+    if (bufferRows.length > 0) {
+      currentBuffer = bufferRows[0].content as string;
+    }
+
+    // Combine buffer with new content
+    let combined = currentBuffer 
+      ? `${currentBuffer}\n\n${formattedContent}`
+      : formattedContent;
+
+    let combinedTokens = estimateTokens(combined);
+    const chunksToEmbed: string[] = [];
+
+    // Extract full chunks (300+ tokens)
+    while (combinedTokens >= TARGET_TOKENS) {
+      const targetChars = tokensToChars(TARGET_TOKENS);
+      
+      // Find split point (prefer sentence boundary)
+      let splitPoint = targetChars;
+      const searchStart = Math.floor(targetChars * 0.8);
+      const searchEnd = Math.min(Math.ceil(targetChars * 1.1), combined.length);
+      const searchRegion = combined.slice(searchStart, searchEnd);
+      
+      const sentenceMatch = searchRegion.match(/[.!?]\s/);
+      if (sentenceMatch && sentenceMatch.index !== undefined) {
+        splitPoint = searchStart + sentenceMatch.index + 1;
+      } else {
+        const spaceIndex = combined.lastIndexOf(' ', targetChars);
+        if (spaceIndex > targetChars * 0.7) {
+          splitPoint = spaceIndex;
+        }
+      }
+
+      const chunk = combined.slice(0, splitPoint).trim();
+      const remainder = combined.slice(splitPoint).trim();
+      
+      if (chunk) {
+        chunksToEmbed.push(chunk);
+      }
+
+      if (!remainder) {
+        combined = '';
+        break;
+      }
+
+      // Keep overlap from end of chunk
+      const overlapChars = tokensToChars(OVERLAP_TOKENS);
+      const overlap = chunk.slice(-overlapChars);
+      combined = overlap ? `${overlap} ${remainder}` : remainder;
+      combinedTokens = estimateTokens(combined);
+    }
+
+    // Update pending buffer
+    const newBufferTokens = estimateTokens(combined);
+    if (bufferRows.length > 0) {
+      this.ctx.storage.sql.exec(
+        `UPDATE pending_buffer SET content = ?, token_count = ?, last_updated = ? WHERE id = 1`,
+        combined, newBufferTokens, now
+      );
+    } else {
+      this.ctx.storage.sql.exec(
+        `INSERT INTO pending_buffer (id, content, token_count, last_updated) VALUES (1, ?, ?, ?)`,
+        combined, newBufferTokens, now
+      );
+    }
+
+    return Response.json({
+      chunksToEmbed,
+      bufferTokens: newBufferTokens,
+      bufferContent: combined,
+    });
+  }
+
+  /**
+   * Get or update the pending buffer.
+   * 
+   * GET:  Returns current buffer state
+   * POST: { action: 'flush' } - Forces buffer to be stored even if < 300 tokens
+   */
+  private async handleBuffer(request: Request): Promise<Response> {
+    this.loadVectorsIntoMemory();
+
+    if (request.method === 'GET') {
+      const rows = this.ctx.storage.sql.exec(
+        `SELECT content, token_count, last_updated FROM pending_buffer WHERE id = 1`
+      ).toArray();
+
+      if (rows.length === 0) {
+        return Response.json({ content: '', tokenCount: 0, lastUpdated: null });
+      }
+
+      return Response.json({
+        content: rows[0].content,
+        tokenCount: rows[0].token_count,
+        lastUpdated: rows[0].last_updated,
+      });
+    }
+
+    // POST - handle actions like flush
+    const body = await request.json() as { action: string };
+    
+    if (body.action === 'clear') {
+      this.ctx.storage.sql.exec(`DELETE FROM pending_buffer WHERE id = 1`);
+      return Response.json({ cleared: true });
+    }
+
+    return Response.json({ error: 'Unknown action' }, { status: 400 });
   }
 
   // ==================== Delete ====================
