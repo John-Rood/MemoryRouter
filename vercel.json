@@ -2,8 +2,16 @@
   "buildCommand": null,
   "outputDirectory": ".",
   "framework": null,
-  "routes": [
-    { "src": "/test", "dest": "/test.html" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "headers": [
+    {
+      "source": "/test(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    }
+  ],
+  "rewrites": [
+    { "source": "/test", "destination": "/test.html" },
+    { "source": "/((?!test\\.html).*)", "destination": "/index.html" }
   ]
 }
