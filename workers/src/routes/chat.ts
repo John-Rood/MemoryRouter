@@ -362,6 +362,9 @@ export function createChatRouter() {
     const providerTime = Date.now() - providerStartTime;
     const totalTime = Date.now() - startTime;
     
+    // Check for debug mode
+    const debugMode = c.req.header('X-Debug') === 'true' || c.req.query('debug') === 'true';
+    
     // Add memory metadata to response
     const enrichedResponse = {
       ...(responseBody as object),
@@ -372,6 +375,7 @@ export function createChatRouter() {
         tokens_retrieved: retrieval?.tokenCount ?? 0,
         chunks_retrieved: retrieval?.chunks.length ?? 0,
         window_breakdown: retrieval?.windowBreakdown ?? { hot: 0, working: 0, longterm: 0 },
+        chunks: debugMode ? (retrieval?.chunks ?? []) : undefined,
         latency_ms: totalTime,
       },
       _latency: {
@@ -379,6 +383,13 @@ export function createChatRouter() {
         provider_ms: providerTime,
         total_ms: totalTime,
       },
+      // Debug mode: include full augmented prompt
+      _debug: debugMode ? {
+        original_messages: body.messages,
+        augmented_messages: augmentedMessages,
+        model: body.model,
+        provider: provider,
+      } : undefined,
     };
     
     return c.json(enrichedResponse);

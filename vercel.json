@@ -4,7 +4,7 @@
   "framework": null,
   "headers": [
     {
-      "source": "/test(.*)",
+      "source": "/(test|debug)(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
       ]
@@ -12,6 +12,7 @@
   ],
   "rewrites": [
     { "source": "/test", "destination": "/test.html" },
-    { "source": "/((?!test\\.html).*)", "destination": "/index.html" }
+    { "source": "/debug", "destination": "/debug.html" },
+    { "source": "/((?!test\\.html|debug\\.html).*)", "destination": "/index.html" }
   ]
 }

@@ -153,6 +153,11 @@
       cursor: pointer;
       transition: all 0.2s;
       white-space: nowrap;
+      align-self: flex-end;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     
     #benchmarkBtn:hover {
@@ -163,6 +168,17 @@
     #benchmarkBtn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+    
+    @media (max-width: 600px) {
+      .config {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      #benchmarkBtn {
+        width: 100%;
+        margin-top: 8px;
+      }
     }
     
     /* HERO: Latency Stats Panel */

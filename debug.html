@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MemoryRouter Debug Console</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    :root {
+      --bg: #0a0a0f;
+      --bg-secondary: #13131a;
+      --bg-tertiary: #1a1a24;
+      --text: #e4e4e7;
+      --text-muted: #71717a;
+      --accent: #22c55e;
+      --accent-dim: rgba(34, 197, 94, 0.15);
+      --border: #27272a;
+      --error: #ef4444;
+      --warning: #f59e0b;
+      --blue: #3b82f6;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    
+    .container {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      height: 100vh;
+    }
+    
+    /* Sidebar */
+    .sidebar {
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .sidebar-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .sidebar-header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    
+    .sidebar-header h1 span { color: var(--accent); }
+    
+    .sidebar-header .subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    .config-section {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .config-section label {
+      display: block;
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    
+    .config-section input {
+      width: 100%;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+    }
+    
+    .config-section input:focus { border-color: var(--accent); }
+    
+    .chat-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+    }
+    
+    .chat-item {
+      padding: 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 4px;
+      transition: background 0.2s;
+    }
+    
+    .chat-item:hover { background: var(--bg-tertiary); }
+    .chat-item.active { background: var(--accent-dim); border: 1px solid var(--accent); }
+    
+    .chat-item .chat-name {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    
+    .chat-item .chat-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    
+    .new-chat-btn {
+      margin: 12px;
+      padding: 12px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    .new-chat-btn:hover { opacity: 0.9; }
+    
+    /* Main Content */
+    .main {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .chat-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .chat-header h2 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    
+    .chat-header .session-id {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+    
+    .messages-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+    
+    .message {
+      margin-bottom: 24px;
+    }
+    
+    .message-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    
+    .message-role {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    
+    .message.user .message-role {
+      background: var(--blue);
+      color: white;
+    }
+    
+    .message.assistant .message-role {
+      background: var(--accent);
+      color: var(--bg);
+    }
+    
+    .message-latency {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+    
+    .message-content {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+    
+    /* Debug Panel */
+    .debug-panel {
+      margin-top: 12px;
+    }
+    
+    .debug-toggle {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      color: var(--text-muted);
+      font-size: 12px;
+      cursor: pointer;
+      width: 100%;
+      text-align: left;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .debug-toggle:hover { border-color: var(--accent); color: var(--text); }
+    
+    .debug-toggle .arrow {
+      transition: transform 0.2s;
+    }
+    
+    .debug-toggle.open .arrow {
+      transform: rotate(180deg);
+    }
+    
+    .debug-content {
+      display: none;
+      margin-top: 8px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    
+    .debug-content.open { display: block; }
+    
+    .debug-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .debug-tab {
+      padding: 10px 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+    
+    .debug-tab:hover { color: var(--text); }
+    .debug-tab.active { color: var(--accent); border-color: var(--accent); }
+    
+    .debug-tab-content {
+      display: none;
+      padding: 16px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .debug-tab-content.active { display: block; }
+    
+    .debug-tab-content pre {
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    
+    /* Memory Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    
+    .stat-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    
+    .stat-card .label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    
+    .stat-card .value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    
+    .stat-card .unit {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    /* KRONOS breakdown */
+    .kronos-bar {
+      display: flex;
+      height: 24px;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    
+    .kronos-bar .segment {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      color: white;
+    }
+    
+    .kronos-bar .hot { background: #ef4444; }
+    .kronos-bar .working { background: #f59e0b; }
+    .kronos-bar .longterm { background: #3b82f6; }
+    
+    .kronos-legend {
+      display: flex;
+      gap: 16px;
+      margin-top: 8px;
+      font-size: 11px;
+    }
+    
+    .kronos-legend span::before {
+      content: '';
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      margin-right: 4px;
+    }
+    
+    .kronos-legend .hot::before { background: #ef4444; }
+    .kronos-legend .working::before { background: #f59e0b; }
+    .kronos-legend .longterm::before { background: #3b82f6; }
+    
+    /* Input Area */
+    .input-area {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+    }
+    
+    .input-area textarea {
+      flex: 1;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-size: 14px;
+      resize: none;
+      outline: none;
+      font-family: inherit;
+    }
+    
+    .input-area textarea:focus { border-color: var(--accent); }
+    
+    .input-area button {
+      padding: 12px 24px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    .input-area button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    /* Mobile */
+    @media (max-width: 768px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+      .sidebar {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1>Memory<span>Router</span></h1>
+        <div class="subtitle">🔧 Debug Console</div>
+      </div>
+      
+      <div class="config-section">
+        <label>API Key</label>
+        <input type="password" id="apiKey" placeholder="mk_xxxxxxxx">
+      </div>
+      
+      <div class="config-section">
+        <label>Model</label>
+        <input type="text" id="model" value="openai/gpt-4o">
+      </div>
+      
+      <div class="chat-list" id="chatList">
+        <!-- Chats will be added here -->
+      </div>
+      
+      <button class="new-chat-btn" id="newChatBtn">+ New Chat</button>
+    </aside>
+    
+    <main class="main">
+      <header class="chat-header">
+        <div>
+          <h2 id="chatTitle">New Chat</h2>
+          <div class="session-id" id="sessionId">session: —</div>
+        </div>
+      </header>
+      
+      <div class="messages-container" id="messagesContainer">
+        <div style="text-align: center; color: var(--text-muted); padding: 40px;">
+          Start a conversation to test memory injection
+        </div>
+      </div>
+      
+      <div class="input-area">
+        <textarea id="messageInput" placeholder="Type a message..." rows="2"></textarea>
+        <button id="sendBtn">Send</button>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // State
+    const state = {
+      chats: {},  // chatId -> { name, sessionId, messages: [{role, content, debug}] }
+      activeChatId: null,
+      isLoading: false,
+    };
+    
+    // DOM Elements
+    const apiKeyInput = document.getElementById('apiKey');
+    const modelInput = document.getElementById('model');
+    const chatList = document.getElementById('chatList');
+    const chatTitle = document.getElementById('chatTitle');
+    const sessionIdEl = document.getElementById('sessionId');
+    const messagesContainer = document.getElementById('messagesContainer');
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const newChatBtn = document.getElementById('newChatBtn');
+    
+    // Load config from localStorage
+    function loadConfig() {
+      const savedKey = localStorage.getItem('mr_debug_apikey');
+      const savedModel = localStorage.getItem('mr_debug_model');
+      const savedChats = localStorage.getItem('mr_debug_chats');
+      
+      if (savedKey) apiKeyInput.value = savedKey;
+      if (savedModel) modelInput.value = savedModel;
+      if (savedChats) {
+        try {
+          state.chats = JSON.parse(savedChats);
+          renderChatList();
+        } catch (e) {}
+      }
+    }
+    
+    function saveConfig() {
+      localStorage.setItem('mr_debug_apikey', apiKeyInput.value);
+      localStorage.setItem('mr_debug_model', modelInput.value);
+      localStorage.setItem('mr_debug_chats', JSON.stringify(state.chats));
+    }
+    
+    // Generate UUID
+    function uuid() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+      });
+    }
+    
+    // Create new chat
+    function createChat() {
+      const chatId = uuid();
+      const sessionId = uuid();
+      state.chats[chatId] = {
+        name: `Chat ${Object.keys(state.chats).length + 1}`,
+        sessionId,
+        messages: [],
+        createdAt: Date.now(),
+      };
+      state.activeChatId = chatId;
+      saveConfig();
+      renderChatList();
+      renderChat();
+    }
+    
+    // Switch chat
+    function switchChat(chatId) {
+      state.activeChatId = chatId;
+      renderChatList();
+      renderChat();
+    }
+    
+    // Render chat list
+    function renderChatList() {
+      const sortedChats = Object.entries(state.chats)
+        .sort((a, b) => b[1].createdAt - a[1].createdAt);
+      
+      chatList.innerHTML = sortedChats.map(([id, chat]) => `
+        <div class="chat-item ${id === state.activeChatId ? 'active' : ''}" data-id="${id}">
+          <div class="chat-name">${chat.name}</div>
+          <div class="chat-meta">${chat.messages.length} messages</div>
+        </div>
+      `).join('');
+      
+      // Add click handlers
+      chatList.querySelectorAll('.chat-item').forEach(item => {
+        item.addEventListener('click', () => switchChat(item.dataset.id));
+      });
+    }
+    
+    // Render current chat
+    function renderChat() {
+      if (!state.activeChatId || !state.chats[state.activeChatId]) {
+        messagesContainer.innerHTML = `
+          <div style="text-align: center; color: var(--text-muted); padding: 40px;">
+            Create a new chat to start testing
+          </div>
+        `;
+        chatTitle.textContent = 'No Chat Selected';
+        sessionIdEl.textContent = 'session: —';
+        return;
+      }
+      
+      const chat = state.chats[state.activeChatId];
+      chatTitle.textContent = chat.name;
+      sessionIdEl.textContent = `session: ${chat.sessionId}`;
+      
+      if (chat.messages.length === 0) {
+        messagesContainer.innerHTML = `
+          <div style="text-align: center; color: var(--text-muted); padding: 40px;">
+            Start a conversation to test memory injection
+          </div>
+        `;
+        return;
+      }
+      
+      messagesContainer.innerHTML = chat.messages.map((msg, idx) => renderMessage(msg, idx)).join('');
+      
+      // Add debug toggle handlers
+      messagesContainer.querySelectorAll('.debug-toggle').forEach(toggle => {
+        toggle.addEventListener('click', () => {
+          toggle.classList.toggle('open');
+          toggle.nextElementSibling.classList.toggle('open');
+        });
+      });
+      
+      // Add tab handlers
+      messagesContainer.querySelectorAll('.debug-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          const panel = tab.closest('.debug-content');
+          panel.querySelectorAll('.debug-tab').forEach(t => t.classList.remove('active'));
+          panel.querySelectorAll('.debug-tab-content').forEach(c => c.classList.remove('active'));
+          tab.classList.add('active');
+          panel.querySelector(`.debug-tab-content[data-tab="${tab.dataset.tab}"]`).classList.add('active');
+        });
+      });
+      
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    // Render single message
+    function renderMessage(msg, idx) {
+      const debugHtml = msg.debug ? renderDebugPanel(msg.debug, idx) : '';
+      const latencyHtml = msg.latency ? `
+        <span class="message-latency">
+          MR: ${msg.latency.mr_processing_ms}ms · Provider: ${msg.latency.provider_ms}ms · Total: ${msg.latency.total_ms}ms
+        </span>
+      ` : '';
+      
+      return `
+        <div class="message ${msg.role}">
+          <div class="message-header">
+            <span class="message-role">${msg.role}</span>
+            ${latencyHtml}
+          </div>
+          <div class="message-content">${escapeHtml(msg.content)}</div>
+          ${debugHtml}
+        </div>
+      `;
+    }
+    
+    // Render debug panel
+    function renderDebugPanel(debug, idx) {
+      const memory = debug.memory || {};
+      const windowBreakdown = memory.window_breakdown || { hot: 0, working: 0, longterm: 0 };
+      const totalChunks = windowBreakdown.hot + windowBreakdown.working + windowBreakdown.longterm;
+      
+      // KRONOS bar percentages
+      const hotPct = totalChunks ? (windowBreakdown.hot / totalChunks * 100) : 0;
+      const workingPct = totalChunks ? (windowBreakdown.working / totalChunks * 100) : 0;
+      const longtermPct = totalChunks ? (windowBreakdown.longterm / totalChunks * 100) : 0;
+      
+      return `
+        <div class="debug-panel">
+          <button class="debug-toggle">
+            <span>🔍 Debug Info</span>
+            <span class="arrow">▼</span>
+          </button>
+          <div class="debug-content">
+            <div class="debug-tabs">
+              <div class="debug-tab active" data-tab="stats">Memory Stats</div>
+              <div class="debug-tab" data-tab="prompt">Full Prompt</div>
+              <div class="debug-tab" data-tab="chunks">Retrieved Chunks</div>
+            </div>
+            
+            <div class="debug-tab-content active" data-tab="stats">
+              <div class="stats-grid">
+                <div class="stat-card">
+                  <div class="label">Tokens Retrieved</div>
+                  <div class="value">${memory.tokens_retrieved || 0}</div>
+                </div>
+                <div class="stat-card">
+                  <div class="label">Chunks</div>
+                  <div class="value">${memory.chunks_retrieved || 0}</div>
+                </div>
+                <div class="stat-card">
+                  <div class="label">MR Latency</div>
+                  <div class="value">${debug.latency?.mr_processing_ms || 0}<span class="unit">ms</span></div>
+                </div>
+                <div class="stat-card">
+                  <div class="label">Provider</div>
+                  <div class="value">${debug.latency?.provider_ms || 0}<span class="unit">ms</span></div>
+                </div>
+              </div>
+              
+              <div class="label" style="margin-bottom: 8px;">KRONOS Time Windows</div>
+              ${totalChunks > 0 ? `
+                <div class="kronos-bar">
+                  ${hotPct > 0 ? `<div class="segment hot" style="width: ${hotPct}%">${windowBreakdown.hot}</div>` : ''}
+                  ${workingPct > 0 ? `<div class="segment working" style="width: ${workingPct}%">${windowBreakdown.working}</div>` : ''}
+                  ${longtermPct > 0 ? `<div class="segment longterm" style="width: ${longtermPct}%">${windowBreakdown.longterm}</div>` : ''}
+                </div>
+                <div class="kronos-legend">
+                  <span class="hot">Hot (${windowBreakdown.hot})</span>
+                  <span class="working">Working (${windowBreakdown.working})</span>
+                  <span class="longterm">Long-term (${windowBreakdown.longterm})</span>
+                </div>
+              ` : '<div style="color: var(--text-muted); font-size: 12px;">No memory retrieved yet</div>'}
+            </div>
+            
+            <div class="debug-tab-content" data-tab="prompt">
+              <pre>${escapeHtml(JSON.stringify(debug.augmented_messages || [], null, 2))}</pre>
+            </div>
+            
+            <div class="debug-tab-content" data-tab="chunks">
+              <pre>${escapeHtml(JSON.stringify(memory.chunks || [], null, 2))}</pre>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Escape HTML
+    function escapeHtml(text) {
+      if (typeof text !== 'string') text = String(text);
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    // Send message
+    async function sendMessage() {
+      const apiKey = apiKeyInput.value.trim();
+      const model = modelInput.value.trim();
+      const userMessage = messageInput.value.trim();
+      
+      if (!apiKey) { alert('Please enter API key'); return; }
+      if (!model) { alert('Please enter model'); return; }
+      if (!userMessage) return;
+      if (!state.activeChatId) { createChat(); }
+      
+      const chat = state.chats[state.activeChatId];
+      
+      // Add user message
+      chat.messages.push({ role: 'user', content: userMessage });
+      renderChat();
+      
+      messageInput.value = '';
+      state.isLoading = true;
+      sendBtn.disabled = true;
+      
+      saveConfig();
+      
+      // Build messages array for API
+      const apiMessages = chat.messages.map(m => ({ role: m.role, content: m.content }));
+      
+      try {
+        const response = await fetch('https://api.memoryrouter.ai/v1/chat/completions?debug=true', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'X-Session-ID': chat.sessionId,
+          },
+          body: JSON.stringify({
+            model,
+            messages: apiMessages,
+            stream: false,  // Non-streaming for debug
+          }),
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          chat.messages.push({
+            role: 'assistant',
+            content: `Error: ${data.error || 'Request failed'}`,
+          });
+        } else {
+          const assistantContent = data.choices?.[0]?.message?.content || 'No response';
+          chat.messages.push({
+            role: 'assistant',
+            content: assistantContent,
+            latency: data._latency,
+            debug: {
+              memory: data._memory,
+              latency: data._latency,
+              augmented_messages: data._debug?.augmented_messages,
+              original_messages: data._debug?.original_messages,
+            },
+          });
+        }
+      } catch (error) {
+        chat.messages.push({
+          role: 'assistant',
+          content: `Network error: ${error.message}`,
+        });
+      } finally {
+        state.isLoading = false;
+        sendBtn.disabled = false;
+        saveConfig();
+        renderChat();
+        messageInput.focus();
+      }
+    }
+    
+    // Event listeners
+    newChatBtn.addEventListener('click', createChat);
+    sendBtn.addEventListener('click', sendMessage);
+    messageInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (!state.isLoading) sendMessage();
+      }
+    });
+    apiKeyInput.addEventListener('change', saveConfig);
+    modelInput.addEventListener('change', saveConfig);
+    
+    // Init
+    loadConfig();
+    if (Object.keys(state.chats).length === 0) {
+      createChat();
+    } else {
+      state.activeChatId = Object.keys(state.chats)[0];
+      renderChatList();
+      renderChat();
+    }
+  </script>
+</body>
+</html>
