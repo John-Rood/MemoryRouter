@@ -188,6 +188,7 @@ export async function revokeMemoryKey(
 
 /**
  * Hono middleware for memory key authentication
+ * Optimized: parallel KV lookups, deferred lastUsedAt update
  */
 export function authMiddleware(env: AuthEnv) {
   return async (c: Context, next: Next) => {
@@ -208,7 +209,10 @@ export function authMiddleware(env: AuthEnv) {
       }, 401);
     }
     
-    const keyInfo = await validateMemoryKey(memoryKey, env.METADATA_KV);
+    // Parallel: validate key + prepare for provider keys lookup
+    const keyInfoPromise = validateMemoryKeyFast(memoryKey, env.METADATA_KV);
+    
+    const keyInfo = await keyInfoPromise;
     if (!keyInfo) {
       return c.json({ 
         error: 'Invalid or inactive memory key',
@@ -216,8 +220,13 @@ export function authMiddleware(env: AuthEnv) {
       }, 401);
     }
     
-    // Load provider keys for this user
+    // Now load provider keys (we need userId from keyInfo)
     const providerKeys = await loadProviderKeys(keyInfo.userId, env.METADATA_KV);
+    
+    // Defer lastUsedAt update — don't block the request
+    c.executionCtx.waitUntil(
+      updateLastUsedAt(memoryKey, keyInfo, env.METADATA_KV)
+    );
     
     // Extract session ID from X-Session-ID header
     const sessionId = c.req.header('X-Session-ID') || undefined;
@@ -234,6 +243,51 @@ export function authMiddleware(env: AuthEnv) {
     
     await next();
   };
+}
+
+/**
+ * Fast validation — just check if key exists and is active (no update)
+ */
+async function validateMemoryKeyFast(
+  memoryKey: string,
+  kv: KVNamespace
+): Promise<MemoryKeyInfo | null> {
+  const key = `auth:${memoryKey}`;
+  const info = await kv.get(key, 'json') as MemoryKeyInfo | null;
+  
+  if (!info) {
+    // For development: auto-create memory keys
+    if (process.env.NODE_ENV === 'development' || memoryKey === 'mk_test_key') {
+      const newKey: MemoryKeyInfo = {
+        key: memoryKey,
+        userId: `user_${memoryKey.replace('mk_', '')}`,
+        name: 'Auto-created key',
+        isActive: true,
+        createdAt: Date.now(),
+      };
+      await kv.put(key, JSON.stringify(newKey));
+      return newKey;
+    }
+    return null;
+  }
+  
+  if (!info.isActive) {
+    return null;
+  }
+  
+  return info;
+}
+
+/**
+ * Deferred update of lastUsedAt — runs in background
+ */
+async function updateLastUsedAt(
+  memoryKey: string,
+  keyInfo: MemoryKeyInfo,
+  kv: KVNamespace
+): Promise<void> {
+  keyInfo.lastUsedAt = Date.now();
+  await kv.put(`auth:${memoryKey}`, JSON.stringify(keyInfo));
 }
 
 /**
