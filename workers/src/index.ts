@@ -14,6 +14,9 @@ import { StorageManager } from './services/storage';
 // Re-export VaultDurableObject for Cloudflare DO binding
 export { VaultDurableObject } from './durable-objects/vault';
 
+// Import queue handler
+import { handleStorageQueue, StorageJob, QueueEnv } from './queues/storage-consumer';
+
 // Environment bindings
 interface Env extends ChatEnv {
   ENVIRONMENT: string;
@@ -26,6 +29,8 @@ interface Env extends ChatEnv {
   VAULT_DO: DurableObjectNamespace;
   USE_DURABLE_OBJECTS: string;
   MAX_IN_MEMORY_VECTORS: string;
+  // Queues
+  STORAGE_QUEUE: Queue<StorageJob>;
 }
 
 // Variables available in context
@@ -249,4 +254,11 @@ app.onError((err, c) => {
 });
 
 // Export for Cloudflare Workers
-export default app;
+export default {
+  fetch: app.fetch,
+  
+  // Queue consumer for decoupled storage
+  async queue(batch: MessageBatch<StorageJob>, env: QueueEnv): Promise<void> {
+    await handleStorageQueue(batch, env);
+  },
+};

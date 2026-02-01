@@ -36,6 +36,19 @@ import { resolveVaultsForQuery, resolveVaultForStore } from '../services/do-rout
 import { buildSearchPlan, executeSearchPlan, storeToVault } from '../services/kronos-do';
 import type { MemoryRetrievalResult as DOMemoryRetrievalResult } from '../types/do';
 
+// Storage job type for queue
+export interface StorageJob {
+  type: 'store-conversation';
+  memoryKey: string;
+  sessionId?: string;
+  model: string;
+  embeddingKey: string;
+  content: Array<{
+    role: 'user' | 'assistant';
+    content: string;
+  }>;
+}
+
 export interface ChatEnv extends StorageBindings {
   METADATA_KV: KVNamespace;
   OPENAI_API_KEY?: string;
@@ -46,6 +59,8 @@ export interface ChatEnv extends StorageBindings {
   HOT_WINDOW_HOURS?: string;
   WORKING_WINDOW_DAYS?: string;
   LONGTERM_WINDOW_DAYS?: string;
+  // Storage queue (decoupled from inference)
+  STORAGE_QUEUE?: Queue<StorageJob>;
 }
 
 /**
@@ -280,9 +295,39 @@ export function createChatRouter() {
           reader.releaseLock();
         }
         
-        // Store conversation in background
+        // Queue storage job (completely decoupled from inference)
         if (memoryOptions.mode !== 'off' && memoryOptions.mode !== 'read' && embeddingKey) {
-          if (usesDO) {
+          const storageContent: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+          
+          // Get last user message
+          if (memoryOptions.storeInput) {
+            const lastUserMsg = [...body.messages]
+              .reverse()
+              .find(m => m.role === 'user' && m.memory !== false);
+            if (lastUserMsg) {
+              storageContent.push({ role: 'user', content: lastUserMsg.content });
+            }
+          }
+          
+          // Add assistant response
+          if (memoryOptions.storeResponse && fullResponse) {
+            storageContent.push({ role: 'assistant', content: fullResponse });
+          }
+          
+          if (storageContent.length > 0 && env.STORAGE_QUEUE) {
+            // Fire and forget to queue — zero latency impact
+            ctx.waitUntil(
+              env.STORAGE_QUEUE.send({
+                type: 'store-conversation',
+                memoryKey: userContext.memoryKey.key,
+                sessionId,
+                model: body.model,
+                embeddingKey,
+                content: storageContent,
+              })
+            );
+          } else if (storageContent.length > 0 && usesDO) {
+            // Fallback: inline storage if queue not available
             ctx.waitUntil(
               storeConversationDO(
                 env.VAULT_DO!,
@@ -295,24 +340,6 @@ export function createChatRouter() {
                 embeddingKey
               )
             );
-          } else {
-            const storage = new StorageManager({
-              VECTORS_KV: env.VECTORS_KV,
-              METADATA_KV: env.METADATA_KV,
-              VECTORS_R2: env.VECTORS_R2,
-            });
-            const kronos = new KronosMemoryManager(storage);
-            ctx.waitUntil(
-              storeConversationKV(
-                userContext.memoryKey.key,
-                body.messages,
-                fullResponse,
-                body.model,
-                memoryOptions,
-                kronos,
-                embeddingKey
-              )
-            );
           }
         }
       });
@@ -322,9 +349,39 @@ export function createChatRouter() {
     const responseBody = await providerResponse.json();
     const assistantResponse = extractResponseContent(provider, responseBody);
     
-    // Store conversation in background
+    // Queue storage job (completely decoupled from inference)
     if (memoryOptions.mode !== 'off' && memoryOptions.mode !== 'read' && embeddingKey) {
-      if (usesDO) {
+      const storageContent: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+      
+      // Get last user message
+      if (memoryOptions.storeInput) {
+        const lastUserMsg = [...body.messages]
+          .reverse()
+          .find(m => m.role === 'user' && m.memory !== false);
+        if (lastUserMsg) {
+          storageContent.push({ role: 'user', content: lastUserMsg.content });
+        }
+      }
+      
+      // Add assistant response
+      if (memoryOptions.storeResponse && assistantResponse) {
+        storageContent.push({ role: 'assistant', content: assistantResponse });
+      }
+      
+      if (storageContent.length > 0 && env.STORAGE_QUEUE) {
+        // Fire and forget to queue — zero latency impact
+        ctx.waitUntil(
+          env.STORAGE_QUEUE.send({
+            type: 'store-conversation',
+            memoryKey: userContext.memoryKey.key,
+            sessionId,
+            model: body.model,
+            embeddingKey,
+            content: storageContent,
+          })
+        );
+      } else if (storageContent.length > 0 && usesDO) {
+        // Fallback: inline storage if queue not available
         ctx.waitUntil(
           storeConversationDO(
             env.VAULT_DO!,
@@ -334,24 +391,6 @@ export function createChatRouter() {
             assistantResponse,
             body.model,
             memoryOptions,
-            embeddingKey
-          )
-        );
-      } else {
-        const storage = new StorageManager({
-          VECTORS_KV: env.VECTORS_KV,
-          METADATA_KV: env.METADATA_KV,
-          VECTORS_R2: env.VECTORS_R2,
-        });
-        const kronos = new KronosMemoryManager(storage);
-        ctx.waitUntil(
-          storeConversationKV(
-            userContext.memoryKey.key,
-            body.messages,
-            assistantResponse,
-            body.model,
-            memoryOptions,
-            kronos,
             embeddingKey
           )
         );
