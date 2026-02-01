@@ -67,6 +67,8 @@ export function createChatRouter() {
    */
   chat.post('/completions', async (c) => {
     const startTime = Date.now();
+    let mrProcessingTime = 0;  // Time for MR to process (auth + vectors + context injection)
+    let providerStartTime = 0; // When we send to AI provider
     const ctx = c.executionCtx;
     const env = c.env;
     
@@ -189,6 +191,10 @@ export function createChatRouter() {
       messages: augmentedMessages,
     };
     
+    // Mark end of MR processing, start of provider call
+    mrProcessingTime = Date.now() - startTime;
+    providerStartTime = Date.now();
+    
     // Forward to provider
     let providerResponse: Response;
     try {
@@ -220,11 +226,18 @@ export function createChatRouter() {
     
     // Handle streaming response
     if (body.stream) {
+      // Capture provider response time (time to establish connection/first headers)
+      const providerResponseTime = Date.now() - providerStartTime;
+      
       c.header('Content-Type', 'text/event-stream');
       c.header('Cache-Control', 'no-cache');
       c.header('Connection', 'keep-alive');
       c.header('X-Memory-Tokens-Retrieved', String(retrieval?.tokenCount ?? 0));
       c.header('X-Memory-Chunks-Retrieved', String(retrieval?.chunks.length ?? 0));
+      // Latency breakdown headers
+      c.header('X-MR-Processing-Ms', String(mrProcessingTime));
+      c.header('X-Provider-Response-Ms', String(providerResponseTime));
+      c.header('X-Total-Ms', String(Date.now() - startTime));
       if (sessionId) {
         c.header('X-Session-ID', sessionId);
       }
@@ -345,6 +358,10 @@ export function createChatRouter() {
       }
     }
     
+    // Calculate provider time for non-streaming
+    const providerTime = Date.now() - providerStartTime;
+    const totalTime = Date.now() - startTime;
+    
     // Add memory metadata to response
     const enrichedResponse = {
       ...(responseBody as object),
@@ -355,7 +372,12 @@ export function createChatRouter() {
         tokens_retrieved: retrieval?.tokenCount ?? 0,
         chunks_retrieved: retrieval?.chunks.length ?? 0,
         window_breakdown: retrieval?.windowBreakdown ?? { hot: 0, working: 0, longterm: 0 },
-        latency_ms: Date.now() - startTime,
+        latency_ms: totalTime,
+      },
+      _latency: {
+        mr_processing_ms: mrProcessingTime,
+        provider_ms: providerTime,
+        total_ms: totalTime,
       },
     };
     
