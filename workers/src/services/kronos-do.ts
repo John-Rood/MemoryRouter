@@ -13,7 +13,7 @@
  *   - Worker merges results from multiple DOs
  * 
  * EQUAL ALLOCATION:
- *   12 total → 4 HOT + 4 WORKING + 4 LONG-TERM
+ *   40 total → ~13 HOT + ~13 WORKING + ~13 LONG-TERM (equal allocation)
  *   With 2 vaults: each gets 2 HOT + 2 WORKING + 2 LONG-TERM
  */
 
@@ -40,7 +40,7 @@ import { DEFAULT_KRONOS_CONFIG } from '../types/do';
  */
 export function buildSearchPlan(
   vaults: VaultReference[],
-  totalLimit: number = 12,
+  totalLimit: number = 40,
   config: KronosConfig = DEFAULT_KRONOS_CONFIG
 ): KronosSearchPlan {
   const now = Date.now();
