@@ -44,6 +44,17 @@ id = "40652c48ae9141d9b3a8f797b39bb9f6"
 binding = "VECTORS_R2"
 bucket_name = "memory-router"
 
+# ========== Queues ==========
+# Storage queue: decouples embedding/storage from inference
+[[queues.producers]]
+queue = "memoryrouter-storage"
+binding = "STORAGE_QUEUE"
+
+[[queues.consumers]]
+queue = "memoryrouter-storage"
+max_batch_size = 10
+max_batch_timeout = 5
+
 # ========== Environment Variables ==========
 [vars]
 ENVIRONMENT = "development"
