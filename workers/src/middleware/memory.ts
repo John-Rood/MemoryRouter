@@ -327,7 +327,47 @@ export function injectContext(
 }
 
 /**
- * Format retrieval results into context string
+ * Format relative time (e.g., "3 hours ago")
+ * Makes temporal reasoning intuitive for the AI
+ */
+function formatRelativeTime(timestamp: number): string {
+  const delta = Date.now() - timestamp;
+  const minutes = Math.floor(delta / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  const weeks = Math.floor(days / 7);
+  const months = Math.floor(days / 30);
+  const years = Math.floor(days / 365);
+
+  if (years > 0) return `${years} year${years > 1 ? 's' : ''} ago`;
+  if (months > 0) return `${months} month${months > 1 ? 's' : ''} ago`;
+  if (weeks > 0) return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+  if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
+  if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  if (minutes > 0) return `${minutes} min ago`;
+  return 'just now';
+}
+
+/**
+ * Format timestamp with relative time first, absolute time in parentheses
+ * Example: "3 hours ago (Sun, Feb 1, 3:15 PM)"
+ */
+function formatTimestamp(timestamp: number): string {
+  const relative = formatRelativeTime(timestamp);
+  const date = new Date(timestamp);
+  const absolute = date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+  return `${relative} (${absolute})`;
+}
+
+/**
+ * Format retrieval results into context string with timestamps
  */
 export function formatRetrievalAsContext(retrieval: MemoryRetrievalResult): string {
   if (retrieval.chunks.length === 0) {
@@ -335,6 +375,9 @@ export function formatRetrievalAsContext(retrieval: MemoryRetrievalResult): stri
   }
   
   return retrieval.chunks
-    .map(chunk => `[${chunk.role.toUpperCase()}] ${chunk.content}`)
+    .map(chunk => {
+      const time = formatTimestamp(chunk.timestamp);
+      return `[${chunk.role.toUpperCase()}] (${time}) ${chunk.content}`;
+    })
     .join('\n\n');
 }
