@@ -443,14 +443,18 @@ async function storeConversationDO(
   const stub = resolveVaultForStore(doNamespace, memoryKey, sessionId);
   
   try {
-    // Collect all content to process
+    // Collect content to process — ONLY last user message + new assistant response
+    // (users send full history each request; we don't want to re-process old messages)
     const contentToProcess: Array<{ role: string; content: string }> = [];
     
     if (options.storeInput) {
-      for (const msg of messages) {
-        if (msg.role === 'system') continue;
-        if (msg.memory === false) continue;
-        contentToProcess.push({ role: msg.role, content: msg.content });
+      // Find the last user message only
+      const lastUserMsg = [...messages]
+        .reverse()
+        .find(m => m.role === 'user' && m.memory !== false);
+      
+      if (lastUserMsg) {
+        contentToProcess.push({ role: 'user', content: lastUserMsg.content });
       }
     }
     
@@ -501,22 +505,22 @@ async function storeConversationKV(
   const requestId = crypto.randomUUID();
   
   try {
+    // ONLY store last user message (not full history — users send all messages each request)
     if (options.storeInput) {
-      for (const msg of messages) {
-        if (msg.role === 'system') continue;
-        if (msg.memory === false) continue;
-        
-        if (msg.role === 'user') {
-          const embedding = await generateEmbedding(msg.content, embeddingKey);
-          await kronos.store(
-            memoryKey,
-            embedding,
-            msg.content,
-            'user',
-            model,
-            requestId
-          );
-        }
+      const lastUserMsg = [...messages]
+        .reverse()
+        .find(m => m.role === 'user' && m.memory !== false);
+      
+      if (lastUserMsg) {
+        const embedding = await generateEmbedding(lastUserMsg.content, embeddingKey);
+        await kronos.store(
+          memoryKey,
+          embedding,
+          lastUserMsg.content,
+          'user',
+          model,
+          requestId
+        );
       }
     }
     

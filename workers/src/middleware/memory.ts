@@ -271,24 +271,43 @@ export interface ChatMessage {
 }
 
 /**
- * Extract query from messages for embedding
+ * Extract query from messages for embedding.
+ * 
+ * Uses last user message + recent conversation history (up to TARGET_TOKENS)
+ * for better semantic context. Without history, queries like "tell me more"
+ * or "yes" have no semantic meaning on their own.
  */
-export function extractQuery(messages: ChatMessage[]): string {
-  // Find last user message
-  const userMessages = messages.filter(m => m.role === 'user');
-  const lastUserMessage = userMessages[userMessages.length - 1];
+export function extractQuery(messages: ChatMessage[], targetTokens: number = 200): string {
+  // Filter out system messages for the query (they're usually instructions, not content)
+  const conversationMessages = messages.filter(m => m.role !== 'system');
   
-  if (!lastUserMessage) {
+  if (conversationMessages.length === 0) {
     return '';
   }
   
-  // Optionally include system message for better context
-  const systemMessage = messages.find(m => m.role === 'system');
-  if (systemMessage) {
-    return `${systemMessage.content}\n\n${lastUserMessage.content}`;
+  // Estimate tokens (~4 chars per token)
+  const estimateTokens = (text: string) => Math.ceil(text.length / 4);
+  
+  // Build query from recent messages, working backwards
+  const queryParts: string[] = [];
+  let tokenCount = 0;
+  
+  // Start from the end (most recent messages)
+  for (let i = conversationMessages.length - 1; i >= 0 && tokenCount < targetTokens; i--) {
+    const msg = conversationMessages[i];
+    const formatted = `[${msg.role.toUpperCase()}] ${msg.content}`;
+    const msgTokens = estimateTokens(formatted);
+    
+    // Always include the last message, then add more if under budget
+    if (queryParts.length === 0 || tokenCount + msgTokens <= targetTokens) {
+      queryParts.unshift(formatted);
+      tokenCount += msgTokens;
+    } else {
+      break;
+    }
   }
   
-  return lastUserMessage.content;
+  return queryParts.join('\n\n');
 }
 
 /**
