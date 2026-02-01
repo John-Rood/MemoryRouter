@@ -2,8 +2,8 @@
   "buildCommand": null,
   "outputDirectory": ".",
   "framework": null,
-  "rewrites": [
-    { "source": "/test", "destination": "/test.html" },
-    { "source": "/(.*)", "destination": "/index.html" }
+  "routes": [
+    { "src": "/test", "dest": "/test.html" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
