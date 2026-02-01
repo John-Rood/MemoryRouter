@@ -396,6 +396,18 @@
       cursor: not-allowed;
     }
     
+    /* Mobile menu button */
+    .mobile-menu-btn {
+      display: none;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 18px;
+      cursor: pointer;
+    }
+    
     /* Mobile */
     @media (max-width: 768px) {
       .container {
@@ -403,13 +415,43 @@
       }
       .sidebar {
         display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 100;
+      }
+      .sidebar.open {
+        display: flex;
+      }
+      .mobile-menu-btn {
+        display: block;
+      }
+      .sidebar-close {
+        display: block;
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        background: none;
+        border: none;
+        color: var(--text);
+        font-size: 24px;
+        cursor: pointer;
+      }
+    }
+    
+    @media (min-width: 769px) {
+      .sidebar-close {
+        display: none;
       }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
+      <button class="sidebar-close" id="sidebarClose">✕</button>
       <div class="sidebar-header">
         <h1>Memory<span>Router</span></h1>
         <div class="subtitle">🔧 Debug Console</div>
@@ -434,9 +476,12 @@
     
     <main class="main">
       <header class="chat-header">
-        <div>
-          <h2 id="chatTitle">New Chat</h2>
-          <div class="session-id" id="sessionId">session: —</div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+          <div>
+            <h2 id="chatTitle">New Chat</h2>
+            <div class="session-id" id="sessionId">session: —</div>
+          </div>
         </div>
       </header>
       
@@ -769,8 +814,19 @@
       }
     }
     
+    // Mobile menu
+    const sidebar = document.getElementById('sidebar');
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    const sidebarClose = document.getElementById('sidebarClose');
+    
+    mobileMenuBtn.addEventListener('click', () => sidebar.classList.add('open'));
+    sidebarClose.addEventListener('click', () => sidebar.classList.remove('open'));
+    
     // Event listeners
-    newChatBtn.addEventListener('click', createChat);
+    newChatBtn.addEventListener('click', () => {
+      createChat();
+      sidebar.classList.remove('open');
+    });
     sendBtn.addEventListener('click', sendMessage);
     messageInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
