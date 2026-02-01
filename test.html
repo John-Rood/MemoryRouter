@@ -142,6 +142,29 @@
       width: 200px;
     }
     
+    #benchmarkBtn {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    
+    #benchmarkBtn:hover {
+      background: var(--accent);
+      color: var(--bg);
+    }
+    
+    #benchmarkBtn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
     /* HERO: Latency Stats Panel */
     .latency-panel {
       background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
@@ -542,8 +565,8 @@
         <label>Model</label>
         <input type="text" id="model" placeholder="openai/gpt-4o">
       </div>
-      <button id="benchmarkBtn" style="background: #22c55e; color: #000; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; margin-left: 12px;">
-        🚀 Run Benchmark (5 requests)
+      <button id="benchmarkBtn">
+        🚀 Run Benchmark
       </button>
     </div>
   </header>
@@ -1132,3 +1155,4 @@
 </body>
 </html>
 <!-- deployed Sun Feb  1 14:30:57 EST 2026 -->
+<!-- cache-bust: 1769974451 -->

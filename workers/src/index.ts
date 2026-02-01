@@ -36,8 +36,19 @@ type Variables = {
 // Create main app
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-// Global middleware
-app.use('*', cors());
+// Global middleware - expose latency headers
+app.use('*', cors({
+  origin: '*',
+  allowHeaders: ['Content-Type', 'Authorization', 'X-Session-ID', 'X-Memory-Mode'],
+  exposeHeaders: [
+    'X-MR-Processing-Ms',
+    'X-Provider-Response-Ms', 
+    'X-Total-Ms',
+    'X-Memory-Tokens-Retrieved',
+    'X-Memory-Chunks-Retrieved',
+    'X-Session-ID'
+  ],
+}));
 
 // Health check (no auth)
 app.get('/', (c) => {
