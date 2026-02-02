@@ -136,10 +136,41 @@ N+1. Final test run
        ↓
 N+2. Push to GitHub
        ↓
-N+3. Deploy to Cloudflare
+N+3. Deploy to Staging → Test
+       ↓
+N+4. Deploy to Production
        ↓
    DONE ✓
 ```
+
+---
+
+## 🌍 Environments
+
+### Staging
+- **Branch:** `staging`
+- **URL:** https://memoryrouter-staging.roodbiz.workers.dev
+- **D1:** memoryrouter-vectors-staging
+- **Queue:** memoryrouter-storage-staging
+- **Deploy:** `npm run deploy:staging`
+- **Verify:** `npm run verify:staging`
+
+### Production
+- **Branch:** `main`
+- **URL:** https://api.memoryrouter.ai
+- **D1:** memoryrouter-vectors
+- **Queue:** memoryrouter-storage
+- **Deploy:** `npm run deploy:prod`
+- **Verify:** `npm run verify:prod`
+
+### Workflow
+1. Make changes on `main` (or feature branch)
+2. Test locally: `npm run dev`
+3. Deploy to staging: `npm run deploy:staging`
+4. Verify staging: `npm run verify:staging`
+5. Test in debug/test pages (select "Staging" environment)
+6. When ready: `npm run deploy:prod`
+7. Verify production: `npm run verify:prod`
 
 ---
 
