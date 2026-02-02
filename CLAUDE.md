@@ -174,4 +174,32 @@ N+4. Deploy to Production
 
 ---
 
+## 📋 Model List Architecture
+
+**The `/v1/models` endpoint is for UI only** — it shows users what models are available in dropdowns.
+
+**Model names are PASSTHROUGH** — we don't validate or transform model names at runtime. Whatever the user passes, we send to the provider.
+
+### Update Flow
+```bash
+# 1. Run weekly (or on-demand) to fetch from providers
+./scripts/update-models-native.sh
+
+# 2. Commit the updated models-native.json
+git add src/config/models-native.json
+git commit -m "chore: Update model catalog"
+
+# 3. Deploy
+npm run deploy:staging
+npm run deploy:prod
+```
+
+### Why Passthrough?
+- Users know their own model names (including fine-tunes)
+- Providers change model names frequently
+- Translation tables break constantly
+- Less code = fewer bugs
+
+---
+
 *Core comes first. Always.*
