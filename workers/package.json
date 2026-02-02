@@ -14,7 +14,11 @@
     "test:watch": "vitest",
     "cf-typegen": "wrangler types",
     "test:core": "vitest run tests/core-regression.test.ts",
-    "verify": "./scripts/verify-core.sh"
+    "verify": "./scripts/verify-core.sh",
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:prod": "wrangler deploy --env production",
+    "verify:staging": "./scripts/verify-core.sh https://memoryrouter-staging.roodbiz.workers.dev",
+    "verify:prod": "./scripts/verify-core.sh https://memoryrouter-api.roodbiz.workers.dev"
   },
   "dependencies": {
     "hono": "^4.6.0"

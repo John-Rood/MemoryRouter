@@ -725,6 +725,14 @@
       </div>
       
       <div class="config-section">
+        <label>Environment</label>
+        <select id="environment">
+          <option value="production">🟢 Production</option>
+          <option value="staging">🟡 Staging</option>
+        </select>
+      </div>
+      
+      <div class="config-section">
         <label>API Key</label>
         <input type="password" id="apiKey" placeholder="mk_xxxxxxxx">
       </div>
@@ -784,6 +792,18 @@
   </div>
 
   <script>
+    // Environment URLs
+    const ENVIRONMENTS = {
+      production: 'https://api.memoryrouter.ai',
+      staging: 'https://memoryrouter-staging.roodbiz.workers.dev',
+    };
+    
+    // Get current API base URL based on selected environment
+    function getApiBase() {
+      const env = document.getElementById('environment')?.value || 'production';
+      return ENVIRONMENTS[env];
+    }
+    
     // State
     // KEY DISTINCTION:
     // - sessionId: user-based, persists across ALL conversations (shared memory)
@@ -797,6 +817,7 @@
     };
     
     // DOM Elements
+    const environmentInput = document.getElementById('environment');
     const apiKeyInput = document.getElementById('apiKey');
     const modelInput = document.getElementById('model');
     const memoryRetrieveInput = document.getElementById('memoryRetrieve');
@@ -811,11 +832,13 @@
     
     // Load config from localStorage
     function loadConfig() {
+      const savedEnv = localStorage.getItem('mr_debug_env');
       const savedKey = localStorage.getItem('mr_debug_apikey');
       const savedModel = localStorage.getItem('mr_debug_model');
       const savedChats = localStorage.getItem('mr_debug_chats');
       const savedSessionId = localStorage.getItem('mr_debug_sessionid');
       
+      if (savedEnv && environmentInput) environmentInput.value = savedEnv;
       if (savedKey) apiKeyInput.value = savedKey;
       if (savedModel) modelInput.value = savedModel;
       
@@ -834,13 +857,27 @@
           renderChatList();
         } catch (e) {}
       }
+      
+      // Update UI to show current environment
+      updateEnvironmentIndicator();
     }
     
     function saveConfig() {
+      localStorage.setItem('mr_debug_env', environmentInput?.value || 'production');
       localStorage.setItem('mr_debug_apikey', apiKeyInput.value);
       localStorage.setItem('mr_debug_model', modelInput.value);
       localStorage.setItem('mr_debug_chats', JSON.stringify(state.chats));
       localStorage.setItem('mr_debug_sessionid', state.sessionId);
+    }
+    
+    // Update environment indicator in UI
+    function updateEnvironmentIndicator() {
+      const env = environmentInput?.value || 'production';
+      const subtitle = document.querySelector('.sidebar-header .subtitle');
+      if (subtitle) {
+        const envLabel = env === 'staging' ? '🟡 STAGING' : '🟢 PRODUCTION';
+        subtitle.textContent = `🔧 Debug Console • ${envLabel}`;
+      }
     }
     
     // Generate UUID
@@ -1119,7 +1156,7 @@
         else if (!retrieve && store) memoryMode = 'write';
         else if (retrieve && !store) memoryMode = 'read';
         
-        const response = await fetch(`https://api.memoryrouter.ai/v1/chat/completions?debug=true&mode=${memoryMode}`, {
+        const response = await fetch(`${getApiBase()}/v1/chat/completions?debug=true&mode=${memoryMode}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1200,7 +1237,7 @@
       if (!confirm('⚠️ This will DELETE all memories from the vault.\n\nThis cannot be undone. The AI will forget everything.\n\nAre you sure?')) return;
       
       try {
-        const response = await fetch('https://api.memoryrouter.ai/v1/memory', {
+        const response = await fetch(`${getApiBase()}/v1/memory`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${apiKey}`,
@@ -1245,6 +1282,19 @@
     apiKeyInput.addEventListener('change', saveConfig);
     modelInput.addEventListener('change', saveConfig);
     
+    // Environment change - update indicator and refetch models
+    if (environmentInput) {
+      environmentInput.addEventListener('change', () => {
+        saveConfig();
+        updateEnvironmentIndicator();
+        // Refetch models from new environment
+        const apiKey = apiKeyInput.value.trim();
+        if (apiKey) {
+          fetchModels(apiKey);
+        }
+      });
+    }
+    
     // Fetch models when API key changes
     apiKeyInput.addEventListener('blur', () => {
       const apiKey = apiKeyInput.value.trim();
@@ -1256,7 +1306,7 @@
     // Fetch available models from API
     async function fetchModels(apiKey, selectedModel = null) {
       try {
-        const response = await fetch('https://api.memoryrouter.ai/v1/models', {
+        const response = await fetch(`${getApiBase()}/v1/models`, {
           headers: { 'Authorization': `Bearer ${apiKey}` }
         });
         

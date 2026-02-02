@@ -86,22 +86,108 @@ USE_DURABLE_OBJECTS = "true"
 # Max vectors held in DO memory (override per env)
 MAX_IN_MEMORY_VECTORS = "5000"
 
-# Production environment
-[env.production]
-name = "memoryrouter-prod"
-[env.production.vars]
-ENVIRONMENT = "production"
-USE_DURABLE_OBJECTS = "true"
-MAX_IN_MEMORY_VECTORS = "5000"
-EMBEDDING_PROVIDER = "cloudflare"
-DEFAULT_EMBEDDING_DIMS = "1024"
+# ========== STAGING ENVIRONMENT ==========
+# Deploy: npx wrangler deploy --env staging
+# URL: memoryrouter-staging.roodbiz.workers.dev
 
-# Staging environment
 [env.staging]
 name = "memoryrouter-staging"
+
+# Staging D1 (separate from production)
+[[env.staging.d1_databases]]
+binding = "VECTORS_D1"
+database_name = "memoryrouter-vectors-staging"
+database_id = "925a348d-f89e-4ae5-aea6-2843ae0aba40"
+
+# Staging shares KV with production (metadata/auth is the same)
+[[env.staging.kv_namespaces]]
+binding = "VECTORS_KV"
+id = "1e73c05d2cac424080e855cfd0d9c58e"
+
+[[env.staging.kv_namespaces]]
+binding = "METADATA_KV"
+id = "40652c48ae9141d9b3a8f797b39bb9f6"
+
+# Staging R2 (shared for now — could separate later)
+[[env.staging.r2_buckets]]
+binding = "VECTORS_R2"
+bucket_name = "memory-router"
+
+# Staging Durable Objects (isolated namespace)
+[env.staging.durable_objects]
+bindings = [
+  { name = "VAULT_DO", class_name = "VaultDurableObject" }
+]
+
+# Staging queues
+[[env.staging.queues.producers]]
+queue = "memoryrouter-storage-staging"
+binding = "STORAGE_QUEUE"
+
+[[env.staging.queues.consumers]]
+queue = "memoryrouter-storage-staging"
+max_batch_size = 10
+max_batch_timeout = 5
+
 [env.staging.vars]
 ENVIRONMENT = "staging"
 USE_DURABLE_OBJECTS = "true"
 EMBEDDING_PROVIDER = "cloudflare"
 DEFAULT_EMBEDDING_DIMS = "1024"
 MAX_IN_MEMORY_VECTORS = "5000"
+HOT_WINDOW_HOURS = "4"
+WORKING_WINDOW_DAYS = "3"
+LONGTERM_WINDOW_DAYS = "90"
+
+# ========== PRODUCTION ENVIRONMENT ==========
+# Deploy: npx wrangler deploy --env production
+# URL: memoryrouter-api.roodbiz.workers.dev (or custom domain)
+
+[env.production]
+name = "memoryrouter-api"
+
+# Production D1
+[[env.production.d1_databases]]
+binding = "VECTORS_D1"
+database_name = "memoryrouter-vectors"
+database_id = "4009299d-3c91-4c0f-b614-236e3c2c0d8b"
+
+# Production KV
+[[env.production.kv_namespaces]]
+binding = "VECTORS_KV"
+id = "1e73c05d2cac424080e855cfd0d9c58e"
+
+[[env.production.kv_namespaces]]
+binding = "METADATA_KV"
+id = "40652c48ae9141d9b3a8f797b39bb9f6"
+
+# Production R2
+[[env.production.r2_buckets]]
+binding = "VECTORS_R2"
+bucket_name = "memory-router"
+
+# Production Durable Objects
+[env.production.durable_objects]
+bindings = [
+  { name = "VAULT_DO", class_name = "VaultDurableObject" }
+]
+
+# Production queues
+[[env.production.queues.producers]]
+queue = "memoryrouter-storage"
+binding = "STORAGE_QUEUE"
+
+[[env.production.queues.consumers]]
+queue = "memoryrouter-storage"
+max_batch_size = 10
+max_batch_timeout = 5
+
+[env.production.vars]
+ENVIRONMENT = "production"
+USE_DURABLE_OBJECTS = "true"
+EMBEDDING_PROVIDER = "cloudflare"
+DEFAULT_EMBEDDING_DIMS = "1024"
+MAX_IN_MEMORY_VECTORS = "5000"
+HOT_WINDOW_HOURS = "4"
+WORKING_WINDOW_DAYS = "3"
+LONGTERM_WINDOW_DAYS = "90"
