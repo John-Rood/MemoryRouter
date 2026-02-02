@@ -298,22 +298,25 @@ v1.get('/models', async (c) => {
 v1.delete('/memory', async (c) => {
   const userContext = c.get('userContext');
   const sessionId = c.req.header('X-Session-ID');
+  // Use ?reset=true to fully reset (allows new embedding dimensions)
+  const fullReset = c.req.query('reset') === 'true';
+  const endpoint = fullReset ? '/reset' : '/clear';
   
   // Durable Objects path
   if (c.env.USE_DURABLE_OBJECTS === 'true' && c.env.VAULT_DO) {
     try {
       const clearPromises: Promise<Response>[] = [];
       
-      // Clear core vault
+      // Clear/reset core vault
       const coreId = c.env.VAULT_DO.idFromName(`${userContext.memoryKey.key}:core`);
       const coreStub = c.env.VAULT_DO.get(coreId);
-      clearPromises.push(coreStub.fetch(new Request('https://do/clear', { method: 'POST' })));
+      clearPromises.push(coreStub.fetch(new Request(`https://do${endpoint}`, { method: 'POST' })));
       
-      // Clear session vault if session ID provided
+      // Clear/reset session vault if session ID provided
       if (sessionId) {
         const sessionDoId = c.env.VAULT_DO.idFromName(`${userContext.memoryKey.key}:session:${sessionId}`);
         const sessionStub = c.env.VAULT_DO.get(sessionDoId);
-        clearPromises.push(sessionStub.fetch(new Request('https://do/clear', { method: 'POST' })));
+        clearPromises.push(sessionStub.fetch(new Request(`https://do${endpoint}`, { method: 'POST' })));
       }
       
       await Promise.all(clearPromises);
@@ -322,7 +325,8 @@ v1.delete('/memory', async (c) => {
         key: userContext.memoryKey.key,
         sessionCleared: !!sessionId,
         deleted: true,
-        message: 'Memory cleared successfully',
+        reset: fullReset,
+        message: fullReset ? 'Memory reset (new dimensions allowed)' : 'Memory cleared successfully',
       });
     } catch (error) {
       console.error('Failed to clear DO memory:', error);
