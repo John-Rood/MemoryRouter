@@ -14,6 +14,7 @@ import { createAnthropicRouter } from './routes/anthropic';
 import { createGoogleRouter } from './routes/google';
 import { StorageManager } from './services/storage';
 import { handleReembed, handleListKeys, handleClear, handleSetProviderKey, handleGetProviderKeys, handleDebugStorage, handleDoExport } from './routes/admin';
+import { getKeyUsage, getTopKeys, rollupDaily, getRecentEvents } from './services/usage';
 
 // Model catalog (updated via scripts/update-models.sh)
 import modelCatalog from './config/models.json';
@@ -38,6 +39,8 @@ interface Env extends ChatEnv {
   MAX_IN_MEMORY_VECTORS: string;
   // Queues
   STORAGE_QUEUE: Queue<StorageJob>;
+  // Admin
+  ADMIN_KEY?: string;
 }
 
 // Variables available in context
@@ -360,6 +363,43 @@ v1.delete('/memory', async (c) => {
   }
 });
 
+// ========== Account Usage Endpoint ==========
+// GET /v1/account/usage?start=YYYY-MM-DD&end=YYYY-MM-DD
+v1.get('/account/usage', async (c) => {
+  const userContext = c.get('userContext');
+  
+  if (!c.env.VECTORS_D1) {
+    return c.json({ error: 'Usage tracking not available' }, 503);
+  }
+
+  // Parse date range (default: last 30 days)
+  const endDate = c.req.query('end') || new Date().toISOString().split('T')[0];
+  const startDefault = new Date();
+  startDefault.setUTCDate(startDefault.getUTCDate() - 30);
+  const startDate = c.req.query('start') || startDefault.toISOString().split('T')[0];
+
+  try {
+    const usage = await getKeyUsage(
+      c.env.VECTORS_D1,
+      userContext.memoryKey.key,
+      startDate,
+      endDate
+    );
+
+    return c.json({
+      key: userContext.memoryKey.key,
+      period: { start: startDate, end: endDate },
+      ...usage,
+    });
+  } catch (error) {
+    console.error('Failed to get usage:', error);
+    return c.json({ 
+      error: 'Failed to retrieve usage data',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    }, 500);
+  }
+});
+
 // Key management
 v1.post('/keys', async (c) => {
   const body = await c.req.json() as { name?: string };
@@ -416,6 +456,130 @@ app.get('/admin/debug-storage', async (c) => {
 
 app.get('/admin/do-export', async (c) => {
   return handleDoExport(c.req.raw, c.env as any);
+});
+
+// ========== Admin Usage Endpoints ==========
+// GET /admin/usage/top?limit=10&start=YYYY-MM-DD&end=YYYY-MM-DD
+app.get('/admin/usage/top', async (c) => {
+  // Simple admin auth via header (same pattern as other admin routes)
+  const adminKey = c.req.header('X-Admin-Key');
+  if (!adminKey || adminKey !== c.env.ADMIN_KEY) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  if (!c.env.VECTORS_D1) {
+    return c.json({ error: 'Usage tracking not available' }, 503);
+  }
+
+  const limit = parseInt(c.req.query('limit') || '10');
+  const endDate = c.req.query('end') || new Date().toISOString().split('T')[0];
+  const startDefault = new Date();
+  startDefault.setUTCDate(startDefault.getUTCDate() - 30);
+  const startDate = c.req.query('start') || startDefault.toISOString().split('T')[0];
+
+  try {
+    const topKeys = await getTopKeys(c.env.VECTORS_D1, limit, startDate, endDate);
+    return c.json({
+      period: { start: startDate, end: endDate },
+      limit,
+      keys: topKeys,
+    });
+  } catch (error) {
+    console.error('Failed to get top keys:', error);
+    return c.json({ 
+      error: 'Failed to retrieve top keys',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    }, 500);
+  }
+});
+
+// GET /admin/usage/key/:key — Usage for specific key
+app.get('/admin/usage/key/:key', async (c) => {
+  const adminKey = c.req.header('X-Admin-Key');
+  if (!adminKey || adminKey !== c.env.ADMIN_KEY) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  if (!c.env.VECTORS_D1) {
+    return c.json({ error: 'Usage tracking not available' }, 503);
+  }
+
+  const memoryKey = c.req.param('key');
+  const endDate = c.req.query('end') || new Date().toISOString().split('T')[0];
+  const startDefault = new Date();
+  startDefault.setUTCDate(startDefault.getUTCDate() - 30);
+  const startDate = c.req.query('start') || startDefault.toISOString().split('T')[0];
+
+  try {
+    const usage = await getKeyUsage(c.env.VECTORS_D1, memoryKey, startDate, endDate);
+    return c.json({
+      key: memoryKey,
+      period: { start: startDate, end: endDate },
+      ...usage,
+    });
+  } catch (error) {
+    console.error('Failed to get key usage:', error);
+    return c.json({ 
+      error: 'Failed to retrieve key usage',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    }, 500);
+  }
+});
+
+// GET /admin/usage/key/:key/events — Recent raw events (debugging)
+app.get('/admin/usage/key/:key/events', async (c) => {
+  const adminKey = c.req.header('X-Admin-Key');
+  if (!adminKey || adminKey !== c.env.ADMIN_KEY) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  if (!c.env.VECTORS_D1) {
+    return c.json({ error: 'Usage tracking not available' }, 503);
+  }
+
+  const memoryKey = c.req.param('key');
+  const limit = parseInt(c.req.query('limit') || '50');
+
+  try {
+    const events = await getRecentEvents(c.env.VECTORS_D1, memoryKey, limit);
+    return c.json({
+      key: memoryKey,
+      limit,
+      events,
+    });
+  } catch (error) {
+    console.error('Failed to get events:', error);
+    return c.json({ 
+      error: 'Failed to retrieve events',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    }, 500);
+  }
+});
+
+// POST /admin/usage/rollup — Manually trigger daily rollup
+app.post('/admin/usage/rollup', async (c) => {
+  const adminKey = c.req.header('X-Admin-Key');
+  if (!adminKey || adminKey !== c.env.ADMIN_KEY) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  if (!c.env.VECTORS_D1) {
+    return c.json({ error: 'Usage tracking not available' }, 503);
+  }
+
+  try {
+    const result = await rollupDaily(c.env.VECTORS_D1);
+    return c.json({
+      status: 'complete',
+      ...result,
+    });
+  } catch (error) {
+    console.error('Rollup failed:', error);
+    return c.json({ 
+      error: 'Rollup failed',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    }, 500);
+  }
 });
 
 // 404 handler

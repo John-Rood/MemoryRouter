@@ -39,6 +39,7 @@ import {
   countChunksTokens,
   type TruncationResult,
 } from '../services/truncation';
+import { recordUsage, type UsageEvent } from '../services/usage';
 import {
   extractMemoryFlags,
   injectMemoryContext,
@@ -250,18 +251,26 @@ export function createChatRouter() {
               ? getBufferFromD1(env.VECTORS_D1, userContext.memoryKey.key, sessionId).catch(() => null)
               : Promise.resolve(null);
             
-            // Race: first non-null wins
-            const winner = await Promise.race([
-              doPromise.then(r => r || new Promise<never>(() => {})),
-              d1Promise.then(r => r || new Promise<never>(() => {})),
+            // Race: first successful result wins (with timeout safety)
+            const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), 5000));
+            const raceResult = await Promise.race([
+              doPromise,
+              d1Promise,
+              timeout,
             ]);
+            
+            // Use first successful result
+            let winner = raceResult;
+            if (!winner?.result) {
+              // First result was null/failed, wait for the other
+              const [doRes, d1Res] = await Promise.all([doPromise, d1Promise]);
+              winner = doRes?.result ? doRes : d1Res?.result ? d1Res : null;
+            }
             
             if (winner?.result) {
               retrieval = winner.result;
             } else {
-              // Fallback if race somehow fails
-              const [doRes, d1Res] = await Promise.all([doPromise, d1Promise]);
-              retrieval = doRes?.result || d1Res?.result || { chunks: [], tokenCount: 0, windowBreakdown: { hot: 0, working: 0, longterm: 0 } };
+              retrieval = { chunks: [], tokenCount: 0, windowBreakdown: { hot: 0, working: 0, longterm: 0 } };
             }
             
             // Buffer: DO includes it in response, D1 needs separate fetch
@@ -532,6 +541,27 @@ export function createChatRouter() {
               provider: provider,
             });
           }
+
+          // ===== USAGE TRACKING (fire-and-forget) =====
+          if (env.VECTORS_D1) {
+            const providerEndTime = Date.now();
+            const usageEvent: UsageEvent = {
+              timestamp: Date.now(),
+              memoryKey: userContext.memoryKey.key,
+              sessionId: sessionId,
+              model: body.model,
+              provider: provider,
+              inputTokens: countMessagesTokens(body.messages as ChatMessage[]),
+              outputTokens: Math.ceil(fullResponse.length / 4), // Estimate ~4 chars/token
+              memoryTokensRetrieved: retrieval?.tokenCount ?? 0,
+              memoryTokensInjected: memoryTokensUsed,
+              latencyEmbeddingMs: embeddingMs,
+              latencyMrMs: mrProcessingTime,
+              latencyProviderMs: providerEndTime - providerStartTime,
+              requestType: 'chat',
+            };
+            ctx.waitUntil(recordUsage(env.VECTORS_D1, usageEvent));
+          }
         }
       });
     }
@@ -598,6 +628,28 @@ export function createChatRouter() {
         model: body.model,
         provider: provider,
       });
+    }
+
+    // ===== USAGE TRACKING (fire-and-forget) =====
+    if (env.VECTORS_D1) {
+      // Extract token counts from response if available
+      const responseUsage = (responseBody as { usage?: { prompt_tokens?: number; completion_tokens?: number } }).usage;
+      const usageEvent: UsageEvent = {
+        timestamp: Date.now(),
+        memoryKey: userContext.memoryKey.key,
+        sessionId: sessionId,
+        model: body.model,
+        provider: provider,
+        inputTokens: responseUsage?.prompt_tokens ?? countMessagesTokens(body.messages as ChatMessage[]),
+        outputTokens: responseUsage?.completion_tokens ?? Math.ceil((assistantResponse?.length ?? 0) / 4),
+        memoryTokensRetrieved: retrieval?.tokenCount ?? 0,
+        memoryTokensInjected: memoryTokensUsed,
+        latencyEmbeddingMs: embeddingMs,
+        latencyMrMs: mrProcessingTime,
+        latencyProviderMs: providerTime,
+        requestType: 'chat',
+      };
+      ctx.waitUntil(recordUsage(env.VECTORS_D1, usageEvent));
     }
     
     // Add memory metadata to response
