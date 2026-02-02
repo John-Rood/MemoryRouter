@@ -758,6 +758,14 @@
         </div>
       </div>
       
+      <div class="config-section">
+        <label>Session ID <span style="color: var(--text-muted); font-weight: normal;">(blank = core vault)</span></label>
+        <input type="text" id="sessionIdInput" placeholder="Leave empty for core vault">
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+          Each session ID creates an isolated memory vault
+        </div>
+      </div>
+      
       <div class="chat-list" id="chatList">
         <!-- Chats will be added here -->
       </div>
@@ -822,6 +830,7 @@
     const modelInput = document.getElementById('model');
     const memoryRetrieveInput = document.getElementById('memoryRetrieve');
     const memoryStoreInput = document.getElementById('memoryStore');
+    const sessionIdInput = document.getElementById('sessionIdInput');
     const chatList = document.getElementById('chatList');
     const chatTitle = document.getElementById('chatTitle');
     const sessionIdEl = document.getElementById('sessionId');
@@ -847,9 +856,11 @@
         fetchModels(savedKey, savedModel);
       }
       
-      // Initialize or load sessionId (ONE session for all conversations)
-      state.sessionId = savedSessionId || uuid();
-      localStorage.setItem('mr_debug_sessionid', state.sessionId);
+      // Initialize sessionId - default to empty (core vault)
+      state.sessionId = savedSessionId || null;
+      if (sessionIdInput) {
+        sessionIdInput.value = state.sessionId || '';
+      }
       
       if (savedChats) {
         try {
@@ -867,7 +878,14 @@
       localStorage.setItem('mr_debug_apikey', apiKeyInput.value);
       localStorage.setItem('mr_debug_model', modelInput.value);
       localStorage.setItem('mr_debug_chats', JSON.stringify(state.chats));
-      localStorage.setItem('mr_debug_sessionid', state.sessionId);
+      // Session ID from input - empty string means core vault (null)
+      const sessionValue = sessionIdInput?.value?.trim() || null;
+      state.sessionId = sessionValue;
+      if (sessionValue) {
+        localStorage.setItem('mr_debug_sessionid', sessionValue);
+      } else {
+        localStorage.removeItem('mr_debug_sessionid');
+      }
     }
     
     // Update environment indicator in UI
@@ -938,13 +956,13 @@
           </div>
         `;
         chatTitle.textContent = 'No Chat Selected';
-        sessionIdEl.textContent = 'session: —';
+        sessionIdEl.textContent = state.sessionId ? `vault: session (${state.sessionId})` : 'vault: core (main)';
         return;
       }
       
       const chat = state.chats[state.activeChatId];
       chatTitle.textContent = chat.name;
-      sessionIdEl.textContent = `session: ${state.sessionId} (shared across all conversations)`;
+      sessionIdEl.textContent = state.sessionId ? `vault: session (${state.sessionId})` : 'vault: core (main)';
       
       if (chat.messages.length === 0) {
         messagesContainer.innerHTML = `
@@ -1156,16 +1174,21 @@
         else if (!retrieve && store) memoryMode = 'write';
         else if (retrieve && !store) memoryMode = 'read';
         
+        // Build headers - only include X-Session-ID if set (otherwise use core vault)
+        const headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'X-Memory-Mode': memoryMode,
+          'X-Memory-Store': String(store),
+          'X-Memory-Store-Response': String(store),
+        };
+        if (state.sessionId) {
+          headers['X-Session-ID'] = state.sessionId;
+        }
+        
         const response = await fetch(`${getApiBase()}/v1/chat/completions?debug=true&mode=${memoryMode}`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-            'X-Session-ID': state.sessionId,  // Shared session across all conversations
-            'X-Memory-Mode': memoryMode,
-            'X-Memory-Store': String(store),
-            'X-Memory-Store-Response': String(store),
-          },
+          headers,
           body: JSON.stringify({
             model,
             messages: apiMessages,
@@ -1218,12 +1241,15 @@
     
     // Reset session (new session ID, keeps memory)
     function resetSession() {
-      if (!confirm('This creates a new session ID and clears local conversations.\n\nMemory vault stays intact — useful for testing if memory persists across sessions.\n\nContinue?')) return;
-      state.sessionId = uuid();
+      if (!confirm('This generates a new random session ID for an isolated vault.\n\nUseful for testing session isolation.\n\nContinue?')) return;
+      const newSessionId = uuid();
+      state.sessionId = newSessionId;
+      if (sessionIdInput) sessionIdInput.value = newSessionId;
       state.chats = {};
       state.activeChatId = null;
       saveConfig();
       createChat();
+      renderActiveChat();  // Update vault display
     }
     
     // Clear memory vault (actually deletes all vectors)
@@ -1234,27 +1260,32 @@
         return;
       }
       
-      if (!confirm('⚠️ This will DELETE all memories from the vault.\n\nThis cannot be undone. The AI will forget everything.\n\nAre you sure?')) return;
+      const vaultType = state.sessionId ? `session vault (${state.sessionId})` : 'core vault';
+      if (!confirm(`⚠️ This will DELETE all memories from the ${vaultType}.\n\nThis cannot be undone. The AI will forget everything.\n\nAre you sure?`)) return;
       
       try {
+        // Build headers - only include X-Session-ID if set
+        const clearHeaders = {
+          'Authorization': `Bearer ${apiKey}`,
+        };
+        if (state.sessionId) {
+          clearHeaders['X-Session-ID'] = state.sessionId;
+        }
+        
         const response = await fetch(`${getApiBase()}/v1/memory`, {
           method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'X-Session-ID': state.sessionId,
-          },
+          headers: clearHeaders,
         });
         
         const data = await response.json();
         
         if (response.ok) {
-          // Also reset local state
-          state.sessionId = uuid();
+          // Clear local chat state
           state.chats = {};
           state.activeChatId = null;
           saveConfig();
           createChat();
-          alert('✅ Memory vault cleared. Fresh start!');
+          alert(`✅ ${vaultType} cleared. Fresh start!`);
         } else {
           alert('Error: ' + (data.error || 'Failed to clear memory'));
         }
@@ -1281,6 +1312,14 @@
     });
     apiKeyInput.addEventListener('change', saveConfig);
     modelInput.addEventListener('change', saveConfig);
+    
+    // Session ID change - update vault display
+    if (sessionIdInput) {
+      sessionIdInput.addEventListener('change', () => {
+        saveConfig();
+        renderActiveChat();  // Update vault display
+      });
+    }
     
     // Environment change - update indicator and refetch models
     if (environmentInput) {
