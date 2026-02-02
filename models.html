@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supported Models — MemoryRouter | 200+ AI Models, One Memory</title>
+    <meta name="description" content="MemoryRouter works with GPT-5.2, Claude Opus 4.5, Gemini 3 Pro, Llama 3, and 200+ more models. Same memory, any model. One URL change.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-green: #39ff14;
+            --electric-blue: #00d4ff;
+            --hot-pink: #ff006e;
+            --deep-purple: #8338ec;
+        }
+        body { 
+            font-family: 'Space Grotesk', sans-serif; 
+            background: #09090b;
+        }
+        code, pre { font-family: 'JetBrains Mono', monospace; }
+        
+        .neon-text {
+            color: var(--neon-green);
+            text-shadow: 0 0 10px rgba(57, 255, 20, 0.5);
+        }
+        .gradient-text-hero {
+            background: linear-gradient(135deg, #39ff14 0%, #00d4ff 50%, #ff006e 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .money-gradient {
+            background: linear-gradient(135deg, #39ff14 0%, #00ff88 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #39ff14 0%, #00d4ff 100%);
+            color: #000;
+            font-weight: 700;
+        }
+        .btn-primary:hover {
+            box-shadow: 0 0 30px rgba(57, 255, 20, 0.4);
+        }
+        .card-glass {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+        }
+        .card-glow:hover {
+            border-color: rgba(57, 255, 20, 0.3);
+            box-shadow: 0 0 40px rgba(57, 255, 20, 0.1);
+        }
+        .line-glow {
+            background: linear-gradient(90deg, transparent, var(--neon-green), transparent);
+            height: 1px;
+        }
+        .grid-bg {
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+        .code-window {
+            background: linear-gradient(180deg, #0f0f13 0%, #09090b 100%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .scroll-mt { scroll-margin-top: 100px; }
+
+        /* Provider colors */
+        .provider-openai { border-color: rgba(16, 163, 127, 0.3); }
+        .provider-openai:hover { border-color: rgba(16, 163, 127, 0.6); box-shadow: 0 0 30px rgba(16, 163, 127, 0.15); }
+        .provider-anthropic { border-color: rgba(204, 147, 102, 0.3); }
+        .provider-anthropic:hover { border-color: rgba(204, 147, 102, 0.6); box-shadow: 0 0 30px rgba(204, 147, 102, 0.15); }
+        .provider-google { border-color: rgba(66, 133, 244, 0.3); }
+        .provider-google:hover { border-color: rgba(66, 133, 244, 0.6); box-shadow: 0 0 30px rgba(66, 133, 244, 0.15); }
+        .provider-meta { border-color: rgba(0, 136, 255, 0.3); }
+        .provider-meta:hover { border-color: rgba(0, 136, 255, 0.6); box-shadow: 0 0 30px rgba(0, 136, 255, 0.15); }
+        .provider-mistral { border-color: rgba(255, 117, 56, 0.3); }
+        .provider-mistral:hover { border-color: rgba(255, 117, 56, 0.6); box-shadow: 0 0 30px rgba(255, 117, 56, 0.15); }
+        .provider-deepseek { border-color: rgba(78, 205, 196, 0.3); }
+        .provider-deepseek:hover { border-color: rgba(78, 205, 196, 0.6); box-shadow: 0 0 30px rgba(78, 205, 196, 0.15); }
+
+        .badge-openai { background: rgba(16, 163, 127, 0.15); color: #10a37f; }
+        .badge-anthropic { background: rgba(204, 147, 102, 0.15); color: #cc9366; }
+        .badge-google { background: rgba(66, 133, 244, 0.15); color: #4285f4; }
+        .badge-meta { background: rgba(0, 136, 255, 0.15); color: #0088ff; }
+        .badge-mistral { background: rgba(255, 117, 56, 0.15); color: #ff7538; }
+        .badge-deepseek { background: rgba(78, 205, 196, 0.15); color: #4ecdc4; }
+
+        .filter-btn {
+            transition: all 0.2s;
+        }
+        .filter-btn.active {
+            background: rgba(57, 255, 20, 0.15);
+            border-color: rgba(57, 255, 20, 0.5);
+            color: #39ff14;
+        }
+    </style>
+</head>
+<body class="text-white antialiased overflow-x-hidden">
+    <!-- Ambient background -->
+    <div class="fixed inset-0 pointer-events-none">
+        <div class="absolute top-0 left-1/4 w-96 h-96 bg-green-500/5 rounded-full blur-[150px]"></div>
+        <div class="absolute bottom-0 right-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-[150px]"></div>
+    </div>
+
+    <!-- Nav -->
+    <nav class="fixed w-full z-50 bg-[#09090b]/80 backdrop-blur-xl border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <a href="index.html" class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-green-400 to-cyan-400 flex items-center justify-center">
+                    <span class="text-black font-bold text-sm">M</span>
+                </div>
+                <span class="text-xl font-bold">MemoryRouter</span>
+            </a>
+            <div class="hidden md:flex items-center gap-8">
+                <a href="index.html#calculator" class="text-gray-400 hover:text-white transition text-sm">Calculator</a>
+                <a href="index.html#use-cases" class="text-gray-400 hover:text-white transition text-sm">Use Cases</a>
+                <a href="index.html#how-it-works" class="text-gray-400 hover:text-white transition text-sm">How It Works</a>
+                <a href="models.html" class="text-white font-medium transition text-sm">Models</a>
+                <a href="index.html#pricing" class="text-gray-400 hover:text-white transition text-sm">Pricing</a>
+            </div>
+            <a href="index.html#waitlist" class="btn-primary px-5 py-2.5 rounded-lg text-sm transition">Get Early Access</a>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="pt-32 pb-16 px-6 relative grid-bg">
+        <div class="max-w-5xl mx-auto text-center relative">
+            <!-- Badge -->
+            <div class="inline-flex items-center gap-2 bg-cyan-500/10 border border-cyan-500/20 rounded-full px-4 py-2 mb-8">
+                <span class="text-cyan-400 text-sm font-medium">200+ models via OpenRouter</span>
+            </div>
+
+            <h1 class="text-5xl md:text-7xl font-bold mb-8 leading-[1.05] tracking-tight">
+                Every Model.<br>
+                <span class="gradient-text-hero">One Memory.</span>
+            </h1>
+            
+            <p class="text-xl md:text-2xl text-gray-400 mb-10 max-w-3xl mx-auto leading-relaxed">
+                Switch between GPT-5, Claude Opus, Gemini 3, Llama, and 200+ more — 
+                <span class="text-white font-semibold">your memory follows seamlessly.</span>
+            </p>
+
+            <!-- Code swap demo -->
+            <div class="max-w-2xl mx-auto mb-10">
+                <div class="code-window rounded-2xl overflow-hidden shadow-2xl shadow-black/50">
+                    <div class="flex items-center gap-2 px-5 py-3 border-b border-white/10 bg-white/5">
+                        <div class="flex gap-2">
+                            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                            <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                        </div>
+                        <span class="text-gray-500 text-sm ml-4 font-mono">swap models, keep memory</span>
+                    </div>
+                    <div class="p-5 text-sm">
+                        <pre><code><span class="text-gray-500">// Monday: Use GPT-5.2</span>
+model: <span class="text-green-400">"gpt-5.2"</span>
+
+<span class="text-gray-500">// Tuesday: Try Claude</span>
+model: <span class="text-cyan-400">"anthropic/claude-opus-4.5"</span>
+
+<span class="text-gray-500">// Wednesday: Test Gemini</span>
+model: <span class="text-purple-400">"google/gemini-3-pro"</span>
+
+<span class="neon-text">// Memory persists across all of them ✓</span></code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <p class="text-gray-500 text-sm">No lock-in. No migration. Just change the model parameter.</p>
+        </div>
+    </section>
+
+    <!-- Filter tabs -->
+    <section class="py-8 px-6">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex flex-wrap justify-center gap-3" id="filters">
+                <button onclick="filterModels('all')" class="filter-btn active px-4 py-2 rounded-lg border border-white/10 text-sm font-medium transition" data-filter="all">
+                    All Models
+                </button>
+                <button onclick="filterModels('openai')" class="filter-btn px-4 py-2 rounded-lg border border-white/10 text-sm font-medium transition text-gray-400" data-filter="openai">
+                    OpenAI
+                </button>
+                <button onclick="filterModels('anthropic')" class="filter-btn px-4 py-2 rounded-lg border border-white/10 text-sm font-medium transition text-gray-400" data-filter="anthropic">
+                    Anthropic
+                </button>
+                <button onclick="filterModels('google')" class="filter-btn px-4 py-2 rounded-lg border border-white/10 text-sm font-medium transition text-gray-400" data-filter="google">
+                    Google
+                </button>
+                <button onclick="filterModels('meta')" class="filter-btn px-4 py-2 rounded-lg border border-white/10 text-sm font-medium transition text-gray-400" data-filter="meta">
+                    Meta/Llama
+                </button>
+                <button onclick="filterModels('mistral')" class="filter-btn px-4 py-2 rounded-lg border border-white/10 text-sm font-medium transition text-gray-400" data-filter="mistral">
+                    Mistral
+                </button>
+                <button onclick="filterModels('deepseek')" class="filter-btn px-4 py-2 rounded-lg border border-white/10 text-sm font-medium transition text-gray-400" data-filter="deepseek">
+                    DeepSeek
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Models Grid -->
+    <section class="py-12 px-6">
+        <div class="max-w-6xl mx-auto">
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6" id="models-grid">
+
+                <!-- OpenAI Models -->
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-openai" data-provider="openai">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-openai text-xs font-medium px-2 py-1 rounded-full">OpenAI</span>
+                            <span class="ml-2 text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">Flagship</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-green-400">128K</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">GPT-5.2</h3>
+                    <p class="text-gray-400 text-sm mb-4">OpenAI's flagship model. Improved personality, creativity, and reasoning.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Vision</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Creative</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Agentic</span>
+                    </div>
+                </div>
+
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-openai" data-provider="openai">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-openai text-xs font-medium px-2 py-1 rounded-full">OpenAI</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-green-400">128K</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">GPT-5.1</h3>
+                    <p class="text-gray-400 text-sm mb-4">Strong general-purpose model. Excellent balance of capability and cost.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Vision</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Function Calling</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">JSON Mode</span>
+                    </div>
+                </div>
+
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-openai" data-provider="openai">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-openai text-xs font-medium px-2 py-1 rounded-full">OpenAI</span>
+                            <span class="ml-2 text-xs bg-pink-500/20 text-pink-400 px-2 py-1 rounded-full">Pro</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-green-400">128K</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">GPT-4.5</h3>
+                    <p class="text-gray-400 text-sm mb-4">Large pre-trained model for Pro users. Deep knowledge and nuance.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Vision</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Research</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Analysis</span>
+                    </div>
+                </div>
+
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-openai" data-provider="openai">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-openai text-xs font-medium px-2 py-1 rounded-full">OpenAI</span>
+                            <span class="ml-2 text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded-full">Reasoning</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-green-400">200K</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">o3</h3>
+                    <p class="text-gray-400 text-sm mb-4">Most powerful reasoning model. SOTA on coding, math, and science benchmarks.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Chain-of-Thought</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">SOTA</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Science</span>
+                    </div>
+                </div>
+
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-openai" data-provider="openai">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-openai text-xs font-medium px-2 py-1 rounded-full">OpenAI</span>
+                            <span class="ml-2 text-xs bg-pink-500/20 text-pink-400 px-2 py-1 rounded-full">Premium</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-green-400">200K</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">o1-pro</h3>
+                    <p class="text-gray-400 text-sm mb-4">Premium reasoning with extended compute. Best for the hardest problems.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Expert</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Research</span>
+                    </div>
+                </div>
+
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-openai" data-provider="openai">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-openai text-xs font-medium px-2 py-1 rounded-full">OpenAI</span>
+                            <span class="ml-2 text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded-full">Reasoning</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-green-400">200K</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">o1</h3>
+                    <p class="text-gray-400 text-sm mb-4">Advanced reasoning model. Thinks before responding for complex tasks.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Chain-of-Thought</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Math</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Code</span>
+                    </div>
+                </div>
+
+                <!-- Anthropic Models -->
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-anthropic" data-provider="anthropic">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-anthropic text-xs font-medium px-2 py-1 rounded-full">Anthropic</span>
+                            <span class="ml-2 text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">Flagship</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-cyan-400">200K</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Claude Opus 4.5</h3>
+                    <p class="text-gray-400 text-sm mb-4">Flagship model. Best for coding, agents, and computer use. $5/$25 per 1M tokens.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Vision</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Coding</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Agentic</span>
+                    </div>
+                </div>
+
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-anthropic" data-provider="anthropic">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-anthropic text-xs font-medium px-2 py-1 rounded-full">Anthropic</span>
+                            <span class="ml-2 text-xs bg-cyan-500/20 text-cyan-400 px-2 py-1 rounded-full">Popular</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-cyan-400">200K</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Claude Sonnet 4.5</h3>
+                    <p class="text-gray-400 text-sm mb-4">Best balance of speed, intelligence, and cost. Great for everyday tasks.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Vision</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Balanced</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Analysis</span>
+                    </div>
+                </div>
+
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-anthropic" data-provider="anthropic">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-anthropic text-xs font-medium px-2 py-1 rounded-full">Anthropic</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-cyan-400">200K</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Claude Haiku 4.5</h3>
+                    <p class="text-gray-400 text-sm mb-4">Fastest and cheapest Claude. Lightning-fast for simple tasks at scale.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Vision</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Ultra Fast</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Low Cost</span>
+                    </div>
+                </div>
+
+                <!-- Google Models -->
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-google" data-provider="google">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-google text-xs font-medium px-2 py-1 rounded-full">Google</span>
+                            <span class="ml-2 text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">Flagship</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-blue-400">1M</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Gemini 3 Pro</h3>
+                    <p class="text-gray-400 text-sm mb-4">Most advanced multimodal model. Perfect for analyzing entire codebases or documents.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Vision</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Audio</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Video</span>
+                    </div>
+                </div>
+
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-google" data-provider="google">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-google text-xs font-medium px-2 py-1 rounded-full">Google</span>
+                            <span class="ml-2 text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full">1M Context</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-blue-400">1M</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Gemini 3 Flash</h3>
+                    <p class="text-gray-400 text-sm mb-4">Fast and scalable with massive context. Great for real-time apps.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Vision</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Fast</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Multimodal</span>
+                    </div>
+                </div>
+
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-google" data-provider="google">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-google text-xs font-medium px-2 py-1 rounded-full">Google</span>
+                            <span class="ml-2 text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full">1M Context</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-blue-400">1M</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Gemini 2.5 Pro</h3>
+                    <p class="text-gray-400 text-sm mb-4">Strong predecessor with native tool use and agentic capabilities.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Agentic</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Tool Use</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Reasoning</span>
+                    </div>
+                </div>
+
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-google" data-provider="google">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-google text-xs font-medium px-2 py-1 rounded-full">Google</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-blue-400">1M</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Gemini 2.5 Flash</h3>
+                    <p class="text-gray-400 text-sm mb-4">Fast and cost-efficient. Excellent for high-volume multimodal workloads.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Fast</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Low Cost</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Multimodal</span>
+                    </div>
+                </div>
+
+                <!-- Meta/Llama Models -->
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-meta" data-provider="meta">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-meta text-xs font-medium px-2 py-1 rounded-full">Meta via OpenRouter</span>
+                            <span class="ml-2 text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">Flagship</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-blue-400">1M</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Llama 4 Maverick</h3>
+                    <p class="text-gray-400 text-sm mb-4">128-expert MoE flagship. Industry-leading multimodal with 17B active params. Beats GPT-4o.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Vision</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">MoE 128E</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Multilingual</span>
+                    </div>
+                </div>
+
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-meta" data-provider="meta">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-meta text-xs font-medium px-2 py-1 rounded-full">Meta via OpenRouter</span>
+                            <span class="ml-2 text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full">10M Context</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-blue-400">10M</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Llama 4 Scout</h3>
+                    <p class="text-gray-400 text-sm mb-4">16-expert MoE with industry-leading 10M context. Fits on single H100. Best in class.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Vision</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Long Context</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Open Weights</span>
+                    </div>
+                </div>
+
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-meta" data-provider="meta">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-meta text-xs font-medium px-2 py-1 rounded-full">Meta via OpenRouter</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-blue-400">128K</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Llama 3.3 70B</h3>
+                    <p class="text-gray-400 text-sm mb-4">Best price-to-performance open model. Excellent general-purpose capabilities.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Open Weights</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Balanced</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Coding</span>
+                    </div>
+                </div>
+
+                <!-- Mistral Models -->
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-mistral" data-provider="mistral">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-mistral text-xs font-medium px-2 py-1 rounded-full">Mistral</span>
+                            <span class="ml-2 text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">Flagship</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-orange-400">256K</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Mistral Large 3</h3>
+                    <p class="text-gray-400 text-sm mb-4">41B/675B MoE flagship. World's best open-weight multimodal model. Apache 2.0 license.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Vision</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">MoE</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Agentic</span>
+                    </div>
+                </div>
+
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-mistral" data-provider="mistral">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-mistral text-xs font-medium px-2 py-1 rounded-full">Mistral</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-orange-400">128K</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Ministral 3 14B</h3>
+                    <p class="text-gray-400 text-sm mb-4">Best-in-class edge model. Vision + reasoning in 14B params. Perfect for local deployment.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Vision</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Edge</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Open Weights</span>
+                    </div>
+                </div>
+
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-mistral" data-provider="mistral">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-mistral text-xs font-medium px-2 py-1 rounded-full">Mistral</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-orange-400">128K</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Mistral Small 3.2</h3>
+                    <p class="text-gray-400 text-sm mb-4">24B enterprise-ready compact model. Vision capabilities with Apache 2.0 license.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Vision</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Fast</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Open Weights</span>
+                    </div>
+                </div>
+
+                <!-- DeepSeek Models -->
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-deepseek" data-provider="deepseek">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-deepseek text-xs font-medium px-2 py-1 rounded-full">DeepSeek</span>
+                            <span class="ml-2 text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">Flagship</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-teal-400">164K</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">DeepSeek V3.2</h3>
+                    <p class="text-gray-400 text-sm mb-4">685B sparse attention model. GPT-5/Gemini 3 level performance. Agentic tools built-in.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Sparse Attention</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Agentic</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Open Weights</span>
+                    </div>
+                </div>
+
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-deepseek" data-provider="deepseek">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-deepseek text-xs font-medium px-2 py-1 rounded-full">DeepSeek</span>
+                            <span class="ml-2 text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded-full">Reasoning</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-teal-400">164K</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">DeepSeek R1-0528</h3>
+                    <p class="text-gray-400 text-sm mb-4">Latest reasoning model. Enhanced math, coding, and reduced hallucination. o1 rival at 90% less.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Chain-of-Thought</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">STEM</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Open Weights</span>
+                    </div>
+                </div>
+
+                <div class="model-card card-glass rounded-2xl p-6 transition-all provider-deepseek" data-provider="deepseek">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="badge-deepseek text-xs font-medium px-2 py-1 rounded-full">DeepSeek</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500">Context</div>
+                            <div class="text-sm font-bold text-teal-400">128K</div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">DeepSeek V3.1</h3>
+                    <p class="text-gray-400 text-sm mb-4">671B hybrid model. Think/Non-Think modes. Strong tool calling and function use.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Hybrid Reasoning</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Tool Calling</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">MoE</span>
+                    </div>
+                </div>
+
+                <!-- More Models Card -->
+                <div class="model-card card-glass rounded-2xl p-6 transition-all bg-gradient-to-br from-green-500/5 to-cyan-500/5 border-green-500/20" data-provider="all">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span class="text-xs font-medium px-2 py-1 rounded-full bg-gradient-to-r from-green-500/20 to-cyan-500/20 text-green-400">OpenRouter</span>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2 gradient-text-hero">200+ More Models</h3>
+                    <p class="text-gray-400 text-sm mb-4">Cohere, Yi, Qwen, Perplexity, Together, and dozens more. If it's on OpenRouter, it works with MemoryRouter.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Cohere</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Yi</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">Qwen</span>
+                        <span class="text-xs bg-white/5 px-2 py-1 rounded">+ more</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="py-24 px-6">
+        <div class="max-w-4xl mx-auto">
+            <div class="card-glass rounded-3xl p-8 md:p-12 border-green-500/20 text-center relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-64 h-64 bg-green-500/5 rounded-full blur-3xl"></div>
+                <div class="absolute bottom-0 left-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl"></div>
+                <div class="relative">
+                    <h2 class="text-3xl md:text-4xl font-bold mb-4">Ready to Add Memory?</h2>
+                    <p class="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
+                        One URL change. Same code. Persistent memory across every model.
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                        <a href="index.html#waitlist" class="btn-primary px-8 py-4 rounded-xl text-lg transition inline-flex items-center justify-center gap-2">
+                            Get Early Access
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                            </svg>
+                        </a>
+                        <a href="index.html#calculator" class="bg-white/5 border border-white/10 px-8 py-4 rounded-xl text-lg font-semibold hover:bg-white/10 transition">
+                            Calculate Savings
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-12 px-6 border-t border-white/5">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-green-400 to-cyan-400 flex items-center justify-center">
+                        <span class="text-black font-bold text-sm">M</span>
+                    </div>
+                    <span class="text-lg font-bold">MemoryRouter</span>
+                </div>
+                <div class="flex items-center gap-8 text-sm text-gray-500">
+                    <a href="index.html" class="hover:text-white transition">Home</a>
+                    <a href="models.html" class="hover:text-white transition">Models</a>
+                    <a href="index.html#pricing" class="hover:text-white transition">Pricing</a>
+                    <a href="index.html#faq" class="hover:text-white transition">FAQ</a>
+                </div>
+                <div class="text-sm text-gray-600">
+                    © 2026 MemoryRouter. All rights reserved.
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function filterModels(provider) {
+            // Update active button
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+                btn.classList.add('text-gray-400');
+            });
+            document.querySelector(`[data-filter="${provider}"]`).classList.add('active');
+            document.querySelector(`[data-filter="${provider}"]`).classList.remove('text-gray-400');
+
+            // Filter cards
+            document.querySelectorAll('.model-card').forEach(card => {
+                const cardProvider = card.dataset.provider;
+                if (provider === 'all' || cardProvider === provider || cardProvider === 'all') {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+    </script>
+</body>
+</html>

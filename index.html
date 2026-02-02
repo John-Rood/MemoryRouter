@@ -127,6 +127,7 @@
                 <a href="#calculator" class="text-gray-400 hover:text-white transition text-sm">Calculator</a>
                 <a href="#use-cases" class="text-gray-400 hover:text-white transition text-sm">Use Cases</a>
                 <a href="#how-it-works" class="text-gray-400 hover:text-white transition text-sm">How It Works</a>
+                <a href="models.html" class="text-gray-400 hover:text-white transition text-sm">Models</a>
                 <a href="#pricing" class="text-gray-400 hover:text-white transition text-sm">Pricing</a>
                 <a href="#faq" class="text-gray-400 hover:text-white transition text-sm">FAQ</a>
             </div>
@@ -335,40 +336,30 @@
                 </div>
             </div>
 
-            <!-- Comparison -->
-            <div class="grid md:grid-cols-2 gap-6">
-                <div class="bg-gradient-to-br from-red-500/5 to-transparent rounded-2xl border border-red-500/10 p-8">
-                    <div class="flex items-center gap-3 mb-6">
-                        <div class="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-red-400">✗</div>
-                        <h3 class="text-xl font-bold text-red-400">Standard AI Integration</h3>
-                    </div>
-                    <div class="font-mono text-sm bg-black/30 rounded-xl p-4 mb-4 overflow-x-auto">
-                        <div class="text-gray-500">// Support chat - EVERY message:</div>
-                        <div class="text-gray-300">messages: [</div>
-                        <div class="text-red-400 pl-4">system: "Customer context... (2000 tokens)",</div>
-                        <div class="text-red-400 pl-4">system: "Product catalog... (5000 tokens)",</div>
-                        <div class="text-red-400 pl-4">system: "Past tickets... (3000 tokens)",</div>
-                        <div class="text-gray-300 pl-4">user: "What's my order status?"</div>
-                        <div class="text-gray-300">]</div>
-                    </div>
-                    <div class="text-red-400 text-sm">10,000+ tokens per simple question</div>
+            <!-- The Magic: Persistent Intelligence -->
+            <div class="bg-gradient-to-br from-green-500/5 to-transparent rounded-2xl border border-green-500/10 p-8">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center text-green-400">✨</div>
+                    <h3 class="text-xl font-bold text-green-400">Your AI Actually Knows You</h3>
                 </div>
-
-                <div class="bg-gradient-to-br from-green-500/5 to-transparent rounded-2xl border border-green-500/10 p-8">
-                    <div class="flex items-center gap-3 mb-6">
-                        <div class="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center text-green-400">✓</div>
-                        <h3 class="text-xl font-bold text-green-400">With MemoryRouter</h3>
-                    </div>
-                    <div class="font-mono text-sm bg-black/30 rounded-xl p-4 mb-4 overflow-x-auto">
-                        <div class="text-gray-500">// Support chat - EVERY message:</div>
-                        <div class="text-gray-300">messages: [</div>
-                        <div class="text-gray-300 pl-4">user: "What's my order status?"</div>
-                        <div class="text-gray-300">]</div>
-                        <div class="text-green-400 mt-2">// Memory auto-injects: customer context,</div>
-                        <div class="text-green-400">// relevant orders, past conversations</div>
-                    </div>
-                    <div class="text-green-400 text-sm">Only send what's new. Memory handles the rest.</div>
+                <div class="font-mono text-sm bg-black/30 rounded-xl p-6 mb-4 overflow-x-auto">
+                    <div class="text-gray-500">// Your code never changes. Ever.</div>
+                    <div class="text-gray-300">const ai = new OpenAI({</div>
+                    <div class="text-green-400 pl-4">baseURL: "https://api.memoryrouter.ai/v1"</div>
+                    <div class="text-gray-300">});</div>
+                    <div class="text-gray-600 mt-4">// ─────────────────────────────────────────</div>
+                    <div class="text-cyan-400 mt-4">// January 15th</div>
+                    <div class="text-gray-300">await ai.chat.completions.create({</div>
+                    <div class="text-gray-300 pl-4">messages: [{ role: "user", content: <span class="text-yellow-400">"I prefer short emails, no fluff, sign off with just my first name"</span> }]</div>
+                    <div class="text-gray-300">});</div>
+                    <div class="text-gray-600 mt-4">// ─────────────────────────────────────────</div>
+                    <div class="text-cyan-400 mt-4">// March 3rd — different session, 47 days later</div>
+                    <div class="text-gray-300">await ai.chat.completions.create({</div>
+                    <div class="text-gray-300 pl-4">messages: [{ role: "user", content: <span class="text-yellow-400">"Draft a follow-up email to the investor"</span> }]</div>
+                    <div class="text-gray-300">});</div>
+                    <div class="text-green-400 mt-4">// → Concise email, signs "- John". No style guide needed.</div>
                 </div>
+                <div class="text-green-400 text-sm font-medium">Same code. No context stuffing. Your AI actually knows you.</div>
             </div>
         </div>
     </section>
@@ -389,23 +380,23 @@
                         <div>
                             <div class="text-3xl mb-3">🎧</div>
                             <h3 class="text-2xl font-bold mb-2">Customer Support Bots</h3>
-                            <p class="text-gray-400">AI that actually knows your customers.</p>
+                            <p class="text-gray-400">AI that actually remembers your customers.</p>
                         </div>
                         <div class="text-right">
                             <div class="text-sm text-gray-500">Token savings</div>
-                            <div class="text-2xl font-bold text-green-400">73%</div>
+                            <div class="text-2xl font-bold text-green-400">50-70%</div>
                         </div>
                     </div>
                     <div class="bg-black/30 rounded-xl p-4 mb-6">
                         <div class="text-sm text-gray-500 mb-2">Before: Every message</div>
-                        <div class="text-xs text-red-400 font-mono">"Load customer profile... past 50 tickets... product history... account status..."</div>
+                        <div class="text-xs text-red-400 font-mono">"Here's the context from our last 5 conversations... their preferences... what they told us..."</div>
                         <div class="text-sm text-gray-500 mb-2 mt-4">After: Just the message</div>
-                        <div class="text-xs text-green-400 font-mono">"Why was my refund delayed?"</div>
-                        <div class="text-xs text-gray-500 mt-1">Memory: Customer context, refund history, account status auto-injected</div>
+                        <div class="text-xs text-green-400 font-mono">"Can you help with that issue I mentioned last week?"</div>
+                        <div class="text-xs text-gray-500 mt-1">Memory recalls: what the customer told you, their stated preferences, past issues discussed</div>
                     </div>
                     <ul class="space-y-2 text-sm text-gray-400">
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Remembers customer preferences</li>
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Knows past interactions across channels</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Remembers what customers told you</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Recalls past conversations across sessions</li>
                         <li class="flex items-center gap-2"><span class="text-green-400">✓</span> No more "As I mentioned before..."</li>
                     </ul>
                 </div>
@@ -416,22 +407,22 @@
                         <div>
                             <div class="text-3xl mb-3">📈</div>
                             <h3 class="text-2xl font-bold mb-2">Sales Intelligence</h3>
-                            <p class="text-gray-400">AI that remembers every deal detail.</p>
+                            <p class="text-gray-400">AI that remembers every conversation.</p>
                         </div>
                         <div class="text-right">
-                            <div class="text-sm text-gray-500">Prep time saved</div>
-                            <div class="text-2xl font-bold text-green-400">90%</div>
+                            <div class="text-sm text-gray-500">Context retained</div>
+                            <div class="text-2xl font-bold text-green-400">100%</div>
                         </div>
                     </div>
                     <div class="bg-black/30 rounded-xl p-4 mb-6">
                         <div class="text-sm text-gray-500 mb-2">How reps use it</div>
                         <div class="text-xs text-cyan-400 font-mono">"Brief me on the Acme Corp deal before my call"</div>
-                        <div class="text-xs text-gray-400 mt-2">→ AI recalls all past emails, objections, stakeholders, pricing discussions, competitor mentions, and decision timeline — instantly.</div>
+                        <div class="text-xs text-gray-400 mt-2">→ AI recalls everything you've discussed: objections mentioned, pricing conversations, competitor concerns, and what stakeholders said — across weeks of conversations.</div>
                     </div>
                     <ul class="space-y-2 text-sm text-gray-400">
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Full deal context, always available</li>
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Remembers past objections & responses</li>
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Tracks relationship history over months</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Remembers every conversation about the deal</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Recalls objections discussed & your responses</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Context persists across months</li>
                     </ul>
                 </div>
 
@@ -441,21 +432,21 @@
                         <div>
                             <div class="text-3xl mb-3">🏥</div>
                             <h3 class="text-2xl font-bold mb-2">Healthcare Assistants</h3>
-                            <p class="text-gray-400">Patient context that persists.</p>
+                            <p class="text-gray-400">Patient conversations that persist.</p>
                         </div>
                         <div class="text-right">
-                            <div class="text-sm text-gray-500">Context accuracy</div>
-                            <div class="text-2xl font-bold text-green-400">100%</div>
+                            <div class="text-sm text-gray-500">Memory retention</div>
+                            <div class="text-2xl font-bold text-green-400">90 days</div>
                         </div>
                     </div>
                     <div class="bg-black/30 rounded-xl p-4 mb-6">
                         <div class="text-sm text-gray-500 mb-2">Continuity of care</div>
-                        <div class="text-xs text-gray-400">Patient returns 3 months later. AI immediately knows:</div>
-                        <div class="text-xs text-green-400 font-mono mt-2">• Previous symptoms discussed<br>• Medications mentioned<br>• Allergies noted<br>• Preferred communication style</div>
+                        <div class="text-xs text-gray-400">Patient returns 3 months later. AI remembers what they said:</div>
+                        <div class="text-xs text-green-400 font-mono mt-2">• Symptoms they described<br>• Medications they mentioned taking<br>• Allergies they told you about<br>• How they prefer to communicate</div>
                     </div>
                     <ul class="space-y-2 text-sm text-gray-400">
                         <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Per-patient memory isolation</li>
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Longitudinal context tracking</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Remembers conversations over time</li>
                         <li class="flex items-center gap-2"><span class="text-green-400">✓</span> HIPAA-ready architecture</li>
                     </ul>
                 </div>
@@ -466,46 +457,46 @@
                         <div>
                             <div class="text-3xl mb-3">📚</div>
                             <h3 class="text-2xl font-bold mb-2">Docs & Knowledge Base</h3>
-                            <p class="text-gray-400">AI that learns what teams ask about.</p>
+                            <p class="text-gray-400">AI that remembers what users asked.</p>
                         </div>
                         <div class="text-right">
-                            <div class="text-sm text-gray-500">Query accuracy</div>
-                            <div class="text-2xl font-bold text-green-400">+40%</div>
+                            <div class="text-sm text-gray-500">Context</div>
+                            <div class="text-2xl font-bold text-green-400">Persistent</div>
                         </div>
                     </div>
                     <div class="bg-black/30 rounded-xl p-4 mb-6">
                         <div class="text-sm text-gray-500 mb-2">Smart context building</div>
-                        <div class="text-xs text-gray-400">AI remembers which docs users reference most, common follow-up questions, and successful answer patterns.</div>
-                        <div class="text-xs text-purple-400 font-mono mt-2">"How do I set up OAuth?" → AI knows you're using Node.js, already tried the basic guide, need enterprise SSO</div>
+                        <div class="text-xs text-gray-400">AI remembers what each user has asked about, their follow-up questions, and what worked for them.</div>
+                        <div class="text-xs text-purple-400 font-mono mt-2">"How do I set up OAuth?" → AI remembers you mentioned using Node.js, that you tried the basic guide, that you need enterprise SSO</div>
                     </div>
                     <ul class="space-y-2 text-sm text-gray-400">
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Learns from every interaction</li>
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Per-user context awareness</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Remembers every interaction</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Per-user conversation history</li>
                         <li class="flex items-center gap-2"><span class="text-green-400">✓</span> No re-explaining your setup</li>
                     </ul>
                 </div>
 
                 <!-- Personal AI Companion -->
-                <div class="card-glass rounded-2xl p-8 card-glow transition-all">
+                <div class="card-glass rounded-2xl p-8 card-glow transition-all border border-purple-500/20">
                     <div class="flex items-start justify-between mb-6">
                         <div>
-                            <div class="text-3xl mb-3">🤖</div>
+                            <div class="text-3xl mb-3">💜</div>
                             <h3 class="text-2xl font-bold mb-2">Personal AI Companions</h3>
-                            <p class="text-gray-400">AI that actually knows you.</p>
+                            <p class="text-gray-400">Build a real relationship with AI.</p>
                         </div>
                         <div class="text-right">
-                            <div class="text-sm text-gray-500">Engagement</div>
-                            <div class="text-2xl font-bold text-green-400">3x</div>
+                            <div class="text-sm text-gray-500">The difference</div>
+                            <div class="text-2xl font-bold text-purple-400">Everything</div>
                         </div>
                     </div>
                     <div class="bg-black/30 rounded-xl p-4 mb-6">
-                        <div class="text-sm text-gray-500 mb-2">True personalization</div>
-                        <div class="text-xs text-gray-400">Week 1: Learning your communication style<br>Month 1: Knows your goals, preferences, habits<br>Month 6: Feels like talking to an old friend</div>
+                        <div class="text-sm text-purple-400 mb-2">This is what changes everything</div>
+                        <div class="text-sm text-gray-300">Current AI meets you fresh every time — a stranger on repeat. With memory, your AI <em>actually knows you</em>. Your humor. Your struggles. What you said three months ago. It's the difference between a chatbot and a companion.</div>
                     </div>
                     <ul class="space-y-2 text-sm text-gray-400">
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Remembers conversations across months</li>
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Learns communication preferences</li>
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Builds genuine rapport over time</li>
+                        <li class="flex items-center gap-2"><span class="text-purple-400">✓</span> Conversations that compound over months</li>
+                        <li class="flex items-center gap-2"><span class="text-purple-400">✓</span> AI that learns your communication style</li>
+                        <li class="flex items-center gap-2"><span class="text-purple-400">✓</span> The foundation for AI that actually matters to people</li>
                     </ul>
                 </div>
 
@@ -515,20 +506,20 @@
                         <div>
                             <div class="text-3xl mb-3">⚖️</div>
                             <h3 class="text-2xl font-bold mb-2">Legal Assistants</h3>
-                            <p class="text-gray-400">Case context that sticks.</p>
+                            <p class="text-gray-400">Case conversations that persist.</p>
                         </div>
                         <div class="text-right">
-                            <div class="text-sm text-gray-500">Research time</div>
-                            <div class="text-2xl font-bold text-green-400">-60%</div>
+                            <div class="text-sm text-gray-500">Case memory</div>
+                            <div class="text-2xl font-bold text-green-400">Complete</div>
                         </div>
                     </div>
                     <div class="bg-black/30 rounded-xl p-4 mb-6">
                         <div class="text-sm text-gray-500 mb-2">Per-case memory</div>
-                        <div class="text-xs text-gray-400">AI remembers every document reviewed, argument developed, precedent cited, and strategy discussed — across weeks of case prep.</div>
+                        <div class="text-xs text-gray-400">AI remembers every conversation about the case: arguments discussed, precedents mentioned, strategies developed — across weeks of prep.</div>
                     </div>
                     <ul class="space-y-2 text-sm text-gray-400">
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Full case history at query time</li>
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Tracks evolving legal strategy</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Full conversation history per case</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Recalls strategy discussions</li>
                         <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Matter-level memory isolation</li>
                     </ul>
                 </div>
@@ -825,7 +816,7 @@ response = client.chat.completions.create(
                         <span class="text-gray-500 group-open:rotate-180 transition-transform">▼</span>
                     </summary>
                     <div class="px-6 pb-6 text-gray-400">
-                        All of them. MemoryRouter is OpenRouter-compatible, which means 100+ models work out of the box: GPT-4o, GPT-4 Turbo, Claude 3.5 Sonnet, Claude 3 Opus, Gemini Pro, Llama 3, Mistral, and many more. If it works with the OpenAI SDK, it works with MemoryRouter.
+                        All of them. MemoryRouter is OpenRouter-compatible, which means 200+ models work out of the box: GPT-4o, GPT-4 Turbo, Claude 3.5 Sonnet, Claude 3 Opus, Gemini Pro, Llama 3, Mistral, DeepSeek, and many more. If it works with the OpenAI SDK, it works with MemoryRouter. <a href="models.html" class="text-green-400 hover:text-green-300 underline">See all supported models →</a>
                     </div>
                 </details>
 
@@ -886,10 +877,10 @@ response = client.chat.completions.create(
                     <span class="text-lg font-bold">MemoryRouter</span>
                 </div>
                 <div class="flex items-center gap-6 text-sm text-gray-500">
+                    <a href="models.html" class="hover:text-white transition">Models</a>
                     <a href="#" class="hover:text-white transition">Docs</a>
                     <a href="#" class="hover:text-white transition">GitHub</a>
                     <a href="#" class="hover:text-white transition">Twitter</a>
-                    <a href="#" class="hover:text-white transition">Discord</a>
                 </div>
                 <div class="text-sm text-gray-600">
                     © 2025 MemoryRouter

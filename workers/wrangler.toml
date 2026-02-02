@@ -26,6 +26,13 @@ bindings = [
 tag = "v1"
 new_sqlite_classes = ["VaultDurableObject"]
 
+# ========== D1 Databases ==========
+# D1 intermediate state — fast fallback for cold DO reads
+[[d1_databases]]
+binding = "VECTORS_D1"
+database_name = "memoryrouter-vectors"
+database_id = "4009299d-3c91-4c0f-b614-236e3c2c0d8b"
+
 # ========== KV Namespaces ==========
 # VECTORS_KV: Kept for migration period, then removed
 # METADATA_KV: Kept permanently (auth, user data, billing)
@@ -44,6 +51,11 @@ id = "40652c48ae9141d9b3a8f797b39bb9f6"
 binding = "VECTORS_R2"
 bucket_name = "memory-router"
 
+# ========== Workers AI ==========
+# BGE-M3 embeddings at edge (~18ms latency, $0.012/1M)
+[ai]
+binding = "AI"
+
 # ========== Queues ==========
 # Storage queue: decouples embedding/storage from inference
 [[queues.producers]]
@@ -58,15 +70,14 @@ max_batch_timeout = 5
 # ========== Environment Variables ==========
 [vars]
 ENVIRONMENT = "development"
-# Embedding provider: "openai" or "modal"
-EMBEDDING_PROVIDER = "modal"
-# Modal embedding service URL (when EMBEDDING_PROVIDER=modal)
+# Embedding provider: "cloudflare" | "openai" | "modal"
+EMBEDDING_PROVIDER = "cloudflare"
+# Cloudflare Workers AI BGE-M3 (1024 dims, ~18ms, $0.012/1M)
+DEFAULT_EMBEDDING_DIMS = "1024"
+# Fallback: Modal embedding service URL
 MODAL_EMBEDDING_URL = "https://john-32116--memoryrouter-embeddings-web.modal.run"
-# OpenAI settings (when EMBEDDING_PROVIDER=openai)
-DEFAULT_EMBEDDING_MODEL = "text-embedding-3-large"
-DEFAULT_EMBEDDING_DIMS = "3072"
-# BGE dimensions for Modal (1024)
-BGE_EMBEDDING_DIMS = "1024"
+# Fallback: OpenAI settings  
+DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 HOT_WINDOW_HOURS = "4"
 WORKING_WINDOW_DAYS = "3"
 LONGTERM_WINDOW_DAYS = "90"
@@ -82,6 +93,8 @@ name = "memoryrouter-prod"
 ENVIRONMENT = "production"
 USE_DURABLE_OBJECTS = "true"
 MAX_IN_MEMORY_VECTORS = "5000"
+EMBEDDING_PROVIDER = "cloudflare"
+DEFAULT_EMBEDDING_DIMS = "1024"
 
 # Staging environment
 [env.staging]
@@ -89,4 +102,6 @@ name = "memoryrouter-staging"
 [env.staging.vars]
 ENVIRONMENT = "staging"
 USE_DURABLE_OBJECTS = "true"
+EMBEDDING_PROVIDER = "cloudflare"
+DEFAULT_EMBEDDING_DIMS = "1024"
 MAX_IN_MEMORY_VECTORS = "5000"

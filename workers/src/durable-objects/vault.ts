@@ -36,6 +36,10 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
   private loaded: boolean = false;
   /** Vault configuration and stats */
   private vaultState: VaultState | null = null;
+  /** Whether the DO is fully warmed (vectors loaded into memory) */
+  private isWarm: boolean = false;
+  /** Last time DO was accessed (for warmth tracking) */
+  private lastActive: number = 0;
 
   /**
    * Initialize SQLite tables on first use
@@ -119,10 +123,15 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
     const totalVectors = (countRow?.cnt as number) ?? 0;
 
     if (totalVectors === 0) {
-      this.index = new WorkersVectorIndex(
-        this.vaultState!.dims,
-        this.vaultState!.maxInMemory
-      );
+      // If dims is 0, skip creating index — will be created on first store
+      if (this.vaultState!.dims > 0) {
+        this.index = new WorkersVectorIndex(
+          this.vaultState!.dims,
+          this.vaultState!.maxInMemory
+        );
+      } else {
+        this.index = null;
+      }
       this.loaded = true;
       return;
     }
@@ -152,6 +161,8 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
     }
 
     this.loaded = true;
+    this.isWarm = true;
+    this.lastActive = Date.now();
     this.vaultState!.vectorCount = totalVectors;
     this.vaultState!.lastAccess = Date.now();
     this.saveVaultState();
@@ -190,8 +201,14 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
           return this.handleStats();
         case '/clear':
           return this.handleClear();
+        case '/reset':
+          return this.handleReset(request);
         case '/export':
           return this.handleExport();
+        case '/export-raw':
+          return this.handleExportRaw();
+        case '/warmth':
+          return this.handleWarmth();
         default:
           return new Response('Not Found', { status: 404 });
       }
@@ -281,10 +298,11 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
     const timestamp = Date.now();
     const embedding = new Float32Array(body.embedding);
 
-    // Update dims if this is the first vector
-    if (this.vaultState!.vectorCount === 0 && embedding.length !== this.vaultState!.dims) {
+    // Update dims if this is the first vector (or after reset)
+    if (this.vaultState!.vectorCount === 0 && 
+        (this.vaultState!.dims === 0 || embedding.length !== this.vaultState!.dims)) {
       this.vaultState!.dims = embedding.length;
-      // Recreate index with correct dims
+      // Create/recreate index with correct dims
       this.index = new WorkersVectorIndex(
         this.vaultState!.dims,
         this.vaultState!.maxInMemory
@@ -609,6 +627,7 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
 
     this.ctx.storage.sql.exec(`DELETE FROM vectors`);
     this.ctx.storage.sql.exec(`DELETE FROM items`);
+    this.ctx.storage.sql.exec(`DELETE FROM pending_buffer`);
 
     this.vaultState = {
       vectorCount: 0,
@@ -626,6 +645,38 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
     this.loaded = true;
 
     return Response.json({ cleared: true });
+  }
+
+  /**
+   * Full reset — clears everything and allows new dimensions.
+   * Use this when migrating to a different embedding model.
+   */
+  private handleReset(request: Request): Response {
+    this.ensureSchema();
+
+    // Clear all data
+    this.ctx.storage.sql.exec(`DELETE FROM vectors`);
+    this.ctx.storage.sql.exec(`DELETE FROM items`);
+    this.ctx.storage.sql.exec(`DELETE FROM pending_buffer`);
+
+    // Reset state — allow new dimensions on first store
+    const defaultMax = parseInt(this.env.MAX_IN_MEMORY_VECTORS || '5000', 10);
+    const newDims = 0; // Will be set on first store
+    
+    this.vaultState = {
+      vectorCount: 0,
+      dims: newDims,
+      maxInMemory: defaultMax,
+      lastAccess: Date.now(),
+      createdAt: Date.now(),
+    };
+    this.saveVaultState();
+
+    // Create a placeholder index (will be recreated on first store)
+    this.index = null;
+    this.loaded = false;
+
+    return Response.json({ reset: true, dims: 'will-be-set-on-first-store' });
   }
 
   // ==================== Export ====================
@@ -657,6 +708,57 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
           String.fromCharCode(...new Uint8Array(v.embedding as ArrayBuffer))
         ),
       })),
+    });
+  }
+
+  /**
+   * Export raw data WITHOUT loading into memory.
+   * Safe to call even when vectors have dimension mismatches.
+   * Used for migration/re-embedding.
+   */
+  private handleExportRaw(): Response {
+    this.ensureSchema();
+
+    // Just get items (content) — don't need embeddings for re-embedding
+    const items = this.ctx.storage.sql.exec(
+      `SELECT i.id, i.content, i.role, i.content_hash, i.model, 
+              i.request_id, i.token_count, i.timestamp
+       FROM items i
+       ORDER BY i.timestamp ASC`
+    ).toArray();
+
+    return Response.json({
+      itemCount: items.length,
+      data: items.map(item => ({
+        id: item.id,
+        timestamp: item.timestamp,
+        content: item.content,
+        role: item.role,
+        model: item.model,
+        contentHash: item.content_hash,
+        tokenCount: item.token_count,
+      })),
+    });
+  }
+
+  // ==================== Warmth ====================
+
+  /**
+   * Check if DO is warm (vectors loaded into memory).
+   * Used for smart routing — D1 fallback when cold.
+   * 
+   * RESPONSE: { isWarm, vectorCount, lastActive, loadedAt }
+   */
+  private handleWarmth(): Response {
+    // Update last active on every warmth check
+    this.lastActive = Date.now();
+    
+    return Response.json({
+      isWarm: this.isWarm,
+      vectorCount: this.vaultState?.vectorCount ?? 0,
+      hotVectors: this.index?.size ?? 0,
+      lastActive: this.lastActive,
+      loaded: this.loaded,
     });
   }
 

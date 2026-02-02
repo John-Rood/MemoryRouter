@@ -13,6 +13,6 @@
   "rewrites": [
     { "source": "/test", "destination": "/test.html" },
     { "source": "/debug", "destination": "/debug.html" },
-    { "source": "/((?!test\\.html|debug\\.html).*)", "destination": "/index.html" }
+    { "source": "/models", "destination": "/models.html" }
   ]
 }

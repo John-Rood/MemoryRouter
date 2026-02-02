@@ -3,6 +3,16 @@
  * Single source of truth for all model formatting
  */
 
+// Re-export Google transform utilities
+export {
+  transformToGoogle,
+  transformFromGoogle,
+  createGoogleStreamTransformer,
+  extractGoogleResponseContent,
+  type GeminiRequest,
+  type GeminiResponse,
+} from './google';
+
 type Formatter = (context: string) => string;
 
 const formatters: Record<string, Formatter> = {

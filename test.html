@@ -24,6 +24,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MemoryRouter Latency Test</title>
+  <!-- Marked.js for markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     * {
       box-sizing: border-box;
@@ -413,6 +415,68 @@
       border: 1px solid var(--error);
       color: var(--error);
     }
+    
+    /* Markdown styles */
+    .message-content p { margin-bottom: 12px; }
+    .message-content p:last-child { margin-bottom: 0; }
+    .message-content h1, .message-content h2, .message-content h3 {
+      margin: 16px 0 8px;
+      color: var(--accent);
+    }
+    .message-content h1 { font-size: 1.4em; }
+    .message-content h2 { font-size: 1.2em; }
+    .message-content h3 { font-size: 1.1em; }
+    .message-content code {
+      background: var(--bg-tertiary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 0.9em;
+    }
+    .message-content pre {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      overflow-x: auto;
+      margin: 12px 0;
+      white-space: pre;
+    }
+    .message-content pre code {
+      background: none;
+      padding: 0;
+    }
+    .message-content ul, .message-content ol {
+      margin: 12px 0;
+      padding-left: 24px;
+    }
+    .message-content li { margin: 4px 0; }
+    .message-content blockquote {
+      border-left: 3px solid var(--accent);
+      padding-left: 12px;
+      margin: 12px 0;
+      color: var(--text-muted);
+    }
+    .message-content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+    }
+    .message-content th, .message-content td {
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      text-align: left;
+    }
+    .message-content th {
+      background: var(--bg-tertiary);
+      font-weight: 600;
+    }
+    .message-content a {
+      color: var(--accent-bright);
+      text-decoration: none;
+    }
+    .message-content a:hover { text-decoration: underline; }
+    .message-content strong { color: var(--accent); }
     
     /* Streaming indicator */
     .streaming-indicator {
@@ -863,7 +927,8 @@
         messageDiv.classList.add('error');
         contentEl.innerHTML = escapeHtml(content);
       } else {
-        contentEl.innerHTML = escapeHtml(content) + '<span class="streaming-indicator"></span>';
+        // Use markdown for streaming content
+        contentEl.innerHTML = marked.parse(content) + '<span class="streaming-indicator"></span>';
       }
       
       if (mrTime !== null) {
@@ -882,7 +947,8 @@
       const mrEl = messageDiv.querySelector('#currentMR');
       const totalEl = messageDiv.querySelector('#currentTotal');
       
-      contentEl.innerHTML = escapeHtml(content);
+      // Use markdown for final content
+      contentEl.innerHTML = marked.parse(content);
       mrEl.textContent = `MR: ${Math.round(mrTime)}ms`;
       totalEl.textContent = ` · Total: ${formatTimeDisplay(total)}`;
       

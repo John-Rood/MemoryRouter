@@ -28,15 +28,15 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
 )
 @modal.concurrent(max_inputs=100)  # Handle many requests per container
 class EmbeddingService:
-    """Stella 400M embedding service — top retrieval model for RAG.
+    """BGE-large-en-v1.5 embedding service — proven retrieval model for RAG.
     
-    Stella beats BGE-large on retrieval benchmarks:
-    - MTEB Overall: 66.15 (vs 64.23 for BGE-large)
-    - Best-in-class retrieval for commercial use
-    - MIT licensed, 400M params, fits easily on T4
+    BGE-large is battle-tested and reliable:
+    - MTEB Overall: 64.23
+    - No custom code required
+    - MIT licensed, 335M params, fits easily on T4
     """
     
-    model_name: str = "NovaSearch/stella_en_400M_v5"
+    model_name: str = "BAAI/bge-large-en-v1.5"
     
     @modal.enter()
     def load_model(self):

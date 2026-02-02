@@ -12,7 +12,8 @@ import { Hono } from 'hono';
 import { stream } from 'hono/streaming';
 import { getUserContext, ProviderKeys } from '../middleware/auth';
 import { 
-  parseMemoryOptions, 
+  parseMemoryOptions,
+  parseMemoryOptionsFromBody,
   extractSessionId,
   KronosMemoryManager, 
   extractQuery, 
@@ -30,11 +31,37 @@ import {
   type Provider,
   type EmbeddingConfig,
 } from '../services/providers';
+import {
+  truncateToFit,
+  buildTruncationHeader,
+  rebuildRetrievalResult,
+  countMessagesTokens,
+  countChunksTokens,
+  type TruncationResult,
+} from '../services/truncation';
+import {
+  extractMemoryFlags,
+  injectMemoryContext,
+  calculateMemoryTokens,
+  detectFormat,
+  type ExtractionResult,
+  type InjectionResult,
+  type MemoryChunk as TransformMemoryChunk,
+} from '../services/memory-transform';
+
+// ==================== BILLING TOGGLE ====================
+const BILLING_ENABLED = false;  // Set to true when ready for production
 
 /**
  * Build embedding config from environment
  */
 function getEmbeddingConfig(env: ChatEnv): EmbeddingConfig | undefined {
+  if (env.EMBEDDING_PROVIDER === 'cloudflare' && env.AI) {
+    return {
+      provider: 'cloudflare',
+      ai: env.AI,
+    };
+  }
   if (env.EMBEDDING_PROVIDER === 'modal' && env.MODAL_EMBEDDING_URL) {
     return {
       provider: 'modal',
@@ -49,6 +76,9 @@ import { StorageManager, StorageBindings } from '../services/storage';
 import { resolveVaultsForQuery, resolveVaultForStore } from '../services/do-router';
 import { buildSearchPlan, executeSearchPlan, storeToVault } from '../services/kronos-do';
 import type { MemoryRetrievalResult as DOMemoryRetrievalResult } from '../types/do';
+
+// D1 imports (intermediate state for cold start fallback)
+import { searchD1, mirrorToD1 } from '../services/d1-search';
 
 // Storage job type for queue
 export interface StorageJob {
@@ -72,6 +102,8 @@ export interface ChatEnv extends StorageBindings {
   // Durable Objects
   VAULT_DO?: DurableObjectNamespace;
   USE_DURABLE_OBJECTS?: string;
+  // D1 intermediate state (cold start fallback)
+  VECTORS_D1?: D1Database;
   // KRONOS config
   HOT_WINDOW_HOURS?: string;
   WORKING_WINDOW_DAYS?: string;
@@ -79,8 +111,10 @@ export interface ChatEnv extends StorageBindings {
   // Storage queue (decoupled from inference)
   STORAGE_QUEUE?: Queue<StorageJob>;
   // Embedding provider config
-  EMBEDDING_PROVIDER?: string;  // 'openai' | 'modal'
+  EMBEDDING_PROVIDER?: string;  // 'cloudflare' | 'openai' | 'modal'
   MODAL_EMBEDDING_URL?: string;
+  // Workers AI binding (for cloudflare embeddings)
+  AI?: Ai;
 }
 
 /**
@@ -103,18 +137,38 @@ export function createChatRouter() {
   chat.post('/completions', async (c) => {
     const startTime = Date.now();
     let mrProcessingTime = 0;  // Time for MR to process (auth + vectors + context injection)
+    let embeddingMs = 0;       // Time for embedding API call
     let providerStartTime = 0; // When we send to AI provider
     const ctx = c.executionCtx;
     const env = c.env;
     
     // Get user context (set by auth middleware)
     const userContext = getUserContext(c);
-    const memoryOptions = parseMemoryOptions(c);
+    let memoryOptions = parseMemoryOptions(c);
     
     // Parse request body
     let body: ChatCompletionRequest & { session_id?: string };
+    let cleanBody: Record<string, unknown>;
+    let memoryExtraction: ExtractionResult | null = null;
     try {
-      body = await c.req.json();
+      const rawBody = await c.req.json();
+      // Parse memory options from body and strip them before forwarding
+      const parsed = parseMemoryOptionsFromBody(rawBody as Record<string, unknown>, memoryOptions);
+      memoryOptions = parsed.options;
+      cleanBody = parsed.cleanBody;
+      body = cleanBody as ChatCompletionRequest & { session_id?: string };
+      
+      // ===== NEW: Extract memory flags using memory-transform =====
+      const extractStart = Date.now();
+      memoryExtraction = extractMemoryFlags(rawBody as Record<string, unknown>);
+      const extractTime = Date.now() - extractStart;
+      
+      console.log('[MEMORY] Extraction result:', {
+        memoryMode: memoryExtraction.memoryMode,
+        messagesCount: memoryExtraction.messagesWithMemoryFlags.length,
+        provider: memoryExtraction.provider,
+      });
+      console.log(`[PERF] extractMemoryFlags: ${extractTime}ms`);
     } catch {
       return c.json({ error: 'Invalid JSON body' }, 400);
     }
@@ -160,6 +214,9 @@ export function createChatRouter() {
     // Memory retrieval
     let retrieval: MemoryRetrievalResult | DOMemoryRetrievalResult | null = null;
     let augmentedMessages: ChatMessage[] = body.messages as ChatMessage[];
+    let truncationResult: TruncationResult | null = null;
+    let memoryInjection: InjectionResult | null = null;
+    let memoryTokensUsed = 0;
     
     if (memoryOptions.mode !== 'off' && memoryOptions.mode !== 'write' && embeddingKey) {
       const query = extractQuery(augmentedMessages);
@@ -168,10 +225,13 @@ export function createChatRouter() {
         try {
           // Generate query embedding
           const embeddingConfig = getEmbeddingConfig(env);
+          const embedStart = Date.now();
           const queryEmbedding = await generateEmbedding(query, embeddingKey, undefined, embeddingConfig);
+          embeddingMs = Date.now() - embedStart;
+          console.log(`[EMBEDDING] Query: ${embeddingMs}ms (${embeddingConfig?.provider || 'openai'})`);
           
           if (usesDO) {
-            // ===== DURABLE OBJECTS PATH =====
+            // ===== DURABLE OBJECTS PATH (with D1 cold start fallback) =====
             const kronosConfig = {
               hotWindowHours: parseInt(env.HOT_WINDOW_HOURS || '4'),
               workingWindowDays: parseInt(env.WORKING_WINDOW_DAYS || '3'),
@@ -185,15 +245,89 @@ export function createChatRouter() {
               sessionId
             );
             
-            // Build KRONOS search plan
-            const plan = buildSearchPlan(
-              vaults,
-              memoryOptions.contextLimit,
-              kronosConfig
-            );
+            // Check DO warmth FIRST (non-blocking probe)
+            const coreVault = vaults.find(v => v.type === 'core');
+            let isDoWarm = false;
             
-            // Execute parallel search across vaults and windows
-            retrieval = await executeSearchPlan(plan, queryEmbedding);
+            if (coreVault) {
+              try {
+                const warmthRes = await coreVault.stub.fetch(
+                  new Request('https://do/warmth', { method: 'GET' })
+                );
+                const warmthData = await warmthRes.json() as { isWarm: boolean };
+                isDoWarm = warmthData.isWarm;
+              } catch {
+                // Warmth check failed — assume cold, use D1
+                isDoWarm = false;
+              }
+            }
+            
+            if (isDoWarm) {
+              // ===== HOT PATH: Use DO directly (sub-ms search) =====
+              const plan = buildSearchPlan(vaults, memoryOptions.contextLimit, kronosConfig);
+              retrieval = await executeSearchPlan(plan, queryEmbedding);
+            } else if (env.VECTORS_D1) {
+              // ===== COLD PATH: Use D1 fallback (~50ms) + warm DO in background =====
+              console.log(`[D1-FALLBACK] DO cold for ${userContext.memoryKey.key}, using D1`);
+              
+              // Query D1 directly (fast path)
+              retrieval = await searchD1(
+                env.VECTORS_D1,
+                queryEmbedding,
+                userContext.memoryKey.key,
+                sessionId,
+                memoryOptions.contextLimit,
+                kronosConfig
+              );
+              
+              // Warm DO in background for next request
+              ctx.waitUntil((async () => {
+                try {
+                  const plan = buildSearchPlan(vaults, 1, kronosConfig); // Minimal search to trigger load
+                  await executeSearchPlan(plan, queryEmbedding);
+                  console.log(`[D1-FALLBACK] DO warmed for ${userContext.memoryKey.key}`);
+                } catch (e) {
+                  console.error(`[D1-FALLBACK] Failed to warm DO:`, e);
+                }
+              })());
+            } else {
+              // ===== NO D1: Fall back to cold DO (2500ms) =====
+              const plan = buildSearchPlan(vaults, memoryOptions.contextLimit, kronosConfig);
+              retrieval = await executeSearchPlan(plan, queryEmbedding);
+            }
+            
+            // Also fetch pending buffer (content not yet chunked)
+            // This ensures the most recent conversation is always included
+            try {
+              const coreVault = vaults.find(v => v.type === 'core');
+              if (coreVault) {
+                const bufferRes = await coreVault.stub.fetch(
+                  new Request('https://do/buffer', { method: 'GET' })
+                );
+                const bufferData = await bufferRes.json() as { 
+                  content: string; 
+                  tokenCount: number; 
+                  lastUpdated: number | null;
+                };
+                
+                // If there's pending content, add it as the most recent chunk
+                if (bufferData.content && bufferData.tokenCount > 0) {
+                  retrieval.chunks.push({
+                    id: -1, // Special ID for buffer
+                    role: 'system' as const,
+                    content: bufferData.content,
+                    timestamp: bufferData.lastUpdated || Date.now(),
+                    score: 1.0, // Always relevant (it's the current conversation)
+                    window: 'hot' as const,
+                    source: 'buffer',
+                  });
+                  retrieval.tokenCount += bufferData.tokenCount;
+                }
+              }
+            } catch (bufferError) {
+              console.error('Failed to fetch buffer:', bufferError);
+              // Continue without buffer - non-fatal
+            }
           } else {
             // ===== LEGACY KV+R2 PATH =====
             const storage = new StorageManager({
@@ -211,8 +345,62 @@ export function createChatRouter() {
           
           // Inject context if we found relevant memory
           if (retrieval && retrieval.chunks.length > 0) {
-            const contextText = formatRetrievalAsContext(retrieval as MemoryRetrievalResult);
-            augmentedMessages = injectContext(augmentedMessages, contextText, body.model);
+            // ===== CALCULATE MEMORY TOKENS FOR TRUNCATION BUDGET =====
+            const format = detectFormat(provider, body.model);
+            const preInjectionTokens = calculateMemoryTokens(
+              retrieval.chunks as TransformMemoryChunk[],
+              null, // coreMemory - not yet implemented
+              format
+            );
+            console.log(`[MEMORY] Pre-injection calculation: ${preInjectionTokens} tokens (format: ${format})`);
+            
+            // ===== TRUNCATION: Ensure we fit within context window =====
+            // Now includes memory token budget awareness
+            truncationResult = truncateToFit(
+              augmentedMessages,
+              retrieval as MemoryRetrievalResult,
+              body.model,
+              preInjectionTokens  // Pass memory tokens for budget calculation
+            );
+            
+            if (truncationResult.truncated) {
+              console.log('[TRUNCATION] Applied:', {
+                truncated: truncationResult.truncated,
+                tokensRemoved: truncationResult.tokensRemoved,
+                originalChunks: retrieval.chunks.length,
+                remainingChunks: truncationResult.chunks.length,
+                conversationMsgsRemoved: truncationResult.truncationDetails.conversationMessagesRemoved,
+                archiveChunksRemoved: truncationResult.truncationDetails.archiveChunksRemoved,
+              });
+              
+              // Update with truncated data
+              augmentedMessages = truncationResult.messages;
+              retrieval = rebuildRetrievalResult(retrieval as MemoryRetrievalResult, truncationResult.chunks);
+            }
+            
+            // ===== NEW: Use memory-transform for context injection =====
+            const injectStart = Date.now();
+            memoryInjection = injectMemoryContext(
+              { messages: augmentedMessages, model: body.model } as Record<string, unknown>,
+              provider,
+              body.model,
+              retrieval.chunks as TransformMemoryChunk[],
+              null,  // coreMemory - null for now, can be added later
+              { maxTokens: 10000 }  // Reasonable budget for memory context
+            );
+            const injectTime = Date.now() - injectStart;
+            
+            console.log('[MEMORY] Injection result:', {
+              injectedTokens: memoryInjection.injectedTokens,
+              chunksUsed: memoryInjection.memoryChunksUsed,
+              format: memoryInjection.formatUsed,
+            });
+            console.log(`[PERF] injectMemoryContext: ${injectTime}ms`);
+            
+            memoryTokensUsed = memoryInjection.injectedTokens;
+            
+            // Use the injected body's messages
+            augmentedMessages = (memoryInjection.injectedBody.messages as ChatMessage[]) || augmentedMessages;
           }
         } catch (error) {
           console.error('Memory retrieval error:', error);
@@ -270,12 +458,27 @@ export function createChatRouter() {
       c.header('Connection', 'keep-alive');
       c.header('X-Memory-Tokens-Retrieved', String(retrieval?.tokenCount ?? 0));
       c.header('X-Memory-Chunks-Retrieved', String(retrieval?.chunks.length ?? 0));
+      c.header('X-Memory-Tokens-Injected', String(memoryTokensUsed));
+      c.header('X-Memory-Injection-Format', memoryInjection?.formatUsed ?? 'none');
       // Latency breakdown headers
+      c.header('X-Embedding-Ms', String(embeddingMs));
       c.header('X-MR-Processing-Ms', String(mrProcessingTime));
+      c.header('X-MR-Overhead-Ms', String(mrProcessingTime - embeddingMs));
       c.header('X-Provider-Response-Ms', String(providerResponseTime));
       c.header('X-Total-Ms', String(Date.now() - startTime));
       if (sessionId) {
         c.header('X-Session-ID', sessionId);
+      }
+      // Memory extraction headers
+      if (memoryExtraction) {
+        c.header('X-Memory-Mode', memoryExtraction.memoryMode ?? 'default');
+        c.header('X-Provider-Detected', memoryExtraction.provider);
+      }
+      // Truncation headers
+      if (truncationResult?.truncated) {
+        c.header('X-MemoryRouter-Truncated', 'true');
+        c.header('X-MemoryRouter-Truncated-Details', buildTruncationHeader(truncationResult.truncationDetails));
+        c.header('X-MemoryRouter-Tokens-Removed', String(truncationResult.tokensRemoved));
       }
       
       return stream(c, async (streamWriter) => {
@@ -335,22 +538,9 @@ export function createChatRouter() {
             storageContent.push({ role: 'assistant', content: fullResponse });
           }
           
-          if (storageContent.length > 0 && env.STORAGE_QUEUE) {
-            // Fire and forget to queue — zero latency impact
-            ctx.waitUntil(
-              env.STORAGE_QUEUE.send({
-                type: 'store-conversation',
-                memoryKey: userContext.memoryKey.key,
-                sessionId,
-                model: body.model,
-                embeddingKey,
-                content: storageContent,
-                embeddingProvider: env.EMBEDDING_PROVIDER as 'openai' | 'modal' | undefined,
-                modalEmbeddingUrl: env.MODAL_EMBEDDING_URL,
-              })
-            );
-          } else if (storageContent.length > 0 && usesDO) {
-            // Fallback: inline storage if queue not available
+          if (storageContent.length > 0 && usesDO) {
+            // Use inline storage for Cloudflare AI (can't serialize AI binding to queue)
+            // Also more efficient since we're already in a Worker
             ctx.waitUntil(
               storeConversationDO(
                 env.VAULT_DO!,
@@ -360,9 +550,27 @@ export function createChatRouter() {
                 fullResponse,
                 body.model,
                 memoryOptions,
-                embeddingKey
+                embeddingKey,
+                getEmbeddingConfig(env),
+                env.VECTORS_D1,
+                ctx
               )
             );
+          }
+          
+          // ===== BILLING (DISABLED FOR TESTING) - STREAMING PATH =====
+          if (BILLING_ENABLED) {
+            // await billingService.recordUsage({ tokens, cost, memoryKey });
+            console.log('[BILLING] Would record usage (streaming)');
+          } else {
+            console.log('[BILLING DISABLED] Would record (streaming):', {
+              memoryKey: userContext.memoryKey.key,
+              tokensRetrieved: retrieval?.tokenCount ?? 0,
+              tokensInjected: memoryTokensUsed,
+              responseLength: fullResponse.length,
+              model: body.model,
+              provider: provider,
+            });
           }
         }
       });
@@ -391,22 +599,8 @@ export function createChatRouter() {
         storageContent.push({ role: 'assistant', content: assistantResponse });
       }
       
-      if (storageContent.length > 0 && env.STORAGE_QUEUE) {
-        // Fire and forget to queue — zero latency impact
-        ctx.waitUntil(
-          env.STORAGE_QUEUE.send({
-            type: 'store-conversation',
-            memoryKey: userContext.memoryKey.key,
-            sessionId,
-            model: body.model,
-            embeddingKey,
-            content: storageContent,
-            embeddingProvider: env.EMBEDDING_PROVIDER as 'openai' | 'modal' | undefined,
-            modalEmbeddingUrl: env.MODAL_EMBEDDING_URL,
-          })
-        );
-      } else if (storageContent.length > 0 && usesDO) {
-        // Fallback: inline storage if queue not available
+      if (storageContent.length > 0 && usesDO) {
+        // Use inline storage for Cloudflare AI (can't serialize AI binding to queue)
         ctx.waitUntil(
           storeConversationDO(
             env.VAULT_DO!,
@@ -416,7 +610,10 @@ export function createChatRouter() {
             assistantResponse,
             body.model,
             memoryOptions,
-            embeddingKey
+            embeddingKey,
+            getEmbeddingConfig(env),
+            env.VECTORS_D1,
+            ctx
           )
         );
       }
@@ -429,6 +626,20 @@ export function createChatRouter() {
     // Check for debug mode
     const debugMode = c.req.header('X-Debug') === 'true' || c.req.query('debug') === 'true';
     
+    // ===== BILLING (DISABLED FOR TESTING) =====
+    if (BILLING_ENABLED) {
+      // await billingService.recordUsage({ tokens, cost, memoryKey });
+      console.log('[BILLING] Would record usage');
+    } else {
+      console.log('[BILLING DISABLED] Would record:', {
+        memoryKey: userContext.memoryKey.key,
+        tokensRetrieved: retrieval?.tokenCount ?? 0,
+        tokensInjected: memoryTokensUsed,
+        model: body.model,
+        provider: provider,
+      });
+    }
+    
     // Add memory metadata to response
     const enrichedResponse = {
       ...(responseBody as object),
@@ -438,21 +649,38 @@ export function createChatRouter() {
         storage: usesDO ? 'durable-objects' : 'kv-r2',
         tokens_retrieved: retrieval?.tokenCount ?? 0,
         chunks_retrieved: retrieval?.chunks.length ?? 0,
+        tokens_injected: memoryTokensUsed,
+        injection_format: memoryInjection?.formatUsed ?? null,
         window_breakdown: retrieval?.windowBreakdown ?? { hot: 0, working: 0, longterm: 0 },
         chunks: debugMode ? (retrieval?.chunks ?? []) : undefined,
         latency_ms: totalTime,
       },
       _latency: {
+        embedding_ms: embeddingMs,
         mr_processing_ms: mrProcessingTime,
+        mr_overhead_ms: mrProcessingTime - embeddingMs,  // Our actual software overhead
         provider_ms: providerTime,
         total_ms: totalTime,
       },
+      // Memory extraction info (from memory-transform)
+      _extraction: memoryExtraction ? {
+        memory_mode: memoryExtraction.memoryMode,
+        provider_detected: memoryExtraction.provider,
+        messages_with_flags: memoryExtraction.messagesWithMemoryFlags.length,
+      } : undefined,
+      // Truncation info (if any truncation occurred)
+      _truncation: truncationResult?.truncated ? {
+        truncated: true,
+        tokens_removed: truncationResult.tokensRemoved,
+        details: truncationResult.truncationDetails,
+      } : undefined,
       // Debug mode: include full augmented prompt
       _debug: debugMode ? {
         original_messages: body.messages,
         augmented_messages: augmentedMessages,
         model: body.model,
         provider: provider,
+        memory_injection: memoryInjection,
       } : undefined,
     };
     
@@ -501,7 +729,10 @@ async function storeConversationDO(
   assistantResponse: string,
   model: string,
   options: { storeInput: boolean; storeResponse: boolean },
-  embeddingKey: string
+  embeddingKey: string,
+  embeddingConfig?: EmbeddingConfig,
+  d1?: D1Database,
+  ctx?: ExecutionContext
 ): Promise<void> {
   const requestId = crypto.randomUUID();
   const stub = resolveVaultForStore(doNamespace, memoryKey, sessionId);
@@ -545,8 +776,28 @@ async function storeConversationDO(
       
       // Embed and store each complete chunk
       for (const chunkContent of chunkResult.chunksToEmbed) {
-        const embedding = await generateEmbedding(chunkContent, embeddingKey);
-        await storeToVault(stub, embedding, chunkContent, 'chunk', model, requestId);
+        const embedding = await generateEmbedding(chunkContent, embeddingKey, undefined, embeddingConfig);
+        const storeResult = await storeToVault(stub, embedding, chunkContent, 'chunk', model, requestId);
+        
+        // Mirror to D1 for cold start fallback (fire-and-forget)
+        if (d1 && storeResult.stored && ctx) {
+          const timestamp = Date.now();
+          const tokenCount = Math.ceil(chunkContent.length / 4);
+          ctx.waitUntil(
+            mirrorToD1(
+              d1,
+              memoryKey,
+              sessionId ? 'session' : 'core',
+              sessionId,
+              chunkContent,
+              'chunk',
+              embedding,
+              timestamp,
+              tokenCount,
+              model
+            ).catch(err => console.error('[D1-MIRROR] Failed:', err))
+          );
+        }
       }
     }
   } catch (error) {

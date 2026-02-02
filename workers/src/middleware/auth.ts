@@ -25,6 +25,12 @@ export interface ProviderKeys {
   anthropic?: string;
   openrouter?: string;
   google?: string;
+  xai?: string;
+  cerebras?: string;
+  deepseek?: string;
+  azure?: string;      // Format: "endpoint|key" or just "key" with azure_endpoint in body
+  ollama?: string;     // Optional — Ollama is typically local with no auth
+  mistral?: string;
 }
 
 /**

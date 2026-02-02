@@ -31,22 +31,84 @@ export const DEFAULT_KRONOS_CONFIG: KronosConfig = {
  * Memory options from request headers
  */
 export interface MemoryOptions {
-  mode: 'auto' | 'read' | 'write' | 'off';
+  mode: 'on' | 'read' | 'write' | 'off';
   storeInput: boolean;
   storeResponse: boolean;
   contextLimit: number;
 }
 
 /**
- * Parse memory options from request headers
+ * Parse memory options from request headers or query params
+ * Query params override headers for easier testing
  */
 export function parseMemoryOptions(c: Context): MemoryOptions {
-  const mode = (c.req.header('X-Memory-Mode') ?? 'auto') as MemoryOptions['mode'];
-  const storeInput = c.req.header('X-Memory-Store') !== 'false';
-  const storeResponse = c.req.header('X-Memory-Store-Response') !== 'false';
-  const contextLimit = parseInt(c.req.header('X-Memory-Context-Limit') ?? '30', 10);
+  const url = new URL(c.req.url);
+  
+  // Query param shortcuts: ?memory=false or ?memory=off
+  const memoryParam = url.searchParams.get('memory');
+  if (memoryParam === 'false' || memoryParam === 'off') {
+    return { mode: 'off', storeInput: false, storeResponse: false, contextLimit: 30 };
+  }
+  
+  // Full control via headers or query params (query params take precedence)
+  const mode = (url.searchParams.get('mode') ?? c.req.header('X-Memory-Mode') ?? 'on') as MemoryOptions['mode'];
+  const storeInput = (url.searchParams.get('store') ?? c.req.header('X-Memory-Store')) !== 'false';
+  const storeResponse = (url.searchParams.get('store_response') ?? c.req.header('X-Memory-Store-Response')) !== 'false';
+  const contextLimit = parseInt(url.searchParams.get('limit') ?? c.req.header('X-Memory-Context-Limit') ?? '30', 10);
   
   return { mode, storeInput, storeResponse, contextLimit };
+}
+
+/**
+ * Memory param names to strip from request body before forwarding to provider
+ */
+const MEMORY_BODY_PARAMS = ['memory', 'memory_mode', 'memory_store', 'memory_store_response', 'memory_limit'] as const;
+
+/**
+ * Parse memory options from request body and strip them
+ * Body params override headers/query for convenience
+ * Returns updated options and cleaned body
+ */
+export function parseMemoryOptionsFromBody(
+  body: Record<string, unknown>,
+  baseOptions: MemoryOptions
+): { options: MemoryOptions; cleanBody: Record<string, unknown> } {
+  const options = { ...baseOptions };
+  
+  // Check for memory=false shorthand
+  if (body.memory === false || body.memory === 'false' || body.memory === 'off') {
+    options.mode = 'off';
+    options.storeInput = false;
+    options.storeResponse = false;
+  } else if (body.memory !== undefined) {
+    // memory=true means use defaults (auto mode)
+    if (body.memory === true || body.memory === 'true' || body.memory === 'on') {
+      options.mode = 'on';
+    }
+  }
+  
+  // Granular overrides
+  if (body.memory_mode !== undefined) {
+    options.mode = body.memory_mode as MemoryOptions['mode'];
+  }
+  if (body.memory_store !== undefined) {
+    options.storeInput = body.memory_store === true || body.memory_store === 'true';
+    options.storeResponse = body.memory_store === true || body.memory_store === 'true';
+  }
+  if (body.memory_store_response !== undefined) {
+    options.storeResponse = body.memory_store_response === true || body.memory_store_response === 'true';
+  }
+  if (body.memory_limit !== undefined) {
+    options.contextLimit = parseInt(String(body.memory_limit), 10) || 30;
+  }
+  
+  // Strip memory params from body before forwarding
+  const cleanBody = { ...body };
+  for (const param of MEMORY_BODY_PARAMS) {
+    delete cleanBody[param];
+  }
+  
+  return { options, cleanBody };
 }
 
 /**
@@ -393,10 +455,27 @@ export function formatRetrievalAsContext(retrieval: MemoryRetrievalResult): stri
     return '';
   }
   
-  return retrieval.chunks
-    .map(chunk => {
-      const time = formatTimestamp(chunk.timestamp);
-      return `[${chunk.role.toUpperCase()}] (${time}) ${chunk.content}`;
-    })
-    .join('\n\n');
+  // Separate buffer (current conversation) from past memories
+  const pastChunks = retrieval.chunks.filter(c => c.source !== 'buffer');
+  const bufferChunk = retrieval.chunks.find(c => c.source === 'buffer');
+  
+  const parts: string[] = [];
+  
+  // Format past memories
+  if (pastChunks.length > 0) {
+    const pastFormatted = pastChunks
+      .map(chunk => {
+        const time = formatTimestamp(chunk.timestamp);
+        return `[${chunk.role.toUpperCase()}] (${time}) ${chunk.content}`;
+      })
+      .join('\n\n');
+    parts.push(pastFormatted);
+  }
+  
+  // Format current conversation buffer (if present)
+  if (bufferChunk && bufferChunk.content) {
+    parts.push(`[MOST RECENT]\n${bufferChunk.content}`);
+  }
+  
+  return parts.join('\n\n---\n\n');
 }
