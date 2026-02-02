@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MemoryRouter Debug Console</title>
+  <!-- Marked.js for markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
@@ -204,8 +206,68 @@
       padding: 16px;
       font-size: 14px;
       line-height: 1.6;
-      white-space: pre-wrap;
     }
+    
+    /* Markdown styles */
+    .message-content p { margin-bottom: 12px; }
+    .message-content p:last-child { margin-bottom: 0; }
+    .message-content h1, .message-content h2, .message-content h3 {
+      margin: 16px 0 8px;
+      color: var(--accent);
+    }
+    .message-content h1 { font-size: 1.4em; }
+    .message-content h2 { font-size: 1.2em; }
+    .message-content h3 { font-size: 1.1em; }
+    .message-content code {
+      background: var(--bg-tertiary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 0.9em;
+    }
+    .message-content pre {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    .message-content pre code {
+      background: none;
+      padding: 0;
+    }
+    .message-content ul, .message-content ol {
+      margin: 12px 0;
+      padding-left: 24px;
+    }
+    .message-content li { margin: 4px 0; }
+    .message-content blockquote {
+      border-left: 3px solid var(--accent);
+      padding-left: 12px;
+      margin: 12px 0;
+      color: var(--text-muted);
+    }
+    .message-content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+    }
+    .message-content th, .message-content td {
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      text-align: left;
+    }
+    .message-content th {
+      background: var(--bg-tertiary);
+      font-weight: 600;
+    }
+    .message-content a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+    .message-content a:hover { text-decoration: underline; }
+    .message-content strong { color: var(--accent); }
     
     /* Debug Panel */
     .debug-panel {
@@ -471,7 +533,8 @@
         <!-- Chats will be added here -->
       </div>
       
-      <button class="new-chat-btn" id="newChatBtn">+ New Chat</button>
+      <button class="new-chat-btn" id="newChatBtn">+ New Conversation (Clear Context)</button>
+      <button class="new-chat-btn" id="resetSessionBtn" style="background: var(--error); margin-top: 0;">🗑️ Reset Session (Clear Memory)</button>
     </aside>
     
     <main class="main">
@@ -500,8 +563,13 @@
 
   <script>
     // State
+    // KEY DISTINCTION:
+    // - sessionId: user-based, persists across ALL conversations (shared memory)
+    // - conversations: individual chat threads (context window simulation)
+    // When you "new conversation", you lose context but memory bridges the gap
     const state = {
-      chats: {},  // chatId -> { name, sessionId, messages: [{role, content, debug}] }
+      sessionId: null,  // ONE session for all conversations (user-based)
+      chats: {},  // chatId -> { name, messages: [{role, content, debug}] }
       activeChatId: null,
       isLoading: false,
     };
@@ -522,9 +590,15 @@
       const savedKey = localStorage.getItem('mr_debug_apikey');
       const savedModel = localStorage.getItem('mr_debug_model');
       const savedChats = localStorage.getItem('mr_debug_chats');
+      const savedSessionId = localStorage.getItem('mr_debug_sessionid');
       
       if (savedKey) apiKeyInput.value = savedKey;
       if (savedModel) modelInput.value = savedModel;
+      
+      // Initialize or load sessionId (ONE session for all conversations)
+      state.sessionId = savedSessionId || uuid();
+      localStorage.setItem('mr_debug_sessionid', state.sessionId);
+      
       if (savedChats) {
         try {
           state.chats = JSON.parse(savedChats);
@@ -537,6 +611,7 @@
       localStorage.setItem('mr_debug_apikey', apiKeyInput.value);
       localStorage.setItem('mr_debug_model', modelInput.value);
       localStorage.setItem('mr_debug_chats', JSON.stringify(state.chats));
+      localStorage.setItem('mr_debug_sessionid', state.sessionId);
     }
     
     // Generate UUID
@@ -547,14 +622,14 @@
       });
     }
     
-    // Create new chat
+    // Create new conversation (simulates context loss)
+    // Note: ALL conversations share the same sessionId (user-based)
+    // Memory bridges the gap between conversations
     function createChat() {
       const chatId = uuid();
-      const sessionId = uuid();
       state.chats[chatId] = {
-        name: `Chat ${Object.keys(state.chats).length + 1}`,
-        sessionId,
-        messages: [],
+        name: `Conversation ${Object.keys(state.chats).length + 1}`,
+        messages: [],  // Fresh context window (no history)
         createdAt: Date.now(),
       };
       state.activeChatId = chatId;
@@ -603,12 +678,18 @@
       
       const chat = state.chats[state.activeChatId];
       chatTitle.textContent = chat.name;
-      sessionIdEl.textContent = `session: ${chat.sessionId}`;
+      sessionIdEl.textContent = `session: ${state.sessionId} (shared across all conversations)`;
       
       if (chat.messages.length === 0) {
         messagesContainer.innerHTML = `
           <div style="text-align: center; color: var(--text-muted); padding: 40px;">
-            Start a conversation to test memory injection
+            <p style="margin-bottom: 12px;">🧪 <strong>Context Loss Simulation</strong></p>
+            <p style="font-size: 13px; line-height: 1.6;">
+              This conversation has no history (like a fresh chat window).<br>
+              If you've chatted before, memory should inject relevant context.<br><br>
+              <strong>Test it:</strong> Chat about something, then create a new conversation<br>
+              and ask about the same topic — memory should bridge the gap.
+            </p>
           </div>
         `;
         return;
@@ -643,9 +724,14 @@
       const debugHtml = msg.debug ? renderDebugPanel(msg.debug, idx) : '';
       const latencyHtml = msg.latency ? `
         <span class="message-latency">
-          MR: ${msg.latency.mr_processing_ms}ms · Provider: ${msg.latency.provider_ms}ms · Total: ${msg.latency.total_ms}ms
+          Embed: ${msg.latency.embedding_ms}ms · MR: ${msg.latency.mr_processing_ms}ms · Overhead: ${msg.latency.mr_overhead_ms}ms · Provider: ${msg.latency.provider_ms}ms
         </span>
       ` : '';
+      
+      // Use markdown for assistant, plain text for user
+      const contentHtml = msg.role === 'assistant' 
+        ? marked.parse(msg.content)
+        : escapeHtml(msg.content);
       
       return `
         <div class="message ${msg.role}">
@@ -653,7 +739,7 @@
             <span class="message-role">${msg.role}</span>
             ${latencyHtml}
           </div>
-          <div class="message-content">${escapeHtml(msg.content)}</div>
+          <div class="message-content">${contentHtml}</div>
           ${debugHtml}
         </div>
       `;
@@ -770,7 +856,7 @@
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`,
-            'X-Session-ID': chat.sessionId,
+            'X-Session-ID': state.sessionId,  // Shared session across all conversations
           },
           body: JSON.stringify({
             model,
@@ -822,11 +908,23 @@
     mobileMenuBtn.addEventListener('click', () => sidebar.classList.add('open'));
     sidebarClose.addEventListener('click', () => sidebar.classList.remove('open'));
     
+    // Reset session (new user, clear all memory)
+    function resetSession() {
+      if (!confirm('This will create a new session ID and clear all conversations. Memory will NOT carry over. Continue?')) return;
+      state.sessionId = uuid();
+      state.chats = {};
+      state.activeChatId = null;
+      saveConfig();
+      createChat();
+    }
+    
     // Event listeners
+    const resetSessionBtn = document.getElementById('resetSessionBtn');
     newChatBtn.addEventListener('click', () => {
       createChat();
       sidebar.classList.remove('open');
     });
+    resetSessionBtn.addEventListener('click', resetSession);
     sendBtn.addEventListener('click', sendMessage);
     messageInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
