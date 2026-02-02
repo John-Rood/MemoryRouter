@@ -10,6 +10,8 @@ import { cors } from 'hono/cors';
 import { authMiddleware, createMemoryKey, UserContext } from './middleware/auth';
 import { createChatRouter, ChatEnv } from './routes/chat';
 import { createPassthroughRouter } from './routes/passthrough';
+import { createAnthropicRouter } from './routes/anthropic';
+import { createGoogleRouter } from './routes/google';
 import { StorageManager } from './services/storage';
 import { handleReembed, handleListKeys, handleClear, handleSetProviderKey, handleGetProviderKeys, handleDebugStorage, handleDoExport } from './routes/admin';
 
@@ -100,9 +102,15 @@ v1.use('*', async (c, next) => {
 const chatRouter = createChatRouter();
 v1.route('/chat', chatRouter);
 
-// Anthropic SDK compatibility: POST /v1/messages
-// Route to same chat handler - it detects Anthropic format from model name
-v1.route('/messages', chatRouter);
+// Native Anthropic endpoint: POST /v1/messages
+// Returns Anthropic's native response format for Anthropic SDK compatibility
+const anthropicRouter = createAnthropicRouter();
+v1.route('/', anthropicRouter);  // Mounts at /v1/messages
+
+// Native Google endpoint: POST /v1/models/{model}:generateContent
+// Returns Google's native response format for Google SDK compatibility
+const googleRouter = createGoogleRouter();
+v1.route('/', googleRouter);  // Mounts at /v1/models/:modelAction
 
 // Mount pass-through routes (embeddings, audio, images, legacy completions)
 const passthroughRouter = createPassthroughRouter();

@@ -198,20 +198,24 @@ export async function revokeMemoryKey(
  */
 export function authMiddleware(env: AuthEnv) {
   return async (c: Context, next: Next) => {
+    // Support both Authorization header (OpenAI style) and x-api-key (Anthropic style)
     const authHeader = c.req.header('Authorization');
+    const xApiKey = c.req.header('x-api-key');
     
-    if (!authHeader) {
-      return c.json({ 
-        error: 'Missing Authorization header',
-        hint: 'Use: Authorization: Bearer mk_your_memory_key',
-      }, 401);
+    // Try Authorization header first, then x-api-key
+    let memoryKey: string | null = null;
+    
+    if (authHeader) {
+      memoryKey = extractMemoryKey(authHeader);
+    } else if (xApiKey) {
+      // x-api-key is used directly (Anthropic SDK style)
+      memoryKey = xApiKey.startsWith('mk_') ? xApiKey : null;
     }
     
-    const memoryKey = extractMemoryKey(authHeader);
     if (!memoryKey) {
       return c.json({ 
-        error: 'Invalid Authorization header format',
-        hint: 'Use: Authorization: Bearer mk_xxx',
+        error: 'Missing or invalid authentication',
+        hint: 'Use: Authorization: Bearer mk_xxx OR x-api-key: mk_xxx',
       }, 401);
     }
     

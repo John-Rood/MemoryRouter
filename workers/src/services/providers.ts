@@ -384,7 +384,13 @@ export async function forwardToProvider(
     body: JSON.stringify(transformedBody),
   });
   
-  // Anthropic responses need to be transformed to OpenAI format
+  // NOTE: We no longer transform Anthropic responses here.
+  // Use the native /v1/messages endpoint for Anthropic SDK compatibility.
+  // The /v1/chat/completions endpoint with anthropic/* models is for
+  // OpenAI SDK users who want to call Anthropic - they get OpenAI format.
+  
+  // For /v1/chat/completions with Anthropic models, still transform to OpenAI format
+  // (This is for OpenAI SDK users calling Anthropic through the OpenAI endpoint)
   if (provider === 'anthropic' && response.ok && !body.stream) {
     const anthropicResponse = await response.json() as Record<string, unknown>;
     const openaiResponse = transformAnthropicToOpenAI(anthropicResponse);
@@ -398,7 +404,9 @@ export async function forwardToProvider(
     });
   }
   
-  // Google responses need to be transformed to OpenAI format
+  // NOTE: Google transformation only applies to /v1/chat/completions endpoint.
+  // Native Google endpoint (/v1/models/{m}:generateContent) returns native format.
+  // This transformation is for OpenAI SDK users calling Google through OpenAI endpoint.
   if (provider === 'google' && response.ok) {
     const modelName = getModelName(body.model);
     const requestId = `chatcmpl-${crypto.randomUUID().slice(0, 8)}`;
