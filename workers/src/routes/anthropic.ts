@@ -174,7 +174,6 @@ export function createAnthropicRouter() {
         
         // Generate embedding
         const embeddingConfig: EmbeddingConfig = {
-          provider: 'cloudflare',
           ai: c.env.AI,
         };
         const embedding = await generateEmbedding(

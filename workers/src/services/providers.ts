@@ -445,112 +445,40 @@ export async function forwardToProvider(
 }
 
 /**
- * Embedding provider configuration
+ * Embedding configuration — Cloudflare Workers AI only
+ * 
+ * Model: @cf/baai/bge-m3
+ * Dims: 1024
+ * Latency: ~18ms (edge)
+ * Cost: $0.012 per 1M tokens
  */
 export interface EmbeddingConfig {
-  provider: 'openai' | 'modal' | 'cloudflare';
-  modalUrl?: string;  // e.g., https://memoryrouter-embeddings--web.modal.run
-  ai?: Ai;            // Cloudflare Workers AI binding
-}
-
-/**
- * Generate embeddings using configured provider
- * 
- * Supports:
- * - Cloudflare Workers AI BGE-M3 (1024 dims, ~18ms edge latency)
- * - OpenAI (text-embedding-3-small, 1536 dims)
- * - Modal self-hosted (BGE-large-en-v1.5, 1024 dims)
- */
-export async function generateEmbedding(
-  text: string,
-  apiKey: string,
-  model: string = 'text-embedding-3-small',
-  config?: EmbeddingConfig
-): Promise<Float32Array> {
-  // Use Cloudflare Workers AI (fastest, cheapest)
-  if (config?.provider === 'cloudflare' && config.ai) {
-    return generateEmbeddingCloudflare(text, config.ai);
-  }
-  
-  // Use Modal if configured
-  if (config?.provider === 'modal' && config.modalUrl) {
-    return generateEmbeddingModal(text, config.modalUrl);
-  }
-  
-  // Default: OpenAI
-  return generateEmbeddingOpenAI(text, apiKey, model);
+  ai: Ai;  // Cloudflare Workers AI binding (required)
 }
 
 /**
  * Generate embeddings using Cloudflare Workers AI BGE-M3
- * ~18ms edge latency, $0.012/1M tokens, 1024 dims
+ * 
+ * This is the ONLY embedding provider — no fallbacks.
+ * - 1024 dimensions
+ * - ~18ms edge latency
+ * - $0.012 per 1M tokens
  */
-async function generateEmbeddingCloudflare(
+export async function generateEmbedding(
   text: string,
-  ai: Ai
+  _apiKey?: string,  // Unused, kept for API compatibility
+  _model?: string,   // Unused, kept for API compatibility
+  config?: EmbeddingConfig
 ): Promise<Float32Array> {
-  const response = await ai.run('@cf/baai/bge-m3', {
+  if (!config?.ai) {
+    throw new Error('Cloudflare AI binding required for embeddings');
+  }
+  
+  const response = await config.ai.run('@cf/baai/bge-m3', {
     text: [text],
   }) as { data: number[][] };
   
   return new Float32Array(response.data[0]);
-}
-
-/**
- * Generate embeddings using Modal self-hosted BGE
- * ~100x cheaper than OpenAI, ~10-50ms slower
- */
-async function generateEmbeddingModal(
-  text: string,
-  modalUrl: string
-): Promise<Float32Array> {
-  const response = await fetch(`${modalUrl}/embed`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      texts: [text],
-      normalize: true,
-    }),
-  });
-  
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Modal embedding failed: ${error}`);
-  }
-  
-  const data = await response.json() as { embeddings: number[][] };
-  return new Float32Array(data.embeddings[0]);
-}
-
-/**
- * Generate embeddings using OpenAI
- */
-async function generateEmbeddingOpenAI(
-  text: string,
-  apiKey: string,
-  model: string = 'text-embedding-3-large'
-): Promise<Float32Array> {
-  const response = await fetch('https://api.openai.com/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      input: text,
-    }),
-  });
-  
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`OpenAI embedding failed: ${error}`);
-  }
-  
-  const data = await response.json() as { data: Array<{ embedding: number[] }> };
-  return new Float32Array(data.data[0].embedding);
 }
 
 /**

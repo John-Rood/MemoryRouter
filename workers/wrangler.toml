@@ -70,14 +70,8 @@ max_batch_timeout = 5
 # ========== Environment Variables ==========
 [vars]
 ENVIRONMENT = "development"
-# Embedding provider: "cloudflare" | "openai" | "modal"
-EMBEDDING_PROVIDER = "cloudflare"
-# Cloudflare Workers AI BGE-M3 (1024 dims, ~18ms, $0.012/1M)
+# Embeddings: Cloudflare Workers AI BGE-M3 (1024 dims, ~18ms, $0.012/1M)
 DEFAULT_EMBEDDING_DIMS = "1024"
-# Fallback: Modal embedding service URL
-MODAL_EMBEDDING_URL = "https://john-32116--memoryrouter-embeddings-web.modal.run"
-# Fallback: OpenAI settings  
-DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 HOT_WINDOW_HOURS = "4"
 WORKING_WINDOW_DAYS = "3"
 LONGTERM_WINDOW_DAYS = "90"
@@ -136,13 +130,11 @@ binding = "AI"
 [env.staging.vars]
 ENVIRONMENT = "staging"
 USE_DURABLE_OBJECTS = "true"
-EMBEDDING_PROVIDER = "cloudflare"
 DEFAULT_EMBEDDING_DIMS = "1024"
 MAX_IN_MEMORY_VECTORS = "5000"
 HOT_WINDOW_HOURS = "4"
 WORKING_WINDOW_DAYS = "3"
 LONGTERM_WINDOW_DAYS = "90"
-DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 
 # ========== PRODUCTION ENVIRONMENT ==========
 # Deploy: npx wrangler deploy --env production
@@ -194,10 +186,8 @@ binding = "AI"
 [env.production.vars]
 ENVIRONMENT = "production"
 USE_DURABLE_OBJECTS = "true"
-EMBEDDING_PROVIDER = "cloudflare"
 DEFAULT_EMBEDDING_DIMS = "1024"
 MAX_IN_MEMORY_VECTORS = "5000"
 HOT_WINDOW_HOURS = "4"
 WORKING_WINDOW_DAYS = "3"
 LONGTERM_WINDOW_DAYS = "90"
-DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"

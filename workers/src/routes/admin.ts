@@ -12,9 +12,7 @@ interface Env {
   METADATA_KV: KVNamespace;
   VAULT_DO: DurableObjectNamespace;
   ADMIN_SECRET?: string;
-  EMBEDDING_PROVIDER?: string;
-  MODAL_EMBEDDING_URL?: string;
-  OPENAI_API_KEY?: string;
+  AI: Ai;  // Cloudflare Workers AI binding (embeddings)
 }
 
 interface ExportedItem {
@@ -46,15 +44,14 @@ function verifyAdmin(request: Request, env: Env): boolean {
 
 /**
  * Get embedding config from environment
+ * Cloudflare Workers AI only — no fallbacks
  */
 function getEmbeddingConfig(env: Env): EmbeddingConfig | undefined {
-  if (env.EMBEDDING_PROVIDER === 'modal' && env.MODAL_EMBEDDING_URL) {
-    return {
-      provider: 'modal',
-      modalUrl: env.MODAL_EMBEDDING_URL,
-    };
+  if (!env.AI) {
+    console.error('[admin] Cloudflare AI binding not available');
+    return undefined;
   }
-  return undefined;
+  return { ai: env.AI };
 }
 
 /**
@@ -103,7 +100,9 @@ export async function handleReembed(request: Request, env: Env): Promise<Respons
   }
 
   const embeddingConfig = getEmbeddingConfig(env);
-  const openaiKey = env.OPENAI_API_KEY || '';
+  if (!embeddingConfig) {
+    return Response.json({ error: 'Cloudflare AI binding not available' }, { status: 500 });
+  }
   
   const results: Array<{
     memoryKey: string;
@@ -148,11 +147,11 @@ export async function handleReembed(request: Request, env: Env): Promise<Respons
       
       for (const item of exportData.data) {
         try {
-          // Generate new embedding with Modal BGE
+          // Generate new embedding with Cloudflare BGE-M3
           const embedding = await generateEmbedding(
             item.content,
-            openaiKey,
-            'text-embedding-3-large', // fallback model (not used when modal configured)
+            undefined,
+            undefined,
             embeddingConfig
           );
           
@@ -202,7 +201,7 @@ export async function handleReembed(request: Request, env: Env): Promise<Respons
 
   return Response.json({
     status: 'complete',
-    provider: embeddingConfig?.provider || 'openai',
+    provider: 'cloudflare',
     totalKeys: memoryKeys.length,
     totalOriginal,
     totalReembedded,

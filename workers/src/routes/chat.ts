@@ -54,21 +54,14 @@ const BILLING_ENABLED = false;  // Set to true when ready for production
 
 /**
  * Build embedding config from environment
+ * Cloudflare Workers AI only — no fallbacks
  */
 function getEmbeddingConfig(env: ChatEnv): EmbeddingConfig | undefined {
-  if (env.EMBEDDING_PROVIDER === 'cloudflare' && env.AI) {
-    return {
-      provider: 'cloudflare',
-      ai: env.AI,
-    };
+  if (!env.AI) {
+    console.error('[chat] Cloudflare AI binding not available');
+    return undefined;
   }
-  if (env.EMBEDDING_PROVIDER === 'modal' && env.MODAL_EMBEDDING_URL) {
-    return {
-      provider: 'modal',
-      modalUrl: env.MODAL_EMBEDDING_URL,
-    };
-  }
-  return undefined;  // Default to OpenAI
+  return { ai: env.AI };
 }
 import { StorageManager, StorageBindings } from '../services/storage';
 
@@ -86,14 +79,11 @@ export interface StorageJob {
   memoryKey: string;
   sessionId?: string;
   model: string;
-  embeddingKey: string;
+  embeddingKey: string;  // Unused but kept for compatibility
   content: Array<{
     role: 'user' | 'assistant';
     content: string;
   }>;
-  // Embedding config for self-hosted models
-  embeddingProvider?: 'openai' | 'modal';
-  modalEmbeddingUrl?: string;
 }
 
 export interface ChatEnv extends StorageBindings {
@@ -110,11 +100,8 @@ export interface ChatEnv extends StorageBindings {
   LONGTERM_WINDOW_DAYS?: string;
   // Storage queue (decoupled from inference)
   STORAGE_QUEUE?: Queue<StorageJob>;
-  // Embedding provider config
-  EMBEDDING_PROVIDER?: string;  // 'cloudflare' | 'openai' | 'modal'
-  MODAL_EMBEDDING_URL?: string;
-  // Workers AI binding (for cloudflare embeddings)
-  AI?: Ai;
+  // Cloudflare Workers AI binding (embeddings)
+  AI: Ai;
 }
 
 /**
@@ -228,7 +215,7 @@ export function createChatRouter() {
           const embedStart = Date.now();
           const queryEmbedding = await generateEmbedding(query, embeddingKey, undefined, embeddingConfig);
           embeddingMs = Date.now() - embedStart;
-          console.log(`[EMBEDDING] Query: ${embeddingMs}ms (${embeddingConfig?.provider || 'openai'})`);
+          console.log(`[EMBEDDING] Query: ${embeddingMs}ms (cloudflare)`);
           
           if (usesDO) {
             // ===== DURABLE OBJECTS PATH (with D1 cold start fallback) =====

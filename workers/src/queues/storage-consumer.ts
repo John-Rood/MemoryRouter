@@ -5,6 +5,8 @@
  * Messages are sent from chat route, processed here asynchronously.
  * 
  * This ensures inference latency is never impacted by storage operations.
+ * 
+ * Embeddings: Cloudflare Workers AI BGE-M3 only ($0.012/1M tokens)
  */
 
 import { resolveVaultForStore } from '../services/do-router';
@@ -16,23 +18,19 @@ import type { StorageJob } from '../routes/chat';
 export type { StorageJob } from '../routes/chat';
 
 /**
- * Build embedding config from job
- */
-function getEmbeddingConfigFromJob(job: StorageJob): EmbeddingConfig | undefined {
-  if (job.embeddingProvider === 'modal' && job.modalEmbeddingUrl) {
-    return {
-      provider: 'modal',
-      modalUrl: job.modalEmbeddingUrl,
-    };
-  }
-  return undefined;  // Default to OpenAI
-}
-
-/**
  * Environment for queue consumer
  */
 export interface QueueEnv {
   VAULT_DO: DurableObjectNamespace;
+  AI: Ai;  // Cloudflare Workers AI binding (required)
+}
+
+/**
+ * Get embedding config from environment
+ * Cloudflare Workers AI only — no fallbacks
+ */
+function getEmbeddingConfig(env: QueueEnv): EmbeddingConfig {
+  return { ai: env.AI };
 }
 
 /**
@@ -93,10 +91,10 @@ async function processStorageJob(job: StorageJob, env: QueueEnv): Promise<void> 
       bufferTokens: number;
     };
     
-    // Embed and store each complete chunk
-    const embeddingConfig = getEmbeddingConfigFromJob(job);
+    // Embed and store each complete chunk using Cloudflare AI
+    const embeddingConfig = getEmbeddingConfig(env);
     for (const chunkContent of chunkResult.chunksToEmbed) {
-      const embedding = await generateEmbedding(chunkContent, job.embeddingKey, undefined, embeddingConfig);
+      const embedding = await generateEmbedding(chunkContent, undefined, undefined, embeddingConfig);
       await storeToVault(stub, embedding, chunkContent, 'chunk', job.model, requestId);
     }
   }
