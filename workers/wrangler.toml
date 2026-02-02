@@ -129,6 +129,10 @@ queue = "memoryrouter-storage-staging"
 max_batch_size = 10
 max_batch_timeout = 5
 
+# Staging Workers AI binding
+[env.staging.ai]
+binding = "AI"
+
 [env.staging.vars]
 ENVIRONMENT = "staging"
 USE_DURABLE_OBJECTS = "true"
@@ -138,6 +142,7 @@ MAX_IN_MEMORY_VECTORS = "5000"
 HOT_WINDOW_HOURS = "4"
 WORKING_WINDOW_DAYS = "3"
 LONGTERM_WINDOW_DAYS = "90"
+DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 
 # ========== PRODUCTION ENVIRONMENT ==========
 # Deploy: npx wrangler deploy --env production
@@ -182,6 +187,10 @@ queue = "memoryrouter-storage"
 max_batch_size = 10
 max_batch_timeout = 5
 
+# Production Workers AI binding
+[env.production.ai]
+binding = "AI"
+
 [env.production.vars]
 ENVIRONMENT = "production"
 USE_DURABLE_OBJECTS = "true"
@@ -191,3 +200,4 @@ MAX_IN_MEMORY_VECTORS = "5000"
 HOT_WINDOW_HOURS = "4"
 WORKING_WINDOW_DAYS = "3"
 LONGTERM_WINDOW_DAYS = "90"
+DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"

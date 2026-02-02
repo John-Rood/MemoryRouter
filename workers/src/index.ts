@@ -13,6 +13,9 @@ import { createPassthroughRouter } from './routes/passthrough';
 import { StorageManager } from './services/storage';
 import { handleReembed, handleListKeys, handleClear, handleSetProviderKey, handleGetProviderKeys, handleDebugStorage, handleDoExport } from './routes/admin';
 
+// Model catalog (updated via scripts/update-models.sh)
+import modelCatalog from './config/models.json';
+
 // Re-export VaultDurableObject for Cloudflare DO binding
 export { VaultDurableObject } from './durable-objects/vault';
 
@@ -230,73 +233,47 @@ v1.post('/memory/warmup', async (c) => {
 });
 
 // Get available models based on configured provider keys
+// Model catalog is updated via scripts/update-models.sh (zero runtime cost)
 v1.get('/models', async (c) => {
   const userContext = c.get('userContext');
   const providers = userContext.providerKeys;
   
-  // Model lists per provider
-  const modelLists: Record<string, string[]> = {
-    openai: [
-      'openai/gpt-4o',
-      'openai/gpt-4o-mini',
-      'openai/gpt-4-turbo',
-      'openai/gpt-3.5-turbo',
-      'openai/o1',
-      'openai/o1-mini',
-      'openai/o1-pro',
-    ],
-    anthropic: [
-      'anthropic/claude-sonnet-4-20250514',
-      'anthropic/claude-opus-4-20250514',
-      'anthropic/claude-3-5-sonnet-20241022',
-      'anthropic/claude-3-5-haiku-20241022',
-      'anthropic/claude-3-opus-20240229',
-    ],
-    google: [
-      'google/gemini-2.0-flash',
-      'google/gemini-1.5-pro',
-      'google/gemini-1.5-flash',
-    ],
-    openrouter: [
-      'openrouter/auto',
-      'openrouter/anthropic/claude-sonnet-4',
-      'openrouter/openai/gpt-4o',
-      'openrouter/google/gemini-2.0-flash-exp:free',
-      'openrouter/deepseek/deepseek-chat',
-      'openrouter/meta-llama/llama-3.3-70b-instruct',
-    ],
-    xai: [
-      'xai/grok-2',
-      'xai/grok-2-vision',
-      'xai/grok-3',
-      'xai/grok-3-mini',
-    ],
-    cerebras: [
-      'cerebras/llama3.1-8b',
-      'cerebras/llama3.1-70b',
-    ],
-  };
+  // Use pre-fetched model catalog (from OpenRouter API, updated via cron)
+  const catalog = modelCatalog.providers as Record<string, string[]>;
   
   // Build available models based on which providers have keys
   const available: { provider: string; models: string[] }[] = [];
   
-  if (providers.openai) {
-    available.push({ provider: 'OpenAI', models: modelLists.openai });
+  // Map provider keys to catalog keys
+  const providerMap: Record<string, { key: keyof typeof providers; catalogKey: string; displayName: string }[]> = {
+    openai: [{ key: 'openai', catalogKey: 'openai', displayName: 'OpenAI' }],
+    anthropic: [{ key: 'anthropic', catalogKey: 'anthropic', displayName: 'Anthropic' }],
+    google: [{ key: 'google', catalogKey: 'google', displayName: 'Google' }],
+    meta: [{ key: 'openrouter', catalogKey: 'meta', displayName: 'Meta/Llama' }],
+    mistral: [{ key: 'openrouter', catalogKey: 'mistral', displayName: 'Mistral' }],
+    deepseek: [{ key: 'openrouter', catalogKey: 'deepseek', displayName: 'DeepSeek' }],
+    xai: [{ key: 'xai', catalogKey: 'xai', displayName: 'xAI' }],
+  };
+  
+  // Add providers where user has API keys
+  if (providers.openai && catalog.openai) {
+    available.push({ provider: 'OpenAI', models: catalog.openai });
   }
-  if (providers.anthropic) {
-    available.push({ provider: 'Anthropic', models: modelLists.anthropic });
+  if (providers.anthropic && catalog.anthropic) {
+    available.push({ provider: 'Anthropic', models: catalog.anthropic });
   }
-  if (providers.google) {
-    available.push({ provider: 'Google', models: modelLists.google });
+  if (providers.google && catalog.google) {
+    available.push({ provider: 'Google', models: catalog.google });
   }
+  if (providers.xai && catalog.xai) {
+    available.push({ provider: 'xAI', models: catalog.xai });
+  }
+  
+  // OpenRouter gives access to many providers
   if (providers.openrouter) {
-    available.push({ provider: 'OpenRouter', models: modelLists.openrouter });
-  }
-  if (providers.xai) {
-    available.push({ provider: 'xAI', models: modelLists.xai });
-  }
-  if (providers.cerebras) {
-    available.push({ provider: 'Cerebras', models: modelLists.cerebras });
+    if (catalog.meta) available.push({ provider: 'Meta/Llama', models: catalog.meta });
+    if (catalog.mistral) available.push({ provider: 'Mistral', models: catalog.mistral });
+    if (catalog.deepseek) available.push({ provider: 'DeepSeek', models: catalog.deepseek });
   }
   
   // Flatten for convenience
@@ -306,6 +283,7 @@ v1.get('/models', async (c) => {
     providers: available,
     models: allModels,
     default: allModels[0] || 'openai/gpt-4o-mini',
+    catalog_updated: modelCatalog.fetched_at,
   });
 });
 
