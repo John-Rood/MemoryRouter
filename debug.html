@@ -4,40 +4,42 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MemoryRouter Debug Console</title>
-  <!-- Inter font for clean typography -->
+  <!-- MemoryRouter fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <!-- Marked.js for markdown rendering -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
     :root {
-      --bg: #fafafa;
-      --bg-secondary: #ffffff;
-      --bg-tertiary: #f4f4f5;
-      --text: #18181b;
+      --bg: #09090b;
+      --bg-secondary: #0f0f13;
+      --bg-tertiary: #18181b;
+      --text: #fafafa;
       --text-muted: #71717a;
-      --accent: #6366f1;
-      --accent-dim: rgba(99, 102, 241, 0.08);
-      --accent-light: rgba(99, 102, 241, 0.12);
-      --border: #e4e4e7;
+      --neon: #39ff14;
+      --neon-dim: rgba(57, 255, 20, 0.1);
+      --neon-glow: rgba(57, 255, 20, 0.15);
+      --cyan: #00d4ff;
+      --pink: #ff006e;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(57, 255, 20, 0.3);
       --error: #ef4444;
-      --warning: #f59e0b;
-      --blue: #3b82f6;
-      --user-bg: #eff6ff;
-      --assistant-bg: #f4f4f5;
+      --glass: rgba(255, 255, 255, 0.02);
     }
     
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
       font-size: 14px;
       line-height: 1.5;
     }
+    
+    code, pre, .mono { font-family: 'JetBrains Mono', monospace; }
     
     .container {
       display: grid;
@@ -66,7 +68,10 @@
       letter-spacing: -0.3px;
     }
     
-    .sidebar-header h1 span { color: var(--accent); }
+    .sidebar-header h1 span { 
+      color: var(--neon); 
+      text-shadow: 0 0 10px rgba(57, 255, 20, 0.5);
+    }
     
     .sidebar-header .subtitle {
       font-size: 12px;
@@ -98,11 +103,12 @@
       font-size: 13px;
       outline: none;
       transition: border-color 0.15s, box-shadow 0.15s;
+      font-family: 'JetBrains Mono', monospace;
     }
     
     .config-section input:focus { 
-      border-color: var(--accent); 
-      box-shadow: 0 0 0 3px var(--accent-dim);
+      border-color: var(--neon); 
+      box-shadow: 0 0 15px rgba(57, 255, 20, 0.2);
     }
     
     .chat-list {
@@ -113,17 +119,22 @@
     
     .chat-item {
       padding: 12px 14px;
-      border-radius: 10px;
+      border-radius: 8px;
       cursor: pointer;
       margin-bottom: 4px;
-      transition: background 0.15s;
+      transition: all 0.15s;
       border: 1px solid transparent;
+      background: var(--glass);
     }
     
-    .chat-item:hover { background: var(--bg-tertiary); }
+    .chat-item:hover { 
+      background: var(--bg-tertiary); 
+      border-color: var(--border);
+    }
     .chat-item.active { 
-      background: var(--accent-dim); 
-      border-color: var(--accent-light);
+      background: var(--neon-dim); 
+      border-color: var(--border-hover);
+      box-shadow: 0 0 20px rgba(57, 255, 20, 0.1);
     }
     
     .chat-item .chat-name {
@@ -141,17 +152,19 @@
     .new-chat-btn {
       margin: 12px;
       padding: 12px 16px;
-      background: var(--accent);
-      color: white;
+      background: linear-gradient(135deg, #39ff14 0%, #00d4ff 100%);
+      color: #000;
       border: none;
-      border-radius: 10px;
-      font-weight: 500;
+      border-radius: 8px;
+      font-weight: 600;
       cursor: pointer;
       font-size: 13px;
-      transition: transform 0.1s, opacity 0.15s;
+      transition: all 0.15s;
     }
     
-    .new-chat-btn:hover { opacity: 0.9; }
+    .new-chat-btn:hover { 
+      box-shadow: 0 0 25px rgba(57, 255, 20, 0.4);
+    }
     .new-chat-btn:active { transform: scale(0.98); }
     
     /* Main Content */
@@ -179,7 +192,7 @@
     .chat-header .session-id {
       font-size: 11px;
       color: var(--text-muted);
-      font-family: 'SF Mono', Monaco, monospace;
+      font-family: 'JetBrains Mono', monospace;
       margin-top: 2px;
     }
     
@@ -204,38 +217,43 @@
     }
     
     .message-role {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.5px;
       padding: 4px 10px;
-      border-radius: 6px;
+      border-radius: 4px;
     }
     
     .message.user .message-role {
-      background: var(--user-bg);
-      color: var(--blue);
+      background: rgba(0, 212, 255, 0.15);
+      color: var(--cyan);
     }
     
     .message.assistant .message-role {
-      background: var(--accent-dim);
-      color: var(--accent);
+      background: var(--neon-dim);
+      color: var(--neon);
+      text-shadow: 0 0 8px rgba(57, 255, 20, 0.5);
     }
     
     .message-latency {
       font-size: 11px;
       color: var(--text-muted);
-      font-family: 'SF Mono', Monaco, monospace;
+      font-family: 'JetBrains Mono', monospace;
     }
     
     .message-content {
-      background: var(--bg-secondary);
+      background: var(--glass);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 16px 20px;
       font-size: 14px;
       line-height: 1.7;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+      backdrop-filter: blur(10px);
+    }
+    
+    .message.assistant .message-content {
+      border-color: rgba(57, 255, 20, 0.1);
     }
     
     /* Markdown styles */
@@ -252,15 +270,15 @@
     .message-content code {
       background: var(--bg-tertiary);
       padding: 2px 6px;
-      border-radius: 5px;
-      font-family: 'SF Mono', Monaco, monospace;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 0.88em;
-      color: #e11d48;
+      color: var(--neon);
     }
     .message-content pre {
-      background: #1e1e2e;
-      border: none;
-      border-radius: 10px;
+      background: linear-gradient(180deg, #0f0f13 0%, #09090b 100%);
+      border: 1px solid var(--border);
+      border-radius: 8px;
       padding: 16px;
       overflow-x: auto;
       margin: 12px 0;
@@ -268,7 +286,7 @@
     .message-content pre code {
       background: none;
       padding: 0;
-      color: #cdd6f4;
+      color: #e4e4e7;
     }
     .message-content ul, .message-content ol {
       margin: 12px 0;
@@ -276,7 +294,7 @@
     }
     .message-content li { margin: 6px 0; }
     .message-content blockquote {
-      border-left: 3px solid var(--accent);
+      border-left: 3px solid var(--neon);
       padding-left: 14px;
       margin: 12px 0;
       color: var(--text-muted);
@@ -298,11 +316,14 @@
       font-weight: 600;
     }
     .message-content a {
-      color: var(--accent);
+      color: var(--cyan);
       text-decoration: none;
     }
     .message-content a:hover { text-decoration: underline; }
-    .message-content strong { font-weight: 600; }
+    .message-content strong { 
+      font-weight: 600; 
+      color: var(--neon);
+    }
     
     /* Debug Panel */
     .debug-panel {
@@ -310,7 +331,7 @@
     }
     
     .debug-toggle {
-      background: var(--bg-tertiary);
+      background: var(--glass);
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 10px 14px;
@@ -326,9 +347,9 @@
     }
     
     .debug-toggle:hover { 
-      background: var(--bg-secondary);
-      border-color: var(--accent-light); 
-      color: var(--text); 
+      background: var(--bg-tertiary);
+      border-color: var(--border-hover); 
+      color: var(--neon); 
     }
     
     .debug-toggle .arrow {
@@ -368,7 +389,11 @@
     }
     
     .debug-tab:hover { color: var(--text); }
-    .debug-tab.active { color: var(--accent); border-color: var(--accent); }
+    .debug-tab.active { 
+      color: var(--neon); 
+      border-color: var(--neon); 
+      text-shadow: 0 0 8px rgba(57, 255, 20, 0.5);
+    }
     
     .debug-tab-content {
       display: none;
@@ -380,15 +405,16 @@
     .debug-tab-content.active { display: block; }
     
     .debug-tab-content pre {
-      font-family: 'SF Mono', Monaco, monospace;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 12px;
       line-height: 1.6;
       white-space: pre-wrap;
       word-break: break-all;
-      background: #1e1e2e;
-      color: #cdd6f4;
+      background: linear-gradient(180deg, #0f0f13 0%, #09090b 100%);
+      color: #e4e4e7;
       padding: 16px;
-      border-radius: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
     }
     
     /* Memory Stats Grid */
@@ -400,9 +426,9 @@
     }
     
     .stat-card {
-      background: var(--bg-tertiary);
-      border: none;
-      border-radius: 10px;
+      background: linear-gradient(180deg, rgba(57, 255, 20, 0.05) 0%, transparent 100%);
+      border: 1px solid rgba(57, 255, 20, 0.1);
+      border-radius: 8px;
       padding: 14px 16px;
     }
     
@@ -418,7 +444,9 @@
     .stat-card .value {
       font-size: 22px;
       font-weight: 600;
-      color: var(--text);
+      color: var(--neon);
+      text-shadow: 0 0 10px rgba(57, 255, 20, 0.3);
+      font-family: 'JetBrains Mono', monospace;
     }
     
     .stat-card .unit {
@@ -431,9 +459,10 @@
     .kronos-bar {
       display: flex;
       height: 28px;
-      border-radius: 8px;
+      border-radius: 6px;
       overflow: hidden;
       margin-top: 10px;
+      border: 1px solid var(--border);
     }
     
     .kronos-bar .segment {
@@ -442,12 +471,12 @@
       justify-content: center;
       font-size: 11px;
       font-weight: 600;
-      color: white;
+      color: #000;
     }
     
-    .kronos-bar .hot { background: linear-gradient(135deg, #f87171, #ef4444); }
-    .kronos-bar .working { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
-    .kronos-bar .longterm { background: linear-gradient(135deg, #60a5fa, #3b82f6); }
+    .kronos-bar .hot { background: linear-gradient(135deg, #ff006e, #ff4d94); }
+    .kronos-bar .working { background: linear-gradient(135deg, #00d4ff, #4de1ff); }
+    .kronos-bar .longterm { background: linear-gradient(135deg, #8338ec, #a66eff); }
     
     .kronos-legend {
       display: flex;
@@ -467,9 +496,9 @@
       vertical-align: middle;
     }
     
-    .kronos-legend .hot::before { background: #ef4444; }
-    .kronos-legend .working::before { background: #f59e0b; }
-    .kronos-legend .longterm::before { background: #3b82f6; }
+    .kronos-legend .hot::before { background: #ff006e; }
+    .kronos-legend .working::before { background: #00d4ff; }
+    .kronos-legend .longterm::before { background: #8338ec; }
     
     /* Input Area */
     .input-area {
@@ -487,7 +516,7 @@
       flex: 1;
       background: var(--bg-secondary);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 10px;
       padding: 14px 18px;
       color: var(--text);
       font-size: 14px;
@@ -499,28 +528,31 @@
     }
     
     .input-area textarea:focus { 
-      border-color: var(--accent); 
-      box-shadow: 0 0 0 3px var(--accent-dim);
+      border-color: var(--neon); 
+      box-shadow: 0 0 20px rgba(57, 255, 20, 0.15);
     }
     
     .input-area button {
       padding: 14px 28px;
-      background: var(--accent);
-      color: white;
+      background: linear-gradient(135deg, #39ff14 0%, #00d4ff 100%);
+      color: #000;
       border: none;
-      border-radius: 12px;
-      font-weight: 500;
+      border-radius: 10px;
+      font-weight: 600;
       cursor: pointer;
       font-size: 14px;
-      transition: transform 0.1s, opacity 0.15s;
+      transition: all 0.15s;
     }
     
-    .input-area button:hover { opacity: 0.9; }
+    .input-area button:hover { 
+      box-shadow: 0 0 25px rgba(57, 255, 20, 0.4);
+    }
     .input-area button:active { transform: scale(0.98); }
     
     .input-area button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+      box-shadow: none;
     }
     
     /* Mobile menu button */
