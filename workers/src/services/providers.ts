@@ -97,7 +97,7 @@ export function detectProvider(model: string): Provider {
   if (modelLower.startsWith('anthropic/')) return 'anthropic';
   if (modelLower.startsWith('openai/')) return 'openai';
   if (modelLower.startsWith('google/')) return 'google';
-  if (modelLower.startsWith('xai/')) return 'xai';
+  if (modelLower.startsWith('xai/') || modelLower.startsWith('x-ai/')) return 'xai';
   if (modelLower.startsWith('cerebras/')) return 'cerebras';
   if (modelLower.startsWith('deepseek/')) return 'deepseek';
   if (modelLower.startsWith('azure/')) return 'azure';
@@ -125,11 +125,99 @@ export function getModelName(model: string): string {
   const parts = model.split('/');
   if (parts.length > 1) {
     const possibleProvider = parts[0].toLowerCase();
-    if (['anthropic', 'openai', 'google', 'meta-llama', 'mistral'].includes(possibleProvider)) {
+    if (['anthropic', 'openai', 'google', 'meta-llama', 'mistral', 'xai', 'x-ai', 'cerebras', 'deepseek'].includes(possibleProvider)) {
       return parts.slice(1).join('/');
     }
   }
   return model;
+}
+
+/**
+ * Anthropic model name mapping
+ * OpenRouter/simplified names → Anthropic API names
+ */
+/**
+ * xAI (Grok) model name mapping
+ * Our simplified names → xAI API names
+ */
+const XAI_MODEL_MAP: Record<string, string> = {
+  // grok-2 → DEPRECATED Sept 2025, redirect to grok-3
+  'grok-2': 'grok-3-beta',
+  'grok-2-vision': 'grok-3-beta',
+  // Current models
+  'grok-3': 'grok-3-beta',
+  'grok-3-beta': 'grok-3-beta',
+  'grok-3-mini': 'grok-3-mini-beta',
+  'grok-3-mini-beta': 'grok-3-mini-beta',
+  'grok-4': 'grok-4',
+  'grok-4-fast': 'grok-4-fast',
+};
+
+/**
+ * Map a model name to xAI's API format
+ */
+function mapToXaiModel(model: string): string {
+  const baseName = getModelName(model);
+  return XAI_MODEL_MAP[baseName] || baseName;
+}
+
+const ANTHROPIC_MODEL_MAP: Record<string, string> = {
+  // Claude 3.5 family → RETIRED Oct 2025, redirect to Claude 4
+  'claude-3.5-sonnet': 'claude-sonnet-4-20250514',
+  'claude-3.5-haiku': 'claude-haiku-4-5-20251001',
+  'claude-3-5-sonnet': 'claude-sonnet-4-20250514',
+  'claude-3-5-haiku': 'claude-haiku-4-5-20251001',
+  // Claude 3.7 → redirect to Claude 4.5
+  'claude-3.7-sonnet': 'claude-sonnet-4-5-20250929',
+  'claude-3.7-sonnet:thinking': 'claude-sonnet-4-5-20250929',
+  // Claude 3 family → RETIRED, redirect to Claude 4
+  'claude-3-opus': 'claude-opus-4-1-20250805',
+  'claude-3-sonnet': 'claude-sonnet-4-20250514',
+  'claude-3-haiku': 'claude-haiku-4-5-20251001',
+  // Claude 4 family (current)
+  'claude-sonnet-4': 'claude-sonnet-4-20250514',
+  'claude-opus-4': 'claude-opus-4-20250514',
+  'claude-sonnet-4.5': 'claude-sonnet-4-5-20250929',
+  'claude-opus-4.5': 'claude-opus-4-5-20250929',
+  'claude-opus-4.1': 'claude-opus-4-1-20250805',
+  'claude-haiku-4.5': 'claude-haiku-4-5-20251001',
+};
+
+/**
+ * Map a model name to Anthropic's API format
+ */
+function mapToAnthropicModel(model: string): string {
+  const baseName = getModelName(model);
+  return ANTHROPIC_MODEL_MAP[baseName] || baseName;
+}
+
+/**
+ * Transform Anthropic API response to OpenAI format
+ */
+function transformAnthropicToOpenAI(anthropicResponse: Record<string, unknown>): Record<string, unknown> {
+  const content = anthropicResponse.content as Array<{ type: string; text?: string }> | undefined;
+  const textContent = content?.find(c => c.type === 'text')?.text || '';
+  const usage = anthropicResponse.usage as { input_tokens?: number; output_tokens?: number } | undefined;
+  
+  return {
+    id: `chatcmpl-${(anthropicResponse.id as string || '').slice(4)}`,
+    object: 'chat.completion',
+    created: Math.floor(Date.now() / 1000),
+    model: anthropicResponse.model,
+    choices: [{
+      index: 0,
+      message: {
+        role: 'assistant',
+        content: textContent,
+      },
+      finish_reason: anthropicResponse.stop_reason === 'end_turn' ? 'stop' : (anthropicResponse.stop_reason || 'stop'),
+    }],
+    usage: {
+      prompt_tokens: usage?.input_tokens || 0,
+      completion_tokens: usage?.output_tokens || 0,
+      total_tokens: (usage?.input_tokens || 0) + (usage?.output_tokens || 0),
+    },
+  };
 }
 
 /**
@@ -141,7 +229,7 @@ function transformForAnthropic(body: ChatCompletionRequest): Record<string, unkn
   const otherMessages = messages.filter(m => m.role !== 'system');
   
   const anthropicBody: Record<string, unknown> = {
-    model: getModelName(body.model),
+    model: mapToAnthropicModel(body.model),
     messages: otherMessages.map(m => ({
       role: m.role,
       content: m.content,
@@ -199,9 +287,18 @@ export async function forwardToProvider(
       headers['anthropic-version'] = '2023-06-01';
       break;
     
+    case 'xai':
+      // xAI needs model name mapping
+      transformedBody = {
+        ...transformForOpenAI(body),
+        model: mapToXaiModel(body.model),
+      };
+      endpoint = `${config.baseUrl}/chat/completions`;
+      headers[config.authHeader] = `Bearer ${apiKey}`;
+      break;
+    
     case 'openai':
     case 'openrouter':
-    case 'xai':
     case 'cerebras':
     case 'deepseek':
     case 'mistral':
@@ -286,6 +383,20 @@ export async function forwardToProvider(
     headers,
     body: JSON.stringify(transformedBody),
   });
+  
+  // Anthropic responses need to be transformed to OpenAI format
+  if (provider === 'anthropic' && response.ok && !body.stream) {
+    const anthropicResponse = await response.json() as Record<string, unknown>;
+    const openaiResponse = transformAnthropicToOpenAI(anthropicResponse);
+    
+    return new Response(JSON.stringify(openaiResponse), {
+      status: response.status,
+      statusText: response.statusText,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }
   
   // Google responses need to be transformed to OpenAI format
   if (provider === 'google' && response.ok) {
