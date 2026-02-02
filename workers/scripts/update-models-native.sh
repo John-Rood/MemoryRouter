@@ -1,5 +1,7 @@
 #!/bin/bash
 # Fetch model lists directly from each provider's API
+# Source API keys (for launchd runs)
+[ -f ~/.clawdbot/model-sync.env ] && source ~/.clawdbot/model-sync.env
 # Updates static model catalog for UI dropdowns (debug page, etc.)
 #
 # This is NOT for runtime validation - model names are passthrough.
@@ -38,19 +40,13 @@ else
 fi
 
 # ===== Anthropic =====
-echo "📡 Anthropic..."
-if [ -n "$ANTHROPIC_API_KEY" ]; then
-  ANTHROPIC_MODELS=$(curl -s "https://api.anthropic.com/v1/models" \
-    -H "x-api-key: $ANTHROPIC_API_KEY" \
-    -H "anthropic-version: 2023-06-01" | \
-    jq '[.data[] | .id] | sort')
-  
-  jq --argjson models "$ANTHROPIC_MODELS" '.providers.anthropic = $models' /tmp/models-native.json > /tmp/models-native2.json
-  mv /tmp/models-native2.json /tmp/models-native.json
-  echo "   ✅ $(echo $ANTHROPIC_MODELS | jq 'length') models"
-else
-  echo "   ⚠️  ANTHROPIC_API_KEY not set, skipping"
-fi
+# Note: Anthropic's /v1/models endpoint requires direct API key (not Max OAuth tokens)
+# Using static list - update manually when new Claude models release
+echo "📡 Anthropic (static list)..."
+ANTHROPIC_MODELS='["claude-3-5-haiku-20241022","claude-3-5-haiku-latest","claude-3-5-sonnet-20240620","claude-3-5-sonnet-20241022","claude-3-5-sonnet-latest","claude-3-7-sonnet-20250219","claude-3-7-sonnet-latest","claude-3-haiku-20240307","claude-3-opus-20240229","claude-3-opus-latest","claude-3-sonnet-20240229","claude-opus-4-0-20250514","claude-opus-4-20250514","claude-sonnet-4-0-20250514","claude-sonnet-4-20250514"]'
+jq --argjson models "$ANTHROPIC_MODELS" '.providers.anthropic = $models' /tmp/models-native.json > /tmp/models-native2.json
+mv /tmp/models-native2.json /tmp/models-native.json
+echo "   ✅ $(echo $ANTHROPIC_MODELS | jq 'length') models (static)"
 
 # ===== Google =====
 echo "📡 Google..."
@@ -83,6 +79,31 @@ else
   echo "   ⚠️  XAI_API_KEY not set, skipping"
 fi
 
+# Compare with existing file (ignore fetched_at timestamp)
+EXISTING_MODELS=$(jq -S '.providers' "$MODELS_FILE" 2>/dev/null || echo '{}')
+NEW_MODELS=$(jq -S '.providers' /tmp/models-native.json)
+
+if [ "$EXISTING_MODELS" = "$NEW_MODELS" ]; then
+  echo ""
+  echo "✅ No changes detected. Exiting silently."
+  exit 0
+fi
+
+# Changes detected! Find what's new
+echo ""
+echo "🆕 Changes detected! Identifying new models..."
+
+# Get diff of model lists
+DIFF_SUMMARY=""
+for provider in openai anthropic google xai; do
+  OLD_LIST=$(echo "$EXISTING_MODELS" | jq -r ".${provider} // [] | .[]" 2>/dev/null | sort)
+  NEW_LIST=$(echo "$NEW_MODELS" | jq -r ".${provider} // [] | .[]" 2>/dev/null | sort)
+  NEW_MODELS_LIST=$(comm -13 <(echo "$OLD_LIST") <(echo "$NEW_LIST") 2>/dev/null || true)
+  if [ -n "$NEW_MODELS_LIST" ]; then
+    DIFF_SUMMARY="${DIFF_SUMMARY}${provider}: $(echo "$NEW_MODELS_LIST" | tr '\n' ', ' | sed 's/,$//')\n"
+  fi
+done
+
 # Copy to final location
 cp /tmp/models-native.json "$MODELS_FILE"
 
@@ -91,3 +112,12 @@ echo "📁 Written to: $MODELS_FILE"
 echo ""
 echo "Summary:"
 jq -r '.providers | to_entries[] | "  \(.key): \(.value | length) models"' "$MODELS_FILE"
+
+# Wake Clawdbot with the new models info
+echo ""
+echo "🔔 Waking Clawdbot to commit and deploy..."
+
+# Use cron wake to notify agent
+WAKE_MSG="🆕 MODEL CATALOG UPDATE - New models detected!\n\n${DIFF_SUMMARY}\nAction needed:\n1. cd ~/apps/MemoryRouter\n2. git add workers/src/config/models-native.json\n3. git commit -m 'chore: New models detected'\n4. git push && cd workers && npm run deploy\n5. Message John on Telegram (target=8541390285)"
+
+claudius cron wake --text "$WAKE_MSG" 2>/dev/null || echo "⚠️ Could not wake agent (claudius CLI not available)"
