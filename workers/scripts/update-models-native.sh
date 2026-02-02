@@ -117,7 +117,17 @@ jq -r '.providers | to_entries[] | "  \(.key): \(.value | length) models"' "$MOD
 echo ""
 echo "🔔 Waking Clawdbot to commit and deploy..."
 
-# Use cron wake to notify agent
-WAKE_MSG="🆕 MODEL CATALOG UPDATE - New models detected!\n\n${DIFF_SUMMARY}\nAction needed:\n1. cd ~/apps/MemoryRouter\n2. git add workers/src/config/models-native.json\n3. git commit -m 'chore: New models detected'\n4. git push && cd workers && npm run deploy\n5. Message John on Telegram (target=8541390285)"
+# Use claudius agent to wake with the diff
+WAKE_MSG="🆕 MODEL CATALOG UPDATE - New models detected!
 
-claudius cron wake --text "$WAKE_MSG" 2>/dev/null || echo "⚠️ Could not wake agent (claudius CLI not available)"
+${DIFF_SUMMARY}
+The file is already updated at ~/apps/MemoryRouter/workers/src/config/models-native.json
+
+Action needed:
+1. cd ~/apps/MemoryRouter && git add workers/src/config/models-native.json
+2. git commit -m 'chore: New models - [list them]'
+3. git push origin main
+4. cd workers && npm run deploy
+5. Message John on Telegram (target=8541390285) with the new model list"
+
+/Users/johnrood/.local/bin/claudius agent -m "$WAKE_MSG" --channel telegram --deliver 2>/dev/null || echo "⚠️ Could not wake agent"
