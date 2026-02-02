@@ -29,9 +29,15 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
     secrets=[modal.Secret.from_name("memoryrouter-api-key", required=False)],
 )
 class EmbeddingService:
-    """BGE-large-en-v1.5 embedding service with batching."""
+    """Stella 400M embedding service — top retrieval model for RAG.
     
-    model_name: str = "BAAI/bge-large-en-v1.5"
+    Stella beats BGE-large on retrieval benchmarks:
+    - MTEB Overall: 66.15 (vs 64.23 for BGE-large)
+    - Best-in-class retrieval for commercial use
+    - MIT licensed, 400M params, fits easily on T4
+    """
+    
+    model_name: str = "dunzhang/stella_en_400M_v5"
     
     @modal.enter()
     def load_model(self):

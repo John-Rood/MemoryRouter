@@ -65,7 +65,15 @@ BGE-large-en-v1.5 (1024 dims)
 
 ## Model Info
 
-- **Model:** BAAI/bge-large-en-v1.5
+- **Model:** dunzhang/stella_en_400M_v5
 - **Dimensions:** 1024
 - **Max tokens:** 512
-- **MTEB Score:** 64.23 (vs OpenAI 64.6)
+- **MTEB Score:** 66.15 (beats OpenAI's 64.6!)
+- **License:** MIT
+
+### Why Stella?
+Stella 400M is the top retrieval-focused embedding model that:
+- Beats BGE-large (64.23) and OpenAI (64.6) on MTEB
+- MIT licensed for commercial use
+- 400M params fits on T4 GPU
+- Works with sentence-transformers
