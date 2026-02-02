@@ -12,7 +12,9 @@
     "types": "wrangler types",
     "test": "vitest run",
     "test:watch": "vitest",
-    "cf-typegen": "wrangler types"
+    "cf-typegen": "wrangler types",
+    "test:core": "vitest run tests/core-regression.test.ts",
+    "verify": "./scripts/verify-core.sh"
   },
   "dependencies": {
     "hono": "^4.6.0"
