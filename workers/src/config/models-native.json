@@ -1,5 +1,5 @@
 {
-  "fetched_at": "2026-02-02T18:32:32Z",
+  "fetched_at": "2026-02-02T18:51:34Z",
   "providers": {
     "openai": [
       "chatgpt-4o-latest",
@@ -99,6 +99,31 @@
       "o3-mini-2025-01-31",
       "o3-pro",
       "o3-pro-2025-06-10"
+    ],
+    "google": [
+      "embedding-001",
+      "gemini-2.0-flash",
+      "gemini-2.0-flash-001",
+      "gemini-2.0-flash-lite",
+      "gemini-2.0-flash-lite-001",
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-2.5-pro",
+      "text-embedding-004"
+    ],
+    "xai": [
+      "grok-2-image-1212",
+      "grok-2-vision-1212",
+      "grok-3",
+      "grok-3-mini",
+      "grok-4-0709",
+      "grok-4-1-fast-non-reasoning",
+      "grok-4-1-fast-reasoning",
+      "grok-4-fast-non-reasoning",
+      "grok-4-fast-reasoning",
+      "grok-code-fast-1",
+      "grok-imagine-image",
+      "grok-imagine-video"
     ]
   }
 }
