@@ -232,89 +232,60 @@ export function createChatRouter() {
               sessionId
             );
             
-            // Check DO warmth FIRST (non-blocking probe)
-            const coreVault = vaults.find(v => v.type === 'core');
-            let isDoWarm = false;
+            // ===== RACE: DO vs D1 — fastest wins =====
+            const plan = buildSearchPlan(vaults, memoryOptions.contextLimit, kronosConfig);
             
-            if (coreVault) {
-              try {
-                const warmthRes = await coreVault.stub.fetch(
-                  new Request('https://do/warmth', { method: 'GET' })
-                );
-                const warmthData = await warmthRes.json() as { isWarm: boolean };
-                isDoWarm = warmthData.isWarm;
-              } catch {
-                // Warmth check failed — assume cold, use D1
-                isDoWarm = false;
-              }
-            }
+            // Start ALL promises at once
+            const doPromise = executeSearchPlan(plan, queryEmbedding)
+              .then(r => ({ source: 'do' as const, result: r }))
+              .catch(() => null);
             
-            if (isDoWarm) {
-              // ===== HOT PATH: Use DO directly (sub-ms search) =====
-              const plan = buildSearchPlan(vaults, memoryOptions.contextLimit, kronosConfig);
-              retrieval = await executeSearchPlan(plan, queryEmbedding);
-            } else if (env.VECTORS_D1) {
-              // ===== COLD PATH: Use D1 fallback (~50ms) + warm DO in background =====
-              console.log(`[D1-FALLBACK] DO cold for ${userContext.memoryKey.key}, using D1`);
-              
-              // Query D1 directly (fast path)
-              retrieval = await searchD1(
-                env.VECTORS_D1,
-                queryEmbedding,
-                userContext.memoryKey.key,
-                sessionId,
-                memoryOptions.contextLimit,
-                kronosConfig
-              );
-              
-              // Also fetch buffer from D1 (partial content not yet chunked)
-              try {
-                const d1Buffer = await getBufferFromD1(env.VECTORS_D1, userContext.memoryKey.key, sessionId);
-                if (d1Buffer && d1Buffer.content && d1Buffer.tokenCount > 0) {
-                  retrieval.chunks.push({
-                    id: -1,
-                    role: 'system' as const,
-                    content: d1Buffer.content,
-                    timestamp: d1Buffer.lastUpdated,
-                    score: 1.0,
-                    window: 'hot' as const,
-                    source: 'buffer',
-                  });
-                  retrieval.tokenCount += d1Buffer.tokenCount;
-                  console.log(`[D1-FALLBACK] Fetched buffer: ${d1Buffer.tokenCount} tokens`);
-                }
-              } catch (bufferErr) {
-                console.error('[D1-FALLBACK] Buffer fetch failed:', bufferErr);
-              }
-              
-              // Warm DO in background for next request
-              ctx.waitUntil((async () => {
-                try {
-                  const plan = buildSearchPlan(vaults, 1, kronosConfig); // Minimal search to trigger load
-                  await executeSearchPlan(plan, queryEmbedding);
-                  console.log(`[D1-FALLBACK] DO warmed for ${userContext.memoryKey.key}`);
-                } catch (e) {
-                  console.error(`[D1-FALLBACK] Failed to warm DO:`, e);
-                }
-              })());
+            const d1Promise = env.VECTORS_D1
+              ? searchD1(env.VECTORS_D1, queryEmbedding, userContext.memoryKey.key, sessionId, memoryOptions.contextLimit, kronosConfig)
+                  .then(r => ({ source: 'd1' as const, result: r }))
+                  .catch(() => null)
+              : Promise.resolve(null);
+            
+            const bufferPromise = env.VECTORS_D1
+              ? getBufferFromD1(env.VECTORS_D1, userContext.memoryKey.key, sessionId).catch(() => null)
+              : Promise.resolve(null);
+            
+            // Race: first non-null wins
+            const winner = await Promise.race([
+              doPromise.then(r => r || new Promise<never>(() => {})),
+              d1Promise.then(r => r || new Promise<never>(() => {})),
+            ]);
+            
+            if (winner?.result) {
+              retrieval = winner.result;
             } else {
-              // ===== NO D1: Fall back to cold DO (2500ms) =====
-              const plan = buildSearchPlan(vaults, memoryOptions.contextLimit, kronosConfig);
-              retrieval = await executeSearchPlan(plan, queryEmbedding);
+              // Fallback if race somehow fails
+              const [doRes, d1Res] = await Promise.all([doPromise, d1Promise]);
+              retrieval = doRes?.result || d1Res?.result || { chunks: [], tokenCount: 0, windowBreakdown: { hot: 0, working: 0, longterm: 0 } };
             }
             
-            // Add buffer content if present (already fetched with search - no extra round-trip)
-            if (retrieval.buffer && retrieval.buffer.content && retrieval.buffer.tokenCount > 0) {
-              retrieval.chunks.push({
-                id: -1, // Special ID for buffer
-                role: 'system' as const,
-                content: retrieval.buffer.content,
-                timestamp: retrieval.buffer.lastUpdated || Date.now(),
-                score: 1.0, // Always relevant (it's the current conversation)
-                window: 'hot' as const,
-                source: 'buffer',
-              });
-              retrieval.tokenCount += retrieval.buffer.tokenCount;
+            // Buffer: DO includes it in response, D1 needs separate fetch
+            // Only await D1 buffer if D1 won the race
+            if (winner?.source === 'd1') {
+              const buffer = await bufferPromise;
+              if (buffer?.content && buffer.tokenCount > 0) {
+                retrieval.chunks.push({
+                  id: -1, role: 'system' as const, content: buffer.content,
+                  timestamp: buffer.lastUpdated, score: 1.0, window: 'hot' as const, source: 'buffer',
+                });
+                retrieval.tokenCount += buffer.tokenCount;
+              }
+            }
+            // If DO won, extract buffer from response
+            if (winner?.source === 'do') {
+              const doBuffer = (retrieval as { buffer?: { content: string; tokenCount: number; lastUpdated?: number } }).buffer;
+              if (doBuffer?.content && doBuffer.tokenCount > 0) {
+                retrieval.chunks.push({
+                  id: -1, role: 'system' as const, content: doBuffer.content,
+                  timestamp: doBuffer.lastUpdated || Date.now(), score: 1.0, window: 'hot' as const, source: 'buffer',
+                });
+                retrieval.tokenCount += doBuffer.tokenCount;
+              }
             }
           } else {
             // ===== LEGACY KV+R2 PATH =====
