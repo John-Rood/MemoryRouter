@@ -110,6 +110,7 @@ export async function executeSearchPlan(
       role: string;
       timestamp: number;
     }>;
+    buffer?: { content: string; tokenCount: number; lastUpdated: number } | null;
   }>> = [];
 
   for (const vault of plan.vaults) {
@@ -130,6 +131,7 @@ export async function executeSearchPlan(
           type: vault.type,
           window: window.name,
           results: data.results ?? [],
+          buffer: vault.type === 'core' ? data.buffer : undefined, // Only capture buffer from core vault
         }))
         .catch(err => {
           // Don't fail the whole search if one vault/window errors
@@ -138,6 +140,7 @@ export async function executeSearchPlan(
             type: vault.type,
             window: window.name,
             results: [],
+            buffer: undefined,
           };
         });
 
@@ -146,6 +149,9 @@ export async function executeSearchPlan(
   }
 
   const allWindows = await Promise.all(windowPromises);
+  
+  // Extract buffer from core vault (first one that has it)
+  const bufferData = allWindows.find(w => w.buffer)?.buffer;
 
   // Merge results across all vaults and windows
   const chunks: MemoryChunk[] = [];
@@ -186,6 +192,7 @@ export async function executeSearchPlan(
     chunks: topChunks,
     tokenCount,
     windowBreakdown,
+    buffer: bufferData, // Include buffer from core vault
   };
 }
 

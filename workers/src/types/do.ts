@@ -46,6 +46,11 @@ export interface DOSearchResponse {
   searchTimeMs: number;
   hotVectors: number;
   totalVectors: number;
+  buffer?: {
+    content: string;
+    tokenCount: number;
+    lastUpdated: number;
+  } | null;
 }
 
 // ==================== Store Types ====================
@@ -186,6 +191,11 @@ export interface MemoryRetrievalResult {
     working: number;
     longterm: number;
   };
+  buffer?: {
+    content: string;
+    tokenCount: number;
+    lastUpdated: number;
+  } | null;
 }
 
 // ==================== Vault State ====================

@@ -242,8 +242,18 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
     const startTime = performance.now();
     const queryVec = new Float32Array(body.query);
 
+    // Handle empty vault (no index yet - happens after reset before first store)
+    if (!this.index) {
+      return Response.json({
+        results: [],
+        searchTimeMs: performance.now() - startTime,
+        hotVectors: 0,
+        totalVectors: 0,
+      });
+    }
+
     // Search in-memory index (sub-ms for loaded vectors)
-    let results = this.index!.searchFast(
+    let results = this.index.searchFast(
       queryVec,
       body.k,
       body.minTimestamp
@@ -252,7 +262,7 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
     // If we need more results from cold storage (vectors in SQLite but not in memory)
     if (
       results.length < body.k &&
-      this.vaultState!.vectorCount > this.index!.size
+      this.vaultState!.vectorCount > this.index.size
     ) {
       const coldResults = this.searchColdStorage(
         queryVec,
@@ -267,11 +277,23 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
     const enriched = this.enrichResults(results);
     const searchTimeMs = performance.now() - startTime;
 
+    // Also fetch buffer content (saves a round-trip)
+    const bufferRows = this.ctx.storage.sql.exec(
+      `SELECT content, token_count, last_updated FROM pending_buffer WHERE id = 1`
+    ).toArray();
+    
+    const buffer = bufferRows.length > 0 ? {
+      content: bufferRows[0].content as string,
+      tokenCount: bufferRows[0].token_count as number,
+      lastUpdated: bufferRows[0].last_updated as number,
+    } : null;
+
     return Response.json({
       results: enriched,
       searchTimeMs,
-      hotVectors: this.index!.size,
+      hotVectors: this.index.size,
       totalVectors: this.vaultState!.vectorCount,
+      buffer, // Include buffer in search response
     });
   }
 

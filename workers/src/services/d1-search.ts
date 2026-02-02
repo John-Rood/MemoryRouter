@@ -213,6 +213,72 @@ export async function mirrorToD1(
 }
 
 /**
+ * Mirror buffer content to D1 for cold-start fallback.
+ * Uses UPSERT to keep only latest buffer state.
+ */
+export async function mirrorBufferToD1(
+  db: D1Database,
+  memoryKey: string,
+  vaultType: 'core' | 'session',
+  sessionId: string | undefined,
+  content: string,
+  tokenCount: number,
+  lastUpdated: number
+): Promise<void> {
+  await db.prepare(`
+    INSERT INTO buffers (memory_key, vault_type, session_id, content, token_count, last_updated)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT (memory_key, vault_type, session_id) 
+    DO UPDATE SET content = excluded.content, token_count = excluded.token_count, last_updated = excluded.last_updated
+  `).bind(
+    memoryKey,
+    vaultType,
+    sessionId || '',
+    content,
+    tokenCount,
+    lastUpdated
+  ).run();
+}
+
+/**
+ * Fetch buffer content from D1 for cold-start fallback.
+ */
+export async function getBufferFromD1(
+  db: D1Database,
+  memoryKey: string,
+  sessionId?: string
+): Promise<{ content: string; tokenCount: number; lastUpdated: number } | null> {
+  const vaultType = sessionId ? 'session' : 'core';
+  const result = await db.prepare(`
+    SELECT content, token_count, last_updated
+    FROM buffers
+    WHERE memory_key = ? AND vault_type = ? AND session_id = ?
+  `).bind(memoryKey, vaultType, sessionId || '').first();
+
+  if (!result) return null;
+
+  return {
+    content: result.content as string,
+    tokenCount: result.token_count as number,
+    lastUpdated: result.last_updated as number,
+  };
+}
+
+/**
+ * Clear buffer from D1 (called when buffer is flushed to chunks).
+ */
+export async function clearBufferFromD1(
+  db: D1Database,
+  memoryKey: string,
+  sessionId?: string
+): Promise<void> {
+  const vaultType = sessionId ? 'session' : 'core';
+  await db.prepare(`
+    DELETE FROM buffers WHERE memory_key = ? AND vault_type = ? AND session_id = ?
+  `).bind(memoryKey, vaultType, sessionId || '').run();
+}
+
+/**
  * Check if DO is likely warm based on recent D1 activity.
  * Optional optimization — can skip if latency is acceptable.
  */

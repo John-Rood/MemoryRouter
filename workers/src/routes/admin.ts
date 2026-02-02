@@ -384,3 +384,147 @@ export async function handleListKeys(request: Request, env: Env): Promise<Respon
     keys: keyStats,
   });
 }
+
+/**
+ * GET /admin/debug-storage
+ * 
+ * Compare DO and D1 storage for a specific memory key.
+ * Shows exactly what's in each store to debug sync issues.
+ */
+/**
+ * GET /admin/do-export
+ * 
+ * Export all items from a DO vault for debugging.
+ */
+export async function handleDoExport(request: Request, env: Env): Promise<Response> {
+  if (!verifyAdmin(request, env)) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const url = new URL(request.url);
+  const memoryKey = url.searchParams.get('key');
+  
+  if (!memoryKey) {
+    return Response.json({ error: 'Missing ?key= parameter' }, { status: 400 });
+  }
+
+  try {
+    const stub = getVaultStub(memoryKey, 'core', env);
+    const exportRes = await stub.fetch(new Request('http://do/export'));
+    
+    if (!exportRes.ok) {
+      return Response.json({ error: `DO export failed: ${exportRes.status}` }, { status: 500 });
+    }
+    
+    return new Response(exportRes.body, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (e) {
+    return Response.json({ error: String(e) }, { status: 500 });
+  }
+}
+
+export async function handleDebugStorage(request: Request, env: Env & { VECTORS_D1?: D1Database }): Promise<Response> {
+  if (!verifyAdmin(request, env)) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const url = new URL(request.url);
+  const memoryKey = url.searchParams.get('key');
+  
+  if (!memoryKey) {
+    return Response.json({ error: 'Missing ?key= parameter' }, { status: 400 });
+  }
+
+  const results: {
+    memoryKey: string;
+    do: {
+      vectorCount: number;
+      totalTokens: number;
+      oldest: number | null;
+      newest: number | null;
+      error?: string;
+    } | null;
+    d1: {
+      chunkCount: number;
+      totalTokens: number;
+      oldest: number | null;
+      newest: number | null;
+      error?: string;
+    } | null;
+    analysis: string[];
+  } = {
+    memoryKey,
+    do: null,
+    d1: null,
+    analysis: [],
+  };
+
+  // Query DO
+  try {
+    const stub = getVaultStub(memoryKey, 'core', env);
+    const statsRes = await stub.fetch(new Request('http://do/stats'));
+    
+    if (statsRes.ok) {
+      const stats = await statsRes.json() as {
+        totalVectors: number;
+        totalTokens: number;
+        oldestItem: number | null;
+        newestItem: number | null;
+      };
+      results.do = {
+        vectorCount: stats.totalVectors,
+        totalTokens: stats.totalTokens,
+        oldest: stats.oldestItem,
+        newest: stats.newestItem,
+      };
+    } else {
+      results.do = { vectorCount: 0, totalTokens: 0, oldest: null, newest: null, error: `HTTP ${statsRes.status}` };
+    }
+  } catch (e) {
+    results.do = { vectorCount: 0, totalTokens: 0, oldest: null, newest: null, error: String(e) };
+  }
+
+  // Query D1
+  if (env.VECTORS_D1) {
+    try {
+      const d1Stats = await env.VECTORS_D1.prepare(`
+        SELECT 
+          COUNT(*) as chunk_count,
+          SUM(token_count) as total_tokens,
+          MIN(timestamp) as oldest,
+          MAX(timestamp) as newest
+        FROM chunks 
+        WHERE memory_key = ?
+      `).bind(memoryKey).first();
+
+      results.d1 = {
+        chunkCount: (d1Stats?.chunk_count as number) ?? 0,
+        totalTokens: (d1Stats?.total_tokens as number) ?? 0,
+        oldest: (d1Stats?.oldest as number) ?? null,
+        newest: (d1Stats?.newest as number) ?? null,
+      };
+    } catch (e) {
+      results.d1 = { chunkCount: 0, totalTokens: 0, oldest: null, newest: null, error: String(e) };
+    }
+  } else {
+    results.d1 = { chunkCount: 0, totalTokens: 0, oldest: null, newest: null, error: 'VECTORS_D1 not configured' };
+  }
+
+  // Analysis
+  if (results.do && results.d1) {
+    if (results.do.vectorCount === results.d1.chunkCount) {
+      results.analysis.push('✅ DO and D1 have same count — in sync');
+    } else if (results.do.vectorCount > results.d1.chunkCount) {
+      results.analysis.push(`⚠️ DO has ${results.do.vectorCount - results.d1.chunkCount} more items than D1 — D1 mirror failing?`);
+    } else {
+      results.analysis.push(`⚠️ D1 has ${results.d1.chunkCount - results.do.vectorCount} more items than DO — DO storage failing?`);
+    }
+    
+    if (results.do.totalTokens !== results.d1.totalTokens) {
+      results.analysis.push(`Token count mismatch: DO=${results.do.totalTokens}, D1=${results.d1.totalTokens}`);
+    }
+  }
+
+  return Response.json(results);
+}

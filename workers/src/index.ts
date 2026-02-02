@@ -11,7 +11,7 @@ import { authMiddleware, createMemoryKey, UserContext } from './middleware/auth'
 import { createChatRouter, ChatEnv } from './routes/chat';
 import { createPassthroughRouter } from './routes/passthrough';
 import { StorageManager } from './services/storage';
-import { handleReembed, handleListKeys, handleClear, handleSetProviderKey, handleGetProviderKeys } from './routes/admin';
+import { handleReembed, handleListKeys, handleClear, handleSetProviderKey, handleGetProviderKeys, handleDebugStorage, handleDoExport } from './routes/admin';
 
 // Re-export VaultDurableObject for Cloudflare DO binding
 export { VaultDurableObject } from './durable-objects/vault';
@@ -418,6 +418,14 @@ app.post('/admin/provider-keys', async (c) => {
 
 app.get('/admin/provider-keys', async (c) => {
   return handleGetProviderKeys(c.req.raw, c.env as any);
+});
+
+app.get('/admin/debug-storage', async (c) => {
+  return handleDebugStorage(c.req.raw, c.env as any);
+});
+
+app.get('/admin/do-export', async (c) => {
+  return handleDoExport(c.req.raw, c.env as any);
 });
 
 // 404 handler

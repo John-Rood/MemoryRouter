@@ -78,7 +78,7 @@ import { buildSearchPlan, executeSearchPlan, storeToVault } from '../services/kr
 import type { MemoryRetrievalResult as DOMemoryRetrievalResult } from '../types/do';
 
 // D1 imports (intermediate state for cold start fallback)
-import { searchD1, mirrorToD1 } from '../services/d1-search';
+import { searchD1, mirrorToD1, mirrorBufferToD1, getBufferFromD1 } from '../services/d1-search';
 
 // Storage job type for queue
 export interface StorageJob {
@@ -280,6 +280,26 @@ export function createChatRouter() {
                 kronosConfig
               );
               
+              // Also fetch buffer from D1 (partial content not yet chunked)
+              try {
+                const d1Buffer = await getBufferFromD1(env.VECTORS_D1, userContext.memoryKey.key, sessionId);
+                if (d1Buffer && d1Buffer.content && d1Buffer.tokenCount > 0) {
+                  retrieval.chunks.push({
+                    id: -1,
+                    role: 'system' as const,
+                    content: d1Buffer.content,
+                    timestamp: d1Buffer.lastUpdated,
+                    score: 1.0,
+                    window: 'hot' as const,
+                    source: 'buffer',
+                  });
+                  retrieval.tokenCount += d1Buffer.tokenCount;
+                  console.log(`[D1-FALLBACK] Fetched buffer: ${d1Buffer.tokenCount} tokens`);
+                }
+              } catch (bufferErr) {
+                console.error('[D1-FALLBACK] Buffer fetch failed:', bufferErr);
+              }
+              
               // Warm DO in background for next request
               ctx.waitUntil((async () => {
                 try {
@@ -296,37 +316,18 @@ export function createChatRouter() {
               retrieval = await executeSearchPlan(plan, queryEmbedding);
             }
             
-            // Also fetch pending buffer (content not yet chunked)
-            // This ensures the most recent conversation is always included
-            try {
-              const coreVault = vaults.find(v => v.type === 'core');
-              if (coreVault) {
-                const bufferRes = await coreVault.stub.fetch(
-                  new Request('https://do/buffer', { method: 'GET' })
-                );
-                const bufferData = await bufferRes.json() as { 
-                  content: string; 
-                  tokenCount: number; 
-                  lastUpdated: number | null;
-                };
-                
-                // If there's pending content, add it as the most recent chunk
-                if (bufferData.content && bufferData.tokenCount > 0) {
-                  retrieval.chunks.push({
-                    id: -1, // Special ID for buffer
-                    role: 'system' as const,
-                    content: bufferData.content,
-                    timestamp: bufferData.lastUpdated || Date.now(),
-                    score: 1.0, // Always relevant (it's the current conversation)
-                    window: 'hot' as const,
-                    source: 'buffer',
-                  });
-                  retrieval.tokenCount += bufferData.tokenCount;
-                }
-              }
-            } catch (bufferError) {
-              console.error('Failed to fetch buffer:', bufferError);
-              // Continue without buffer - non-fatal
+            // Add buffer content if present (already fetched with search - no extra round-trip)
+            if (retrieval.buffer && retrieval.buffer.content && retrieval.buffer.tokenCount > 0) {
+              retrieval.chunks.push({
+                id: -1, // Special ID for buffer
+                role: 'system' as const,
+                content: retrieval.buffer.content,
+                timestamp: retrieval.buffer.lastUpdated || Date.now(),
+                score: 1.0, // Always relevant (it's the current conversation)
+                window: 'hot' as const,
+                source: 'buffer',
+              });
+              retrieval.tokenCount += retrieval.buffer.tokenCount;
             }
           } else {
             // ===== LEGACY KV+R2 PATH =====
@@ -798,6 +799,28 @@ async function storeConversationDO(
               model
             ).catch(err => console.error('[D1-MIRROR] Failed:', err))
           );
+        }
+      }
+      
+      // Mirror buffer state to D1 (fire-and-forget)
+      if (d1 && ctx && chunkResult.bufferTokens >= 0) {
+        // Fetch current buffer content
+        const bufferRes = await stub.fetch(new Request('https://do/buffer', { method: 'GET' }));
+        if (bufferRes.ok) {
+          const bufferData = await bufferRes.json() as { content: string; tokenCount: number; lastUpdated: number };
+          if (bufferData.content) {
+            ctx.waitUntil(
+              mirrorBufferToD1(
+                d1,
+                memoryKey,
+                sessionId ? 'session' : 'core',
+                sessionId,
+                bufferData.content,
+                bufferData.tokenCount,
+                bufferData.lastUpdated || Date.now()
+              ).catch(err => console.error('[D1-BUFFER-MIRROR] Failed:', err))
+            );
+          }
         }
       }
     }

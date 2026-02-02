@@ -461,20 +461,20 @@ export function formatRetrievalAsContext(retrieval: MemoryRetrievalResult): stri
   
   const parts: string[] = [];
   
-  // Format past memories
+  // Format current conversation buffer FIRST (most recent at top)
+  if (bufferChunk && bufferChunk.content) {
+    parts.push(`[MOST RECENT]\n${bufferChunk.content}`);
+  }
+  
+  // Format past memories after
   if (pastChunks.length > 0) {
     const pastFormatted = pastChunks
-      .map(chunk => {
+      .map((chunk, index) => {
         const time = formatTimestamp(chunk.timestamp);
-        return `[${chunk.role.toUpperCase()}] (${time}) ${chunk.content}`;
+        return `[${index + 1}] (${time}) ${chunk.content}`;
       })
       .join('\n\n');
     parts.push(pastFormatted);
-  }
-  
-  // Format current conversation buffer (if present)
-  if (bufferChunk && bufferChunk.content) {
-    parts.push(`[MOST RECENT]\n${bufferChunk.content}`);
   }
   
   return parts.join('\n\n---\n\n');
