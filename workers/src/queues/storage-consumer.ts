@@ -9,11 +9,24 @@
 
 import { resolveVaultForStore } from '../services/do-router';
 import { storeToVault } from '../services/kronos-do';
-import { generateEmbedding } from '../services/providers';
+import { generateEmbedding, type EmbeddingConfig } from '../services/providers';
 import type { StorageJob } from '../routes/chat';
 
 // Re-export for index.ts
 export type { StorageJob } from '../routes/chat';
+
+/**
+ * Build embedding config from job
+ */
+function getEmbeddingConfigFromJob(job: StorageJob): EmbeddingConfig | undefined {
+  if (job.embeddingProvider === 'modal' && job.modalEmbeddingUrl) {
+    return {
+      provider: 'modal',
+      modalUrl: job.modalEmbeddingUrl,
+    };
+  }
+  return undefined;  // Default to OpenAI
+}
 
 /**
  * Environment for queue consumer
@@ -81,8 +94,9 @@ async function processStorageJob(job: StorageJob, env: QueueEnv): Promise<void> 
     };
     
     // Embed and store each complete chunk
+    const embeddingConfig = getEmbeddingConfigFromJob(job);
     for (const chunkContent of chunkResult.chunksToEmbed) {
-      const embedding = await generateEmbedding(chunkContent, job.embeddingKey);
+      const embedding = await generateEmbedding(chunkContent, job.embeddingKey, undefined, embeddingConfig);
       await storeToVault(stub, embedding, chunkContent, 'chunk', job.model, requestId);
     }
   }

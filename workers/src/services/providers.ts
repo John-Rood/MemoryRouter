@@ -180,9 +180,67 @@ export async function forwardToProvider(
 }
 
 /**
- * Generate embeddings using OpenAI
+ * Embedding provider configuration
+ */
+export interface EmbeddingConfig {
+  provider: 'openai' | 'modal';
+  modalUrl?: string;  // e.g., https://memoryrouter-embeddings--web.modal.run
+}
+
+/**
+ * Generate embeddings using configured provider
+ * 
+ * Supports:
+ * - OpenAI (text-embedding-3-large, 3072 dims)
+ * - Modal self-hosted (BGE-large-en-v1.5, 1024 dims)
  */
 export async function generateEmbedding(
+  text: string,
+  apiKey: string,
+  model: string = 'text-embedding-3-large',
+  config?: EmbeddingConfig
+): Promise<Float32Array> {
+  // Use Modal if configured
+  if (config?.provider === 'modal' && config.modalUrl) {
+    return generateEmbeddingModal(text, config.modalUrl);
+  }
+  
+  // Default: OpenAI
+  return generateEmbeddingOpenAI(text, apiKey, model);
+}
+
+/**
+ * Generate embeddings using Modal self-hosted BGE
+ * ~100x cheaper than OpenAI, ~10-50ms slower
+ */
+async function generateEmbeddingModal(
+  text: string,
+  modalUrl: string
+): Promise<Float32Array> {
+  const response = await fetch(`${modalUrl}/embed`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      texts: [text],
+      normalize: true,
+    }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Modal embedding failed: ${error}`);
+  }
+  
+  const data = await response.json() as { embeddings: number[][] };
+  return new Float32Array(data.embeddings[0]);
+}
+
+/**
+ * Generate embeddings using OpenAI
+ */
+async function generateEmbeddingOpenAI(
   text: string,
   apiKey: string,
   model: string = 'text-embedding-3-large'
@@ -201,7 +259,7 @@ export async function generateEmbedding(
   
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Embedding failed: ${error}`);
+    throw new Error(`OpenAI embedding failed: ${error}`);
   }
   
   const data = await response.json() as { data: Array<{ embedding: number[] }> };

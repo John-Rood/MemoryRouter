@@ -58,8 +58,15 @@ max_batch_timeout = 5
 # ========== Environment Variables ==========
 [vars]
 ENVIRONMENT = "development"
+# Embedding provider: "openai" or "modal"
+EMBEDDING_PROVIDER = "modal"
+# Modal embedding service URL (when EMBEDDING_PROVIDER=modal)
+MODAL_EMBEDDING_URL = "https://memoryrouter-embeddings--web.modal.run"
+# OpenAI settings (when EMBEDDING_PROVIDER=openai)
 DEFAULT_EMBEDDING_MODEL = "text-embedding-3-large"
 DEFAULT_EMBEDDING_DIMS = "3072"
+# BGE dimensions for Modal (1024)
+BGE_EMBEDDING_DIMS = "1024"
 HOT_WINDOW_HOURS = "4"
 WORKING_WINDOW_DAYS = "3"
 LONGTERM_WINDOW_DAYS = "90"

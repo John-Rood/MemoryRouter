@@ -28,7 +28,21 @@ import {
   extractResponseContent,
   type ChatCompletionRequest,
   type Provider,
+  type EmbeddingConfig,
 } from '../services/providers';
+
+/**
+ * Build embedding config from environment
+ */
+function getEmbeddingConfig(env: ChatEnv): EmbeddingConfig | undefined {
+  if (env.EMBEDDING_PROVIDER === 'modal' && env.MODAL_EMBEDDING_URL) {
+    return {
+      provider: 'modal',
+      modalUrl: env.MODAL_EMBEDDING_URL,
+    };
+  }
+  return undefined;  // Default to OpenAI
+}
 import { StorageManager, StorageBindings } from '../services/storage';
 
 // DO imports
@@ -47,6 +61,9 @@ export interface StorageJob {
     role: 'user' | 'assistant';
     content: string;
   }>;
+  // Embedding config for self-hosted models
+  embeddingProvider?: 'openai' | 'modal';
+  modalEmbeddingUrl?: string;
 }
 
 export interface ChatEnv extends StorageBindings {
@@ -61,6 +78,9 @@ export interface ChatEnv extends StorageBindings {
   LONGTERM_WINDOW_DAYS?: string;
   // Storage queue (decoupled from inference)
   STORAGE_QUEUE?: Queue<StorageJob>;
+  // Embedding provider config
+  EMBEDDING_PROVIDER?: string;  // 'openai' | 'modal'
+  MODAL_EMBEDDING_URL?: string;
 }
 
 /**
@@ -147,7 +167,8 @@ export function createChatRouter() {
       if (query) {
         try {
           // Generate query embedding
-          const queryEmbedding = await generateEmbedding(query, embeddingKey);
+          const embeddingConfig = getEmbeddingConfig(env);
+          const queryEmbedding = await generateEmbedding(query, embeddingKey, undefined, embeddingConfig);
           
           if (usesDO) {
             // ===== DURABLE OBJECTS PATH =====
@@ -324,6 +345,8 @@ export function createChatRouter() {
                 model: body.model,
                 embeddingKey,
                 content: storageContent,
+                embeddingProvider: env.EMBEDDING_PROVIDER as 'openai' | 'modal' | undefined,
+                modalEmbeddingUrl: env.MODAL_EMBEDDING_URL,
               })
             );
           } else if (storageContent.length > 0 && usesDO) {
@@ -378,6 +401,8 @@ export function createChatRouter() {
             model: body.model,
             embeddingKey,
             content: storageContent,
+            embeddingProvider: env.EMBEDDING_PROVIDER as 'openai' | 'modal' | undefined,
+            modalEmbeddingUrl: env.MODAL_EMBEDDING_URL,
           })
         );
       } else if (storageContent.length > 0 && usesDO) {
