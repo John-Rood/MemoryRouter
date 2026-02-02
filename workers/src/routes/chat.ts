@@ -378,29 +378,30 @@ export function createChatRouter() {
               retrieval = rebuildRetrievalResult(retrieval as MemoryRetrievalResult, truncationResult.chunks);
             }
             
-            // ===== NEW: Use memory-transform for context injection =====
+            // ===== SIMPLE INJECTION (reverted from memory-transform) =====
             const injectStart = Date.now();
-            memoryInjection = injectMemoryContext(
-              { messages: augmentedMessages, model: body.model } as Record<string, unknown>,
-              provider,
-              body.model,
-              retrieval.chunks as TransformMemoryChunk[],
-              null,  // coreMemory - null for now, can be added later
-              { maxTokens: 10000 }  // Reasonable budget for memory context
-            );
+            
+            // Debug: Check for buffer chunk
+            const bufferChunk = retrieval.chunks.find(c => c.source === 'buffer');
+            console.log('[MEMORY] Buffer check:', {
+              hasBuffer: !!bufferChunk,
+              bufferContent: bufferChunk?.content?.substring(0, 100),
+              chunkSources: retrieval.chunks.map(c => c.source || 'none'),
+            });
+            
+            const contextText = formatRetrievalAsContext(retrieval as MemoryRetrievalResult);
+            augmentedMessages = injectContext(augmentedMessages, contextText, body.model);
             const injectTime = Date.now() - injectStart;
             
-            console.log('[MEMORY] Injection result:', {
-              injectedTokens: memoryInjection.injectedTokens,
-              chunksUsed: memoryInjection.memoryChunksUsed,
-              format: memoryInjection.formatUsed,
+            memoryTokensUsed = retrieval.tokenCount;
+            
+            console.log('[MEMORY] Injection result (simple):', {
+              injectedTokens: memoryTokensUsed,
+              chunksUsed: retrieval.chunks.length,
+              contextLength: contextText.length,
+              hasMostRecent: contextText.includes('[MOST RECENT]'),
             });
-            console.log(`[PERF] injectMemoryContext: ${injectTime}ms`);
-            
-            memoryTokensUsed = memoryInjection.injectedTokens;
-            
-            // Use the injected body's messages
-            augmentedMessages = (memoryInjection.injectedBody.messages as ChatMessage[]) || augmentedMessages;
+            console.log(`[PERF] injectContext: ${injectTime}ms`);
           }
         } catch (error) {
           console.error('Memory retrieval error:', error);
