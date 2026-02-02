@@ -25,9 +25,10 @@ echo '{"fetched_at": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'", "providers": {}}' > /tm
 # ===== OpenAI =====
 echo "📡 OpenAI..."
 if [ -n "$OPENAI_API_KEY" ]; then
+  # Filter: include gpt/o1/o3/davinci/turbo, exclude fine-tunes (ft:)
   OPENAI_MODELS=$(curl -s "https://api.openai.com/v1/models" \
     -H "Authorization: Bearer $OPENAI_API_KEY" | \
-    jq '[.data[] | select(.id | test("gpt|o1|o3|davinci|turbo")) | .id] | sort | unique')
+    jq '[.data[] | .id | select(test("gpt|o1-|o3-|davinci|turbo")) | select(startswith("ft:") | not)] | sort | unique')
   
   jq --argjson models "$OPENAI_MODELS" '.providers.openai = $models' /tmp/models-native.json > /tmp/models-native2.json
   mv /tmp/models-native2.json /tmp/models-native.json
