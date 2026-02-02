@@ -61,7 +61,7 @@ ENVIRONMENT = "development"
 # Embedding provider: "openai" or "modal"
 EMBEDDING_PROVIDER = "modal"
 # Modal embedding service URL (when EMBEDDING_PROVIDER=modal)
-MODAL_EMBEDDING_URL = "https://memoryrouter-embeddings--web.modal.run"
+MODAL_EMBEDDING_URL = "https://john-32116--memoryrouter-embeddings-web.modal.run"
 # OpenAI settings (when EMBEDDING_PROVIDER=openai)
 DEFAULT_EMBEDDING_MODEL = "text-embedding-3-large"
 DEFAULT_EMBEDDING_DIMS = "3072"

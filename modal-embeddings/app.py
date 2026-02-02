@@ -26,7 +26,6 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
     gpu="T4",  # Cheapest GPU, plenty for embeddings
     container_idle_timeout=300,  # Keep warm for 5 min after last request
     allow_concurrent_inputs=100,  # Handle many requests per container
-    secrets=[modal.Secret.from_name("memoryrouter-api-key", required=False)],
 )
 class EmbeddingService:
     """Stella 400M embedding service — top retrieval model for RAG.
@@ -37,7 +36,7 @@ class EmbeddingService:
     - MIT licensed, 400M params, fits easily on T4
     """
     
-    model_name: str = "dunzhang/stella_en_400M_v5"
+    model_name: str = "NovaSearch/stella_en_400M_v5"
     
     @modal.enter()
     def load_model(self):
