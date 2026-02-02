@@ -202,4 +202,52 @@ npm run deploy:prod
 
 ---
 
+## 🧪 Model Validation (MANDATORY)
+
+**Before updating model mappings or the model catalog, ALL models must pass validation.**
+
+### Run Validation Script
+```bash
+cd workers
+./scripts/validate-models.sh staging     # Test against staging
+./scripts/validate-models.sh production  # Test against production
+```
+
+### What It Does
+- Fetches all models from `/v1/models` endpoint
+- Pings each chat model with a minimal request
+- Reports pass/fail for every model
+- **Fails if ANY model doesn't work**
+
+### When to Run
+1. **Before deploying model mapping changes** — Validate staging first
+2. **After updating `models-native.json`** — Ensure catalog is accurate
+3. **After updating model aliases** (e.g., `claude-opus-4.5` → actual model ID)
+4. **Periodically** — Providers deprecate models without warning
+
+### Model Naming Rules
+- Use **friendly names** in dropdowns: `anthropic/claude-opus-4.5`
+- **Never** put date extensions in user-facing names
+- Model mappings translate friendly → provider-specific IDs internally
+
+### Validation Must Pass Before:
+- ❌ Pushing model mapping changes
+- ❌ Deploying to production
+- ❌ Updating the model catalog
+
+```bash
+# Full model update workflow:
+./scripts/update-models-native.sh       # Fetch latest from providers
+./scripts/validate-models.sh staging    # Validate ALL models work
+git add -A
+git commit -m "chore: Update model catalog"
+git push origin main
+npm run deploy:staging
+./scripts/validate-models.sh staging    # Re-validate after deploy
+npm run deploy                          # Production
+./scripts/validate-models.sh production # Final validation
+```
+
+---
+
 *Core comes first. Always.*
