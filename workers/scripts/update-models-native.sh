@@ -40,13 +40,28 @@ else
 fi
 
 # ===== Anthropic =====
-# Note: Anthropic's /v1/models endpoint requires direct API key (not Max OAuth tokens)
-# Using static list - update manually when new Claude models release
-echo "📡 Anthropic (static list)..."
-ANTHROPIC_MODELS='["claude-3-5-haiku-20241022","claude-3-5-haiku-latest","claude-3-5-sonnet-20240620","claude-3-5-sonnet-20241022","claude-3-5-sonnet-latest","claude-3-7-sonnet-20250219","claude-3-7-sonnet-latest","claude-3-haiku-20240307","claude-3-opus-20240229","claude-3-opus-latest","claude-3-sonnet-20240229","claude-opus-4-0-20250514","claude-opus-4-20250514","claude-sonnet-4-0-20250514","claude-sonnet-4-20250514"]'
-jq --argjson models "$ANTHROPIC_MODELS" '.providers.anthropic = $models' /tmp/models-native.json > /tmp/models-native2.json
-mv /tmp/models-native2.json /tmp/models-native.json
-echo "   ✅ $(echo $ANTHROPIC_MODELS | jq 'length') models (static)"
+echo "📡 Anthropic..."
+if [ -n "$ANTHROPIC_API_KEY" ]; then
+  ANTHROPIC_RESPONSE=$(curl -s "https://api.anthropic.com/v1/models" \
+    -H "x-api-key: $ANTHROPIC_API_KEY" \
+    -H "anthropic-version: 2023-06-01")
+  
+  # Check if response has data array (success) or error
+  if echo "$ANTHROPIC_RESPONSE" | jq -e '.data' > /dev/null 2>&1; then
+    ANTHROPIC_MODELS=$(echo "$ANTHROPIC_RESPONSE" | jq '[.data[] | .id] | sort')
+    jq --argjson models "$ANTHROPIC_MODELS" '.providers.anthropic = $models' /tmp/models-native.json > /tmp/models-native2.json
+    mv /tmp/models-native2.json /tmp/models-native.json
+    echo "   ✅ $(echo $ANTHROPIC_MODELS | jq 'length') models"
+  else
+    echo "   ⚠️  API error, using static fallback"
+    ANTHROPIC_MODELS='["claude-3-5-haiku-20241022","claude-3-5-haiku-latest","claude-3-5-sonnet-20240620","claude-3-5-sonnet-20241022","claude-3-5-sonnet-latest","claude-3-7-sonnet-20250219","claude-3-7-sonnet-latest","claude-3-haiku-20240307","claude-3-opus-20240229","claude-3-opus-latest","claude-3-sonnet-20240229","claude-opus-4-0-20250514","claude-opus-4-20250514","claude-sonnet-4-0-20250514","claude-sonnet-4-20250514"]'
+    jq --argjson models "$ANTHROPIC_MODELS" '.providers.anthropic = $models' /tmp/models-native.json > /tmp/models-native2.json
+    mv /tmp/models-native2.json /tmp/models-native.json
+    echo "   ✅ $(echo $ANTHROPIC_MODELS | jq 'length') models (fallback)"
+  fi
+else
+  echo "   ⚠️  ANTHROPIC_API_KEY not set, skipping"
+fi
 
 # ===== Google =====
 echo "📡 Google..."
