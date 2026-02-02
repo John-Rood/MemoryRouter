@@ -251,20 +251,17 @@ export function createChatRouter() {
               ? getBufferFromD1(env.VECTORS_D1, userContext.memoryKey.key, sessionId).catch(() => null)
               : Promise.resolve(null);
             
-            // Race: first successful result wins (with timeout safety)
-            const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), 5000));
-            const raceResult = await Promise.race([
-              doPromise,
-              d1Promise,
-              timeout,
-            ]);
+            // Race: first successful result wins
+            // Convert null results to rejections so Promise.any works correctly
+            const doRace = doPromise.then(r => r?.result ? r : Promise.reject('no result'));
+            const d1Race = d1Promise.then(r => r?.result ? r : Promise.reject('no result'));
             
-            // Use first successful result
-            let winner = raceResult;
-            if (!winner?.result) {
-              // First result was null/failed, wait for the other
-              const [doRes, d1Res] = await Promise.all([doPromise, d1Promise]);
-              winner = doRes?.result ? doRes : d1Res?.result ? d1Res : null;
+            let winner: { source: 'do' | 'd1'; result: typeof retrieval } | null = null;
+            try {
+              winner = await Promise.any([doRace, d1Race]);
+            } catch {
+              // Both failed - empty result
+              winner = null;
             }
             
             if (winner?.result) {
