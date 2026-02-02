@@ -24,9 +24,9 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
 @app.cls(
     image=image,
     gpu="T4",  # Cheapest GPU, plenty for embeddings
-    container_idle_timeout=300,  # Keep warm for 5 min after last request
-    allow_concurrent_inputs=100,  # Handle many requests per container
+    scaledown_window=300,  # Keep warm for 5 min after last request
 )
+@modal.concurrent(max_inputs=100)  # Handle many requests per container
 class EmbeddingService:
     """Stella 400M embedding service — top retrieval model for RAG.
     
@@ -91,7 +91,8 @@ class EmbeddingService:
 
 
 # FastAPI web endpoint
-@app.function(image=image, allow_concurrent_inputs=100)
+@app.function(image=image)
+@modal.concurrent(max_inputs=100)
 @modal.asgi_app()
 def web():
     """FastAPI web server for HTTP access."""
