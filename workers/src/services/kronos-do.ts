@@ -40,7 +40,7 @@ import { DEFAULT_KRONOS_CONFIG } from '../types/do';
  */
 export function buildSearchPlan(
   vaults: VaultReference[],
-  totalLimit: number = 40,
+  totalLimit: number = 30,
   config: KronosConfig = DEFAULT_KRONOS_CONFIG
 ): KronosSearchPlan {
   const now = Date.now();

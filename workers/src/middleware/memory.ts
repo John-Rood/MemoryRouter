@@ -44,7 +44,7 @@ export function parseMemoryOptions(c: Context): MemoryOptions {
   const mode = (c.req.header('X-Memory-Mode') ?? 'auto') as MemoryOptions['mode'];
   const storeInput = c.req.header('X-Memory-Store') !== 'false';
   const storeResponse = c.req.header('X-Memory-Store-Response') !== 'false';
-  const contextLimit = parseInt(c.req.header('X-Memory-Context-Limit') ?? '40', 10);
+  const contextLimit = parseInt(c.req.header('X-Memory-Context-Limit') ?? '30', 10);
   
   return { mode, storeInput, storeResponse, contextLimit };
 }
@@ -142,7 +142,7 @@ export class KronosMemoryManager {
   async search(
     memoryKey: string,
     queryEmbedding: Float32Array,
-    totalLimit: number = 12
+    totalLimit: number = 30
   ): Promise<MemoryRetrievalResult> {
     const cutoffs = this.getWindowCutoffs();
     const allocation = this.allocatePerWindow(totalLimit);
