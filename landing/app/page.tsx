@@ -846,7 +846,7 @@ export default function Home() {
             </div>
             
             {/* Developers Column */}
-            <div className="md:col-span-3">
+            <div className="md:col-span-2">
               <h4 className="text-sm font-semibold text-white mb-4">Developers</h4>
               <ul className="space-y-3 text-sm">
                 <li><a href="https://docs.memoryrouter.ai" className="text-gray-400 hover:text-white transition">Documentation</a></li>
@@ -857,7 +857,7 @@ export default function Home() {
             </div>
             
             {/* Company Column */}
-            <div className="md:col-span-3">
+            <div className="md:col-span-2">
               <h4 className="text-sm font-semibold text-white mb-4">Company</h4>
               <ul className="space-y-3 text-sm">
                 <li><a href="https://twitter.com/memoryrouter" className="text-gray-400 hover:text-white transition">Twitter</a></li>
