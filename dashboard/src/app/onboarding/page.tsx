@@ -55,7 +55,10 @@ export default function OnboardingPage() {
       }
       
       // Key is valid - generate a memory key
-      const newMemoryKey = `mk_${Math.random().toString(36).substring(2, 26)}`;
+      // Generate a longer, secure key (48 chars after prefix)
+      const randomBytes = new Uint8Array(36);
+      crypto.getRandomValues(randomBytes);
+      const newMemoryKey = `mk_${Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('')}`;
       setMemoryKey(newMemoryKey);
       setIsLoading(false);
       setCurrentStep(2);
