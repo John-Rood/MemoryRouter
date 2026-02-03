@@ -30,19 +30,40 @@ export default function OnboardingPage() {
   const [memoryKey, setMemoryKey] = useState("");
   const [copied, setCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [validationError, setValidationError] = useState("");
   
   const handleProviderSubmit = async () => {
     if (!provider || !providerKey) return;
     
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    setValidationError("");
     
-    // Generate a memory key
-    const newMemoryKey = `mk_${Math.random().toString(36).substring(2, 26)}`;
-    setMemoryKey(newMemoryKey);
-    setIsLoading(false);
-    setCurrentStep(2);
+    try {
+      // Validate the API key against the provider
+      const response = await fetch("/api/keys/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, apiKey: providerKey }),
+      });
+      
+      const result = await response.json();
+      
+      if (!result.valid) {
+        setValidationError(result.error || "Invalid API key. Please check and try again.");
+        setIsLoading(false);
+        return;
+      }
+      
+      // Key is valid - generate a memory key
+      const newMemoryKey = `mk_${Math.random().toString(36).substring(2, 26)}`;
+      setMemoryKey(newMemoryKey);
+      setIsLoading(false);
+      setCurrentStep(2);
+    } catch (error) {
+      console.error("Validation error:", error);
+      setValidationError("Could not validate key. Please try again.");
+      setIsLoading(false);
+    }
   };
   
   const copyToClipboard = () => {
@@ -115,7 +136,7 @@ export default function OnboardingPage() {
             <CardContent className="space-y-6 pt-2">
               <div className="space-y-2">
                 <Label>Select Provider</Label>
-                <Select value={provider} onValueChange={setProvider}>
+                <Select value={provider} onValueChange={(v) => { setProvider(v); setValidationError(""); }}>
                   <SelectTrigger className="bg-muted/50 h-12">
                     <SelectValue placeholder="Choose your AI provider" />
                   </SelectTrigger>
@@ -134,7 +155,7 @@ export default function OnboardingPage() {
                     type={showKey ? "text" : "password"}
                     placeholder={providers.find(p => p.value === provider)?.placeholder || "Enter your API key"}
                     value={providerKey}
-                    onChange={(e) => setProviderKey(e.target.value)}
+                    onChange={(e) => { setProviderKey(e.target.value); setValidationError(""); }}
                     className="bg-muted/50 h-12 pr-10 font-mono"
                   />
                   <Button
@@ -150,6 +171,11 @@ export default function OnboardingPage() {
                 <p className="text-xs text-muted-foreground">
                   Your key is encrypted and stored securely. We never see the plaintext.
                 </p>
+                {validationError && (
+                  <p className="text-sm text-red-500 mt-2">
+                    ❌ {validationError}
+                  </p>
+                )}
               </div>
               
               <Button 
@@ -158,7 +184,7 @@ export default function OnboardingPage() {
                 onClick={handleProviderSubmit}
               >
                 {isLoading ? (
-                  "Setting up..."
+                  "Validating key..."
                 ) : (
                   <>
                     Continue
