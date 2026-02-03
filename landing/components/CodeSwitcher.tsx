@@ -269,10 +269,8 @@ export function CodeSwitcher() {
           <button
             key={provider}
             onClick={() => setActiveProvider(provider)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeProvider === provider
-                ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent'
+            className={`provider-btn px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeProvider === provider ? 'provider-btn-active' : ''
             }`}
           >
             {providerLabels[provider]}
