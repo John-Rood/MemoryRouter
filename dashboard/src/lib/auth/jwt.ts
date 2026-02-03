@@ -8,13 +8,34 @@ export interface TokenPayload extends JWTPayload {
   userId: string;
   email: string;
   type: 'access' | 'refresh';
+  // Extended user data (cached in JWT to reduce API calls)
+  name?: string;
+  avatarUrl?: string;
+  internalUserId?: string;
+  onboardingCompleted?: boolean;
+}
+
+export interface UserMetadata {
+  name?: string;
+  avatarUrl?: string;
+  internalUserId?: string;
+  onboardingCompleted?: boolean;
 }
 
 /**
  * Create a signed JWT access token.
  */
-export async function createAccessToken(userId: string, email: string): Promise<string> {
-  return new SignJWT({ userId, email, type: 'access' })
+export async function createAccessToken(
+  userId: string, 
+  email: string,
+  metadata?: UserMetadata
+): Promise<string> {
+  return new SignJWT({ 
+    userId, 
+    email, 
+    type: 'access',
+    ...metadata,
+  })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(ACCESS_TOKEN_EXPIRY)
@@ -24,8 +45,8 @@ export async function createAccessToken(userId: string, email: string): Promise<
 /**
  * Create a signed JWT refresh token.
  */
-export async function createRefreshToken(userId: string): Promise<string> {
-  return new SignJWT({ userId, type: 'refresh' })
+export async function createRefreshToken(userId: string, email?: string): Promise<string> {
+  return new SignJWT({ userId, email, type: 'refresh' })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(REFRESH_TOKEN_EXPIRY)

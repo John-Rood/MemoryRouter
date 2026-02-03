@@ -1,11 +1,12 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { verifyToken, TokenPayload } from './jwt';
+import { getUser, getBilling, completeOnboarding as apiCompleteOnboarding } from '@/lib/api/workers-client';
 
 const ACCESS_COOKIE_NAME = 'mr_session';
 
-// Mock user data for MVP (replace with D1 queries in production)
-interface MockUser {
+// User structure returned by auth functions
+export interface AuthUser {
   id: string;
   email: string;
   name: string | null;
@@ -14,22 +15,26 @@ interface MockUser {
   onboardingCompleted: boolean;
 }
 
-// In-memory user store for MVP demo
-const userStore = new Map<string, MockUser>();
-
-export function setMockUser(user: MockUser) {
-  userStore.set(user.id, user);
-}
-
-export function getMockUser(id: string): MockUser | undefined {
-  return userStore.get(id);
+/**
+ * Convert JWT payload to AuthUser (from cached data in token)
+ */
+function payloadToUser(payload: TokenPayload): AuthUser {
+  return {
+    id: payload.userId,
+    email: payload.email,
+    name: payload.name || payload.email.split('@')[0],
+    avatarUrl: payload.avatarUrl || null,
+    internalUserId: payload.internalUserId || `usr_${payload.userId.replace(/-/g, '').slice(0, 24)}`,
+    onboardingCompleted: payload.onboardingCompleted ?? true,
+  };
 }
 
 /**
  * Get current user for server components.
  * Redirects to login if not authenticated.
+ * Uses cached JWT data to avoid API calls for most requests.
  */
-export async function requireUser(): Promise<MockUser> {
+export async function requireUser(): Promise<AuthUser> {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get(ACCESS_COOKIE_NAME)?.value;
   
@@ -42,29 +47,14 @@ export async function requireUser(): Promise<MockUser> {
     redirect('/login');
   }
   
-  // Try to get from mock store, or create default user
-  let user = userStore.get(payload.userId);
-  
-  if (!user) {
-    // Create default user from token data
-    user = {
-      id: payload.userId,
-      email: payload.email,
-      name: payload.email.split('@')[0],
-      avatarUrl: null,
-      internalUserId: `usr_${payload.userId.replace(/-/g, '').slice(0, 24)}`,
-      onboardingCompleted: true, // Assume completed for demo
-    };
-    userStore.set(payload.userId, user);
-  }
-  
-  return user;
+  // Return user from JWT cached data
+  return payloadToUser(payload);
 }
 
 /**
  * Get current user without redirect (for optional auth).
  */
-export async function getOptionalUser(): Promise<MockUser | null> {
+export async function getOptionalUser(): Promise<AuthUser | null> {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get(ACCESS_COOKIE_NAME)?.value;
   
@@ -73,49 +63,101 @@ export async function getOptionalUser(): Promise<MockUser | null> {
   const payload = await verifyToken(accessToken);
   if (!payload || payload.type !== 'access') return null;
   
-  let user = userStore.get(payload.userId);
-  
-  if (!user) {
-    user = {
-      id: payload.userId,
-      email: payload.email,
-      name: payload.email.split('@')[0],
-      avatarUrl: null,
-      internalUserId: `usr_${payload.userId.replace(/-/g, '').slice(0, 24)}`,
-      onboardingCompleted: true,
-    };
-    userStore.set(payload.userId, user);
-  }
-  
-  return user;
+  return payloadToUser(payload);
 }
 
 /**
- * Get user's billing info (mock for MVP).
+ * Get fresh user data from API (when JWT cache might be stale).
+ */
+export async function getFreshUser(userId: string): Promise<AuthUser | null> {
+  try {
+    const { user } = await getUser(userId);
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name || user.email.split('@')[0],
+      avatarUrl: user.avatar_url || null,
+      internalUserId: user.internal_user_id,
+      onboardingCompleted: user.onboarding_completed === 1,
+    };
+  } catch (error) {
+    console.error('Failed to get fresh user:', error);
+    return null;
+  }
+}
+
+/**
+ * Get user's billing info from API.
  */
 export async function getUserBilling(userId: string) {
-  return {
-    userId,
-    creditBalanceCents: 0,
-    freeTierTokensUsed: 0,
-    freeTierExhausted: false,
-    autoReupEnabled: true,
-    autoReupAmountCents: 2000,
-    autoReupTriggerCents: 500,
-    monthlyCapCents: null,
-    monthlySpendCents: 0,
-    stripeCustomerId: null,
-    hasPaymentMethod: false,
-  };
+  try {
+    const { billing, transactions } = await getBilling(userId);
+    return {
+      userId,
+      creditBalanceCents: billing.credit_balance_cents,
+      freeTierTokensUsed: billing.free_tier_tokens_used,
+      freeTierExhausted: billing.free_tier_exhausted === 1,
+      autoReupEnabled: billing.auto_reup_enabled === 1,
+      autoReupAmountCents: billing.auto_reup_amount_cents,
+      autoReupTriggerCents: billing.auto_reup_trigger_cents,
+      monthlyCapCents: billing.monthly_cap_cents,
+      monthlySpendCents: billing.monthly_spend_cents,
+      stripeCustomerId: billing.stripe_customer_id,
+      hasPaymentMethod: billing.has_payment_method === 1,
+      transactions,
+    };
+  } catch (error) {
+    console.error('Failed to get billing:', error);
+    // Return default billing for error case
+    return {
+      userId,
+      creditBalanceCents: 0,
+      freeTierTokensUsed: 0,
+      freeTierExhausted: false,
+      autoReupEnabled: true,
+      autoReupAmountCents: 2000,
+      autoReupTriggerCents: 500,
+      monthlyCapCents: null,
+      monthlySpendCents: 0,
+      stripeCustomerId: null,
+      hasPaymentMethod: false,
+      transactions: [],
+    };
+  }
 }
 
 /**
- * Mark user's onboarding as complete (mock for MVP).
+ * Mark user's onboarding as complete.
  */
-export function completeOnboarding(userId: string) {
-  const user = userStore.get(userId);
-  if (user) {
-    user.onboardingCompleted = true;
-    userStore.set(userId, user);
+export async function completeOnboarding(userId: string) {
+  try {
+    await apiCompleteOnboarding(userId);
+  } catch (error) {
+    console.error('Failed to complete onboarding:', error);
+    throw error;
   }
+}
+
+// Legacy mock store functions (kept for backwards compatibility during migration)
+// These will be removed once all code is migrated to use Workers API
+
+interface MockUser {
+  id: string;
+  email: string;
+  name: string | null;
+  avatarUrl: string | null;
+  internalUserId: string;
+  onboardingCompleted: boolean;
+}
+
+// No longer used - kept for import compatibility
+export function setMockUser(_user: MockUser) {
+  // No-op - users are now persisted in D1 via Workers API
+  console.warn('setMockUser is deprecated - users are now persisted in D1');
+}
+
+export function getMockUser(_id: string): MockUser | undefined {
+  // No-op - users are now fetched from D1 via Workers API
+  console.warn('getMockUser is deprecated - use getFreshUser instead');
+  return undefined;
 }

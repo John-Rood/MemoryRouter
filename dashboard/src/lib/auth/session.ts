@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAccessToken, createRefreshToken, verifyToken, hashToken, TokenPayload } from './jwt';
+import { createAccessToken, createRefreshToken, verifyToken, TokenPayload, UserMetadata } from './jwt';
 
 const ACCESS_COOKIE_NAME = 'mr_session';
 const REFRESH_COOKIE_NAME = 'mr_refresh';
@@ -12,12 +12,15 @@ interface Session {
 
 /**
  * Create a new session for a user.
- * Note: In production, this would also store refresh token hash in D1.
- * For MVP, we're using stateless JWTs only.
+ * Includes optional user metadata cached in JWT to reduce API calls.
  */
-export async function createSession(userId: string, email: string): Promise<Session> {
-  const accessToken = await createAccessToken(userId, email);
-  const refreshToken = await createRefreshToken(userId);
+export async function createSession(
+  userId: string, 
+  email: string,
+  metadata?: UserMetadata
+): Promise<Session> {
+  const accessToken = await createAccessToken(userId, email, metadata);
+  const refreshToken = await createRefreshToken(userId, email);
   
   return { accessToken, refreshToken, userId };
 }
@@ -66,14 +69,7 @@ export async function refreshAccessToken(request: NextRequest): Promise<{ access
   const payload = await verifyToken(refreshToken);
   if (!payload || payload.type !== 'refresh') return null;
   
-  // In production, we would validate against the sessions table in D1.
-  // For MVP, we trust the JWT refresh token.
-  
-  // Note: We need the email to create a new access token.
-  // In a full implementation, we'd fetch from DB. For now, we'll need
-  // to include email in the refresh token too, or fetch from DB.
-  // Let's fetch from the mock/API.
-  
+  // Create new access token (refresh token now contains email too)
   const newAccessToken = await createAccessToken(payload.userId, payload.email || '');
   return { accessToken: newAccessToken, email: payload.email || '' };
 }

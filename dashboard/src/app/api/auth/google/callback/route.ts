@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { googleOAuthConfig } from '@/lib/auth/oauth-config';
 import { verifyStateCookie, clearStateCookie } from '@/lib/auth/oauth-utils';
 import { createSession, setSessionCookies } from '@/lib/auth/session';
-import { setMockUser } from '@/lib/auth/server';
+import { upsertUser } from '@/lib/api/workers-client';
 
 interface GoogleTokenResponse {
   access_token: string;
@@ -78,25 +78,30 @@ export async function GET(request: NextRequest) {
     
     const googleUser: GoogleUserInfo = await userInfoResponse.json();
     
-    // 3. Create or get user (mock for MVP)
-    const userId = `google_${googleUser.id}`;
-    const internalUserId = `usr_${userId.replace(/[^a-z0-9]/gi, '').slice(0, 24)}`;
-    
-    // Store user in mock store
-    setMockUser({
-      id: userId,
+    // 3. Create or update user in D1 via Workers API
+    const { user, isNew } = await upsertUser({
+      provider: 'google',
+      providerId: googleUser.id,
       email: googleUser.email,
       name: googleUser.name,
       avatarUrl: googleUser.picture,
-      internalUserId,
-      onboardingCompleted: false, // New users need onboarding
     });
     
-    // 4. Create session
-    const session = await createSession(userId, googleUser.email);
+    console.log(`User ${isNew ? 'created' : 'updated'}: ${user.id}`);
     
-    // 5. Set cookies and redirect
-    const response = NextResponse.redirect(new URL('/onboarding', request.url));
+    // 4. Create session with user data
+    const session = await createSession(user.id, googleUser.email, {
+      name: user.name || undefined,
+      avatarUrl: user.avatar_url || undefined,
+      internalUserId: user.internal_user_id,
+      onboardingCompleted: user.onboarding_completed === 1,
+    });
+    
+    // 5. Determine redirect destination
+    const redirectPath = user.onboarding_completed ? '/dashboard' : '/onboarding';
+    
+    // 6. Set cookies and redirect
+    const response = NextResponse.redirect(new URL(redirectPath, request.url));
     setSessionCookies(response, session);
     clearStateCookie(response, 'google');
     

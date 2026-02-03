@@ -15,6 +15,7 @@ import { createGoogleRouter } from './routes/google';
 import { StorageManager } from './services/storage';
 import { handleReembed, handleListKeys, handleClear, handleSetProviderKey, handleGetProviderKeys, handleDebugStorage, handleDoExport } from './routes/admin';
 import { getKeyUsage, getTopKeys, rollupDaily, getRecentEvents } from './services/usage';
+import { users as usersRouter } from './routes/users';
 
 // Model catalog (updated via scripts/update-models.sh)
 import modelCatalog from './config/models.json';
@@ -41,6 +42,8 @@ interface Env extends ChatEnv {
   STORAGE_QUEUE: Queue<StorageJob>;
   // Admin
   ADMIN_KEY?: string;
+  // Dashboard API
+  DASHBOARD_API_KEY?: string;
 }
 
 // Variables available in context
@@ -457,6 +460,10 @@ app.get('/admin/debug-storage', async (c) => {
 app.get('/admin/do-export', async (c) => {
   return handleDoExport(c.req.raw, c.env as any);
 });
+
+// ========== User Management API (Dashboard) ==========
+// Mount user management routes for dashboard to call
+app.route('/api/users', usersRouter);
 
 // ========== Admin Usage Endpoints ==========
 // GET /admin/usage/top?limit=10&start=YYYY-MM-DD&end=YYYY-MM-DD
