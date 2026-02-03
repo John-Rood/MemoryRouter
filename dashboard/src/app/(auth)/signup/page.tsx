@@ -55,7 +55,15 @@ export default function SignUpPage() {
           Already have an account?{" "}<Link href="/login" className="underline hover:text-foreground">Log in</Link>
         </p>
       </div>
-      <p className="text-center text-sm text-muted-foreground">50M tokens free {"\u2022"} No credit card required</p>
+      <p className="text-center text-sm text-muted-foreground">
+        <span className="text-neon-green font-semibold">50M tokens free</span> {"\u2022"} No credit card required
+      </p>
+      <p className="text-center text-xs text-muted-foreground">
+        By signing up, you agree to our{" "}
+        <Link href="/terms" className="underline hover:text-foreground">Terms</Link>
+        {" "}and{" "}
+        <Link href="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>
+      </p>
     </div>
   );
 }

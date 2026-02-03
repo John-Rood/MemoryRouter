@@ -42,7 +42,7 @@ export default function TermsPage() {
           <section className="glass-card rounded-2xl p-8">
             <h2 className="text-2xl font-semibold mb-4">1. Agreement to Terms</h2>
             <p className="text-muted-foreground leading-relaxed">
-              By accessing or using MemoryRouter ("Service"), you agree to be bound by these Terms of Service ("Terms"). 
+              By accessing or using MemoryRouter (&quot;Service&quot;), you agree to be bound by these Terms of Service (&quot;Terms&quot;). 
               If you disagree with any part of these terms, you may not access the Service.
               These Terms apply to all visitors, users, and others who access or use the Service.
             </p>
@@ -134,7 +134,7 @@ export default function TermsPage() {
                 <span className="text-foreground font-medium">6.2</span> New accounts receive a free tier allocation. Usage beyond free tier requires payment.
               </p>
               <p>
-                <span className="text-foreground font-medium">6.3</span> Payments are processed through Stripe. You agree to Stripe's terms when adding payment methods.
+                <span className="text-foreground font-medium">6.3</span> Payments are processed through Stripe. You agree to Stripe&apos;s terms when adding payment methods.
               </p>
               <p>
                 <span className="text-foreground font-medium">6.4</span> All fees are non-refundable except as required by law or at our sole discretion.
@@ -172,7 +172,7 @@ export default function TermsPage() {
                 <span className="text-foreground font-medium">8.1</span> When you provide third-party API keys (e.g., OpenAI, Anthropic), those keys are used to process your requests.
               </p>
               <p>
-                <span className="text-foreground font-medium">8.2</span> Your use of third-party services through BYOK is subject to those providers' terms and pricing.
+                <span className="text-foreground font-medium">8.2</span> Your use of third-party services through BYOK is subject to those providers&apos; terms and pricing.
               </p>
               <p>
                 <span className="text-foreground font-medium">8.3</span> We are not responsible for charges incurred on your third-party accounts.
@@ -191,7 +191,7 @@ export default function TermsPage() {
             </h2>
             <div className="space-y-4 text-muted-foreground">
               <p>
-                <span className="text-foreground font-medium">9.1</span> THE SERVICE IS PROVIDED "AS IS" WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED.
+                <span className="text-foreground font-medium">9.1</span> THE SERVICE IS PROVIDED &quot;AS IS&quot; WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED.
               </p>
               <p>
                 <span className="text-foreground font-medium">9.2</span> We do not warrant that the Service will be uninterrupted, secure, or error-free.

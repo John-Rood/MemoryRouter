@@ -45,7 +45,7 @@ export default function PrivacyPage() {
               Introduction
             </h2>
             <p className="text-muted-foreground leading-relaxed">
-              MemoryRouter ("we," "our," or "us") is an AI memory service that helps developers give their AI applications persistent memory. 
+              MemoryRouter (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;) is an AI memory service that helps developers give their AI applications persistent memory. 
               We are committed to protecting your privacy and being transparent about how we handle your data. 
               This policy explains what information we collect, how we use it, and your rights regarding your data.
             </p>
@@ -144,7 +144,7 @@ export default function PrivacyPage() {
           <section className="glass-card rounded-2xl p-8">
             <h2 className="text-2xl font-semibold mb-4">How We Use Your Data</h2>
             <p className="text-muted-foreground mb-4">
-              We use your data <span className="text-foreground font-medium">solely to provide and improve our service</span>. Specifically:
+              We use your data <span className="text-foreground font-medium">solely to provide and improve our service</span>:
             </p>
             <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-2">
               <li>To store and retrieve your AI memory data via our API</li>
@@ -166,9 +166,9 @@ export default function PrivacyPage() {
             <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-2">
               <li><span className="text-foreground">Encryption in transit:</span> All data is transmitted over TLS 1.3</li>
               <li><span className="text-foreground">Encryption at rest:</span> Data is encrypted using AES-256 encryption</li>
-              <li><span className="text-foreground">Secure infrastructure:</span> Hosted on Cloudflare's global edge network</li>
+              <li><span className="text-foreground">Secure infrastructure:</span> Hosted on Cloudflare&apos;s global edge network</li>
               <li><span className="text-foreground">Access controls:</span> Strict internal access policies with audit logging</li>
-              <li><span className="text-foreground">API key security:</span> Your provider API keys are encrypted and never logged</li>
+              <li><span className="text-foreground">API key security:</span> Provider API keys are encrypted and never logged</li>
             </ul>
           </section>
           
@@ -209,10 +209,10 @@ export default function PrivacyPage() {
                 <span className="text-foreground font-medium">Stripe:</span> Payment processing. Stripe handles all payment data under their own privacy policy.
               </div>
               <div>
-                <span className="text-foreground font-medium">Cloudflare:</span> Infrastructure and security. Data processing governed by Cloudflare's privacy policy.
+                <span className="text-foreground font-medium">Cloudflare:</span> Infrastructure and security. Data processing governed by Cloudflare&apos;s privacy policy.
               </div>
               <div>
-                <span className="text-foreground font-medium">OAuth Providers (Google, GitHub):</span> Authentication only. We receive only basic profile information you authorize.
+                <span className="text-foreground font-medium">OAuth Providers (Google, GitHub):</span> Authentication only. We receive basic profile information you authorize.
               </div>
               <div>
                 <span className="text-foreground font-medium">AI Providers (when using BYOK):</span> Your prompts and responses are sent to your chosen AI provider using your own API keys.
