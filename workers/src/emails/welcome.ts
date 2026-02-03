@@ -23,7 +23,7 @@ export function welcomeEmailTemplate(name: string): string {
           <!-- Header -->
           <tr>
             <td style="padding: 40px 40px 20px; text-align: center;">
-              <div style="font-size: 40px; margin-bottom: 16px;">🧠</div>
+              <img src="https://memoryrouter.ai/logo.png" alt="MemoryRouter" width="64" height="64" style="display: block; margin: 0 auto 16px; border-radius: 12px;" />
               <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #1e293b;">
                 Welcome to MemoryRouter
               </h1>
