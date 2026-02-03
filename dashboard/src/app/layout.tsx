@@ -17,7 +17,8 @@ export const metadata: Metadata = {
   title: "MemoryRouter Dashboard",
   description: "Manage your AI memory keys, billing, and usage",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/logo.png",
+    apple: "/logo.png",
   },
 };
 
