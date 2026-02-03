@@ -1,157 +1,231 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useState, useEffect, useCallback } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, Zap, Clock, TrendingUp } from "lucide-react";
+import { Brain, Zap, TrendingUp, Sparkles, ArrowUpRight, RefreshCw, Loader2 } from "lucide-react";
 
-// Mock data for MVP (will be replaced with real data from Workers API)
-const mockStats = {
-  tokensStored: 2450000,
-  tokensRetrieved: 18200000,
-  requestCount: 847,
-  estimatedSavings: 142.50,
-  activeSince: "Jan 15, 2026",
-};
-
-const mockUsageHistory = [
-  { date: "Jan 27", stored: 125000, retrieved: 890000 },
-  { date: "Jan 28", stored: 180000, retrieved: 1200000 },
-  { date: "Jan 29", stored: 220000, retrieved: 1450000 },
-  { date: "Jan 30", stored: 195000, retrieved: 1320000 },
-  { date: "Jan 31", stored: 280000, retrieved: 1680000 },
-  { date: "Feb 1", stored: 310000, retrieved: 1890000 },
-  { date: "Feb 2", stored: 245000, retrieved: 1540000 },
-];
-
-function formatTokens(num: number): string {
-  if (num >= 1000000) {
-    return (num / 1000000).toFixed(1) + "M";
-  }
-  if (num >= 1000) {
-    return (num / 1000).toFixed(1) + "K";
-  }
-  return num.toString();
+interface Stats {
+  totalMemoryKeys: number;
+  totalRequests: number;
+  totalTokensStored: number;
+  totalTokensRetrieved: number;
+  estimatedSavings: string;
 }
 
-export default function OverviewPage() {
+interface DailyUsage {
+  date: string;
+  requests: number;
+  tokensIn: number;
+  tokensOut: number;
+}
+
+const formatTokens = (tokens: number) => {
+  if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(1)}M`;
+  if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}K`;
+  return tokens.toString();
+};
+
+export default function DashboardPage() {
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [dailyUsage, setDailyUsage] = useState<DailyUsage[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const response = await fetch("/api/dashboard/stats");
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data.stats);
+        setDailyUsage(data.dailyUsage || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch stats:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  // Get last 7 days of usage for the chart
+  const chartData = dailyUsage.slice(-7);
+  const maxRequests = Math.max(...chartData.map(d => d.requests), 1);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold gradient-text">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">
-          Monitor your memory usage and savings
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold gradient-text">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
+            Your AI memory at a glance
+          </p>
+        </div>
+        <Button variant="ghost" size="icon" onClick={fetchStats}>
+          <RefreshCw className="h-4 w-4" />
+        </Button>
       </div>
-      
-      {/* Stats Grid */}
+
+      {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="glass-card border-border/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Tokens Stored</CardTitle>
-            <Zap className="h-4 w-4 text-neon-green" />
+        <Card className="glass-card border-border/50 hover:border-primary/20 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Memory Keys
+            </CardTitle>
+            <Brain className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatTokens(mockStats.tokensStored)}</div>
+            <div className="text-2xl font-bold">{stats?.totalMemoryKeys || 0}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Total memory capacity used
+              Active memory contexts
             </p>
           </CardContent>
         </Card>
-        
-        <Card className="glass-card border-border/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Tokens Retrieved</CardTitle>
-            <BarChart3 className="h-4 w-4 text-neon-blue" />
+
+        <Card className="glass-card border-border/50 hover:border-primary/20 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Tokens Stored
+            </CardTitle>
+            <Zap className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatTokens(mockStats.tokensRetrieved)}</div>
+            <div className="text-2xl font-bold">{formatTokens(stats?.totalTokensStored || 0)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Context injected into prompts
+              In your memory vault
             </p>
           </CardContent>
         </Card>
-        
-        <Card className="glass-card border-border/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">API Requests</CardTitle>
-            <Clock className="h-4 w-4 text-neon-purple" />
+
+        <Card className="glass-card border-border/50 hover:border-primary/20 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              API Requests
+            </CardTitle>
+            <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockStats.requestCount.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{(stats?.totalRequests || 0).toLocaleString()}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Total requests this month
+              Total requests processed
             </p>
           </CardContent>
         </Card>
-        
-        <Card className="glass-card border-border/50 border-primary/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Est. Savings</CardTitle>
-            <TrendingUp className="h-4 w-4 text-neon-green" />
+
+        <Card className="glass-card border-border/50 hover:border-primary/20 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Est. Savings
+            </CardTitle>
+            <Sparkles className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold money-gradient">${mockStats.estimatedSavings.toFixed(2)}</div>
+            <div className="text-2xl font-bold money-gradient">${stats?.estimatedSavings || "0.00"}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Inference costs avoided
+              From memory reuse
             </p>
           </CardContent>
         </Card>
       </div>
-      
+
       {/* Usage Chart */}
       <Card className="glass-card border-border/50">
         <CardHeader>
-          <CardTitle>Usage Over Time</CardTitle>
-          <CardDescription>Daily token storage and retrieval</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Usage (Last 7 Days)</CardTitle>
+              <CardDescription>Daily API request volume</CardDescription>
+            </div>
+            {chartData.length > 0 && (
+              <Badge variant="outline" className="border-primary/30 text-primary">
+                {chartData.reduce((sum, d) => sum + d.requests, 0).toLocaleString()} requests
+              </Badge>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] flex items-end justify-between gap-2">
-            {mockUsageHistory.map((day, i) => (
-              <div key={day.date} className="flex-1 flex flex-col items-center gap-2">
-                <div className="w-full flex flex-col gap-1 items-center">
-                  {/* Retrieved bar */}
-                  <div 
-                    className="w-full bg-neon-blue/30 rounded-t"
-                    style={{ height: `${(day.retrieved / 2000000) * 200}px` }}
-                  />
-                  {/* Stored bar */}
-                  <div 
-                    className="w-full bg-neon-green/50 rounded-t"
-                    style={{ height: `${(day.stored / 400000) * 50}px` }}
-                  />
+          {chartData.length > 0 ? (
+            <div className="h-[200px] flex items-end gap-2">
+              {chartData.map((day, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                  <div className="w-full flex flex-col items-center">
+                    <span className="text-xs text-muted-foreground mb-1">
+                      {day.requests.toLocaleString()}
+                    </span>
+                    <div
+                      className="w-full bg-primary/20 rounded-t relative overflow-hidden"
+                      style={{ height: `${Math.max((day.requests / maxRequests) * 150, 4)}px` }}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-t from-primary/40 to-primary/10" />
+                    </div>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}
+                  </span>
                 </div>
-                <span className="text-xs text-muted-foreground">{day.date.split(' ')[1]}</span>
+              ))}
+            </div>
+          ) : (
+            <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+              <div className="text-center">
+                <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No usage data yet</p>
+                <p className="text-sm">Start making API requests to see your usage</p>
               </div>
-            ))}
-          </div>
-          <div className="flex items-center justify-center gap-6 mt-4 pt-4 border-t border-border/30">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-neon-green/50"></div>
-              <span className="text-xs text-muted-foreground">Stored</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-neon-blue/30"></div>
-              <span className="text-xs text-muted-foreground">Retrieved</span>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
-      
+
       {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card className="glass-card border-border/50 hover:border-primary/30 transition-colors cursor-pointer" onClick={() => window.location.href = '/keys'}>
-          <CardHeader>
-            <CardTitle className="text-lg">Manage Keys</CardTitle>
-            <CardDescription>Create and manage your memory keys</CardDescription>
-          </CardHeader>
+        <Card className="glass-card border-border/50 hover:border-primary/20 transition-colors group cursor-pointer"
+              onClick={() => window.location.href = '/keys'}>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-lg bg-primary/10">
+                  <Brain className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Manage Keys</h3>
+                  <p className="text-sm text-muted-foreground">Create and manage API keys</p>
+                </div>
+              </div>
+              <ArrowUpRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+            </div>
+          </CardContent>
         </Card>
-        
-        <Card className="glass-card border-border/50 hover:border-primary/30 transition-colors cursor-pointer" onClick={() => window.location.href = '/billing'}>
-          <CardHeader>
-            <CardTitle className="text-lg">Add Credits</CardTitle>
-            <CardDescription>Top up your balance for continued service</CardDescription>
-          </CardHeader>
+
+        <Card className="glass-card border-border/50 hover:border-primary/20 transition-colors group cursor-pointer"
+              onClick={() => window.location.href = '/billing'}>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-lg bg-primary/10">
+                  <Sparkles className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Billing & Usage</h3>
+                  <p className="text-sm text-muted-foreground">View credits and add funds</p>
+                </div>
+              </div>
+              <ArrowUpRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+            </div>
+          </CardContent>
         </Card>
       </div>
     </div>
