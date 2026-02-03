@@ -146,7 +146,7 @@ export function ModelsGrid() {
               </div>
               <h3 className="text-xl font-bold mb-2 gradient-text-hero">200+ More Models</h3>
               <p className="text-gray-400 text-sm mb-4">
-                Cohere, Perplexity, Together, and dozens more. All major providers supported.
+                Cohere, Perplexity, Together, and dozens more. If it&apos;s on OpenRouter, it works with MemoryRouter.
               </p>
               <div className="flex flex-wrap gap-2">
                 <span className="text-xs bg-white/5 px-2 py-1 rounded">Cohere</span>
