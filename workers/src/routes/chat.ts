@@ -142,25 +142,21 @@ export function createChatRouter() {
     const userContext = getUserContext(c);
     let memoryOptions = parseMemoryOptions(c);
     
-    // ==================== BILLING: BLOCKED CACHE CHECK ====================
-    // Check blocked user cache FIRST (<1ms) — instant rejection for known blocked users
+    // ==================== BILLING: START PARALLEL CHECKS ====================
+    // Both blocked cache check AND balance check run in parallel with memory retrieval
+    // Results are checked BEFORE the LLM call — zero blocking on request path
     let balanceGuard: BalanceGuard | null = null;
+    let blockedCachePromise: Promise<BlockedUserRecord | null> | null = null;
     let balanceCheckPromise: Promise<BalanceGuardResult> | null = null;
+    let billingUserId: string | null = null;
     
     if (BILLING_ENABLED && env.VECTORS_D1 && env.METADATA_KV) {
       balanceGuard = createBalanceGuard(env.METADATA_KV, env.VECTORS_D1);
-      const userId = userContext.memoryKey.key; // Use memory key as account ID
+      billingUserId = userContext.memoryKey.key; // Use memory key as account ID
       
-      // Instant check: is this user blocked in cache?
-      const blockedRecord = await balanceGuard.checkBlockedCache(userId);
-      if (blockedRecord) {
-        console.log(`[BILLING] Blocked user (cached): ${userId} - ${blockedRecord.reason}`);
-        return buildBlockedUserResponse(blockedRecord);
-      }
-      
-      // Start parallel balance check (will await before LLM call)
-      // This runs in parallel with memory retrieval
-      balanceCheckPromise = balanceGuard.checkBalanceAsync(userId);
+      // Start BOTH checks in parallel — no awaits here
+      blockedCachePromise = balanceGuard.checkBlockedCache(billingUserId);
+      balanceCheckPromise = balanceGuard.checkBalanceAsync(billingUserId);
     }
     
     // Parse request body
@@ -413,27 +409,35 @@ export function createChatRouter() {
     // Mark end of MR processing, start of provider call
     mrProcessingTime = Date.now() - startTime;
     
-    // ==================== BILLING: BALANCE CHECK VERIFICATION ====================
-    // Before forwarding to provider, verify balance check completed OK
-    // This runs AFTER memory retrieval (parallel) but BEFORE LLM call
+    // ==================== BILLING: CHECK PARALLEL RESULTS ====================
+    // Both checks ran in parallel with memory retrieval — now verify before LLM call
     let balanceCheckResult: BalanceGuardResult | null = null;
     
-    if (BILLING_ENABLED && balanceCheckPromise) {
-      const userId = userContext.memoryKey.key;
-      balanceCheckResult = await balanceCheckPromise;
-      
-      if (!balanceCheckResult.allowed) {
-        // Don't call the LLM - user doesn't have balance
-        console.log(`[BILLING] Insufficient balance: ${userId} - ${balanceCheckResult.reason}`);
-        
-        return buildInsufficientBalanceResponse(
-          balanceCheckResult.reason || 'insufficient_balance',
-          balanceCheckResult.balanceCheck?.balance_cents ?? 0,
-          balanceCheckResult.balanceCheck?.free_tokens_remaining ?? 0
-        );
+    if (BILLING_ENABLED && billingUserId) {
+      // Check blocked cache result first (fastest rejection path)
+      if (blockedCachePromise) {
+        const blockedRecord = await blockedCachePromise;
+        if (blockedRecord) {
+          console.log(`[BILLING] Blocked user (cached): ${billingUserId} - ${blockedRecord.reason}`);
+          return buildBlockedUserResponse(blockedRecord);
+        }
       }
       
-      console.log(`[BILLING] Balance OK: ${userId} - balance=${balanceCheckResult.balanceCheck?.balance_cents}c, free=${balanceCheckResult.balanceCheck?.free_tokens_remaining}`);
+      // Check balance result
+      if (balanceCheckPromise) {
+        balanceCheckResult = await balanceCheckPromise;
+        
+        if (!balanceCheckResult.allowed) {
+          console.log(`[BILLING] Insufficient balance: ${billingUserId} - ${balanceCheckResult.reason}`);
+          return buildInsufficientBalanceResponse(
+            balanceCheckResult.reason || 'insufficient_balance',
+            balanceCheckResult.balanceCheck?.balance_cents ?? 0,
+            balanceCheckResult.balanceCheck?.free_tokens_remaining ?? 0
+          );
+        }
+        
+        console.log(`[BILLING] Balance OK: ${billingUserId} - balance=${balanceCheckResult.balanceCheck?.balance_cents}c, free=${balanceCheckResult.balanceCheck?.free_tokens_remaining}`);
+      }
     }
     
     providerStartTime = Date.now();
