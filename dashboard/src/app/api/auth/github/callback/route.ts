@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { githubOAuthConfig } from '@/lib/auth/oauth-config';
 import { verifyStateCookie, clearStateCookie } from '@/lib/auth/oauth-utils';
 import { createSession, setSessionCookies } from '@/lib/auth/session';
-import { createOrUpdateUser, updateUserStripeCustomer } from '@/lib/auth/user-service';
-import Stripe from 'stripe';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+import { setMockUser } from '@/lib/auth/server';
 
 interface GitHubTokenResponse {
   access_token: string;
@@ -98,44 +95,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/login?error=no_email', request.url));
     }
     
-    // 4. Create or update user in D1
-    const user = await createOrUpdateUser({
-      provider: 'github',
-      providerId: githubUser.id.toString(),
+    // 4. Create or get user (mock for MVP)
+    const userId = `github_${githubUser.id}`;
+    const internalUserId = `usr_${userId.replace(/[^a-z0-9]/gi, '').slice(0, 24)}`;
+    
+    setMockUser({
+      id: userId,
       email,
       name: githubUser.name || githubUser.login,
       avatarUrl: githubUser.avatar_url,
+      internalUserId,
+      onboardingCompleted: false,
     });
     
-    // 5. Create Stripe customer if new user
-    if (!user.stripeCustomerId && process.env.STRIPE_SECRET_KEY) {
-      try {
-        const stripeCustomer = await stripe.customers.create({
-          email: user.email,
-          name: user.name || undefined,
-          metadata: { user_id: user.id },
-        });
-        
-        updateUserStripeCustomer(user.id, stripeCustomer.id);
-        console.log(`[GitHub OAuth] Created Stripe customer: ${stripeCustomer.id}`);
-      } catch (stripeError) {
-        console.error('[GitHub OAuth] Stripe customer creation failed:', stripeError);
-        // Don't fail auth if Stripe fails
-      }
-    }
+    // 5. Create session
+    const session = await createSession(userId, email);
     
-    // 6. Create session
-    const session = await createSession(user.id, email);
-    
-    // 7. Determine redirect based on onboarding status
-    const redirectUrl = user.onboardingCompleted ? '/' : '/onboarding';
-    
-    // 8. Set cookies and redirect
-    const response = NextResponse.redirect(new URL(redirectUrl, request.url));
+    // 6. Set cookies and redirect
+    const response = NextResponse.redirect(new URL('/onboarding', request.url));
     setSessionCookies(response, session);
     clearStateCookie(response, 'github');
-    
-    console.log(`[GitHub OAuth] User authenticated: ${email} (${user.id})`);
     
     return response;
     
