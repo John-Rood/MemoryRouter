@@ -166,8 +166,11 @@ export async function createMemoryKey(
   name: string,
   kv: KVNamespace
 ): Promise<MemoryKeyInfo> {
-  // Generate unique key
-  const random = crypto.randomUUID().replace(/-/g, '').substring(0, 16);
+  // Generate unique key (32 chars, base62 for professional look like other API keys)
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const random = Array.from(bytes).map(b => chars[b % chars.length]).join('');
   const memoryKey = `mk_${random}`;
   
   // Load existing provider keys to inline
