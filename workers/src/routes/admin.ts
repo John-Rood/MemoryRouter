@@ -14,6 +14,7 @@ import {
   listBlockedUsers,
   type BlockedUserRecord 
 } from '../services/balance-guard';
+import { saveProviderKeys, type ProviderKeys } from '../middleware/auth';
 
 interface Env {
   METADATA_KV: KVNamespace;
@@ -300,8 +301,8 @@ export async function handleSetProviderKey(request: Request, env: Env): Promise<
     // Update with new key
     existingKeys[body.provider] = body.apiKey;
     
-    // Save
-    await env.METADATA_KV.put(`user:${keyInfo.userId}:provider_keys`, JSON.stringify(existingKeys));
+    // Save (also inlines into auth records for single-lookup auth)
+    await saveProviderKeys(keyInfo.userId, existingKeys as ProviderKeys, env.METADATA_KV);
 
     return Response.json({
       status: 'updated',

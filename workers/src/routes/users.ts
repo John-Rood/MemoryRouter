@@ -6,6 +6,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { sendWelcomeEmail } from '../services/email';
+import { saveProviderKeys, type ProviderKeys } from '../middleware/auth';
 
 interface Env {
   VECTORS_D1: D1Database;
@@ -513,10 +514,10 @@ users.post('/:userId/provider-keys', async (c) => {
         last_verified_at = excluded.created_at
     `).bind(keyId, userId, provider, apiKey, keyHint, nickname || provider || null, now).run();
 
-    // Also update KV for fast lookups during inference
+    // Also update KV for fast lookups (inlines into auth records for single-lookup auth)
     const providerKeys = await c.env.METADATA_KV.get(`user:${userId}:provider_keys`, 'json') as Record<string, string> || {};
     providerKeys[provider] = apiKey;
-    await c.env.METADATA_KV.put(`user:${userId}:provider_keys`, JSON.stringify(providerKeys));
+    await saveProviderKeys(userId, providerKeys as ProviderKeys, c.env.METADATA_KV);
 
     return c.json({ 
       success: true, 
@@ -564,10 +565,10 @@ users.delete('/:userId/provider-keys/:provider', async (c) => {
       UPDATE provider_keys SET is_active = 0 WHERE user_id = ? AND provider = ?
     `).bind(userId, provider).run();
 
-    // Remove from KV
+    // Remove from KV (inlines into auth records for single-lookup auth)
     const providerKeys = await c.env.METADATA_KV.get(`user:${userId}:provider_keys`, 'json') as Record<string, string> || {};
     delete providerKeys[provider];
-    await c.env.METADATA_KV.put(`user:${userId}:provider_keys`, JSON.stringify(providerKeys));
+    await saveProviderKeys(userId, providerKeys as ProviderKeys, c.env.METADATA_KV);
 
     return c.json({ success: true, deleted: provider });
   } catch (error) {

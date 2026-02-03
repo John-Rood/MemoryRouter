@@ -133,13 +133,29 @@ export async function loadProviderKeys(
 
 /**
  * Store provider API keys for a user
+ * Also updates all auth records to inline the keys (for single-lookup auth)
  */
 export async function saveProviderKeys(
   userId: string,
   keys: ProviderKeys,
   kv: KVNamespace
 ): Promise<void> {
+  // Save to canonical location
   await kv.put(`user:${userId}:provider_keys`, JSON.stringify(keys));
+  
+  // Also inline into all auth records for this user (async, best effort)
+  const userKeysKey = `user:${userId}:memory_keys`;
+  const memoryKeys = await kv.get(userKeysKey, 'json') as string[] | null;
+  if (memoryKeys) {
+    await Promise.all(memoryKeys.map(async (mk) => {
+      const authKey = `auth:${mk}`;
+      const info = await kv.get(authKey, 'json') as MemoryKeyInfo | null;
+      if (info) {
+        info.providerKeys = keys;
+        await kv.put(authKey, JSON.stringify(info));
+      }
+    }));
+  }
 }
 
 /**
@@ -154,12 +170,16 @@ export async function createMemoryKey(
   const random = crypto.randomUUID().replace(/-/g, '').substring(0, 16);
   const memoryKey = `mk_${random}`;
   
+  // Load existing provider keys to inline
+  const providerKeys = await loadProviderKeys(userId, kv);
+  
   const info: MemoryKeyInfo = {
     key: memoryKey,
     userId,
     name,
     isActive: true,
     createdAt: Date.now(),
+    providerKeys: Object.keys(providerKeys).length > 0 ? providerKeys : undefined,
   };
   
   await kv.put(`auth:${memoryKey}`, JSON.stringify(info));
