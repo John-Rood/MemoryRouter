@@ -64,7 +64,7 @@ export function extractMemoryKey(authHeader: string | undefined): string | null 
   }
   
   const token = parts[1];
-  if (!token.startsWith('mk_')) {
+  if (!token.startsWith('mk_') && !token.startsWith('mk-')) {
     return null;
   }
   
@@ -166,12 +166,12 @@ export async function createMemoryKey(
   name: string,
   kv: KVNamespace
 ): Promise<MemoryKeyInfo> {
-  // Generate unique key (32 chars, base62 for professional look like other API keys)
-  const bytes = new Uint8Array(24);
+  // Generate unique key (OpenAI style: mk-xxxxxxxx...)
+  const bytes = new Uint8Array(48);
   crypto.getRandomValues(bytes);
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   const random = Array.from(bytes).map(b => chars[b % chars.length]).join('');
-  const memoryKey = `mk_${random}`;
+  const memoryKey = `mk-${random}`;
   
   // Load existing provider keys to inline
   const providerKeys = await loadProviderKeys(userId, kv);
@@ -237,20 +237,20 @@ export function authMiddleware(env: AuthEnv) {
     // X-Memory-Key enables pass-through mode (Authorization goes to provider)
     let memoryKey: string | null = null;
     
-    if (xMemoryKey && xMemoryKey.startsWith('mk_')) {
+    if (xMemoryKey && (xMemoryKey.startsWith('mk_') || xMemoryKey.startsWith('mk-'))) {
       // Pass-through mode: memory key in dedicated header
       memoryKey = xMemoryKey;
     } else if (authHeader) {
       memoryKey = extractMemoryKey(authHeader);
     } else if (xApiKey) {
       // x-api-key is used directly (Anthropic SDK style)
-      memoryKey = xApiKey.startsWith('mk_') ? xApiKey : null;
+      memoryKey = (xApiKey.startsWith('mk_') || xApiKey.startsWith('mk-')) ? xApiKey : null;
     }
     
     if (!memoryKey) {
       return c.json({ 
         error: 'Missing or invalid authentication',
-        hint: 'Use: Authorization: Bearer mk_xxx OR x-api-key: mk_xxx',
+        hint: 'Use: Authorization: Bearer mk-xxx OR x-api-key: mk-xxx',
       }, 401);
     }
     
