@@ -15,6 +15,54 @@ const steps = [
   { id: 2, title: "Get Memory Key", description: "Your unique memory context" },
 ];
 
+// Provider-specific SDK code examples
+type CodeExample = {
+  language: string;
+  import: string;
+  setup: (memoryKey: string) => string;
+  comment: string;
+};
+
+const getProviderCodeExample = (providerId: string): CodeExample => {
+  switch (providerId) {
+    case "openai":
+      return {
+        language: "Python",
+        import: "from openai import OpenAI",
+        setup: (key) => `client = OpenAI(\n    base_url="https://api.memoryrouter.ai/v1",\n    api_key="${key}"\n)`,
+        comment: "# That's it! Your AI now has memory.",
+      };
+    case "anthropic":
+      return {
+        language: "Python",
+        import: "from anthropic import Anthropic",
+        setup: (key) => `client = Anthropic(\n    base_url="https://api.memoryrouter.ai/v1",\n    api_key="${key}"\n)`,
+        comment: "# That's it! Your AI now has memory.",
+      };
+    case "google":
+      return {
+        language: "Python",
+        import: "import google.generativeai as genai",
+        setup: (key) => `genai.configure(\n    api_key="${key}",\n    transport="rest",\n    client_options={"api_endpoint": "https://api.memoryrouter.ai"}\n)`,
+        comment: "# That's it! Your AI now has memory.",
+      };
+    // OpenAI-compatible providers
+    case "xai":
+    case "deepseek":
+    case "mistral":
+    case "cohere":
+    case "openrouter":
+    default:
+      const providerName = PROVIDERS.find(p => p.id === providerId)?.name || providerId;
+      return {
+        language: "Python",
+        import: "from openai import OpenAI  # OpenAI-compatible",
+        setup: (key) => `client = OpenAI(\n    base_url="https://api.memoryrouter.ai/v1",\n    api_key="${key}"\n)`,
+        comment: `# ${providerName} uses OpenAI-compatible API. Your AI now has memory.`,
+      };
+  }
+};
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
@@ -22,6 +70,7 @@ export default function OnboardingPage() {
   const [providerKey, setProviderKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [memoryKey, setMemoryKey] = useState("");
+  const [selectedProvider, setSelectedProvider] = useState(""); // Store provider for step 2
   const [copied, setCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [validationError, setValidationError] = useState("");
@@ -54,6 +103,7 @@ export default function OnboardingPage() {
       crypto.getRandomValues(randomBytes);
       const newMemoryKey = `mk_${Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('')}`;
       setMemoryKey(newMemoryKey);
+      setSelectedProvider(provider); // Store provider for step 2 code example
       setIsLoading(false);
       setCurrentStep(2);
     } catch (error) {
@@ -251,29 +301,35 @@ export default function OnboardingPage() {
               </div>
               
               {/* Code Example */}
-              <div className="space-y-2">
-                <Label>Quick Start</Label>
-                <div className="code-window rounded-xl overflow-hidden">
-                  <div className="flex items-center gap-2 px-4 py-2 border-b border-border/30 bg-white/5">
-                    <div className="flex gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full bg-red-500/70"></div>
-                      <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/70"></div>
-                      <div className="w-2.5 h-2.5 rounded-full bg-green-500/70"></div>
+              {(() => {
+                const codeExample = getProviderCodeExample(selectedProvider);
+                return (
+                  <div className="space-y-2">
+                    <Label>Quick Start</Label>
+                    <div className="code-window rounded-xl overflow-hidden">
+                      <div className="flex items-center gap-2 px-4 py-2 border-b border-border/30 bg-white/5">
+                        <div className="flex gap-1.5">
+                          <div className="w-2.5 h-2.5 rounded-full bg-red-500/70"></div>
+                          <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/70"></div>
+                          <div className="w-2.5 h-2.5 rounded-full bg-green-500/70"></div>
+                        </div>
+                        <span className="text-xs text-muted-foreground ml-2">{codeExample.language}</span>
+                      </div>
+                      <pre className="p-4 text-sm overflow-x-auto">
+                        <code>
+                          <span className="text-purple-400">{codeExample.import}</span>{'\n\n'}
+                          <span dangerouslySetInnerHTML={{ 
+                            __html: codeExample.setup(memoryKey)
+                              .replace(/"https:\/\/api\.memoryrouter\.ai[^"]*"/g, '<span class="neon-text">$&</span>')
+                              .replace(new RegExp(`"${memoryKey}"`, 'g'), `<span class="neon-text">"${memoryKey}"</span>`)
+                          }} />{'\n\n'}
+                          <span className="text-gray-500">{codeExample.comment}</span>
+                        </code>
+                      </pre>
                     </div>
-                    <span className="text-xs text-muted-foreground ml-2">Python</span>
                   </div>
-                  <pre className="p-4 text-sm overflow-x-auto">
-                    <code>
-                      <span className="text-purple-400">from</span> openai <span className="text-purple-400">import</span> OpenAI{'\n\n'}
-                      client = OpenAI({'\n'}
-                      {'    '}base_url=<span className="neon-text">&quot;https://api.memoryrouter.ai/v1&quot;</span>,{'\n'}
-                      {'    '}api_key=<span className="neon-text">&quot;{memoryKey}&quot;</span>{'\n'}
-                      ){'\n\n'}
-                      <span className="text-gray-500"># That&apos;s it! Your AI now has memory.</span>
-                    </code>
-                  </pre>
-                </div>
-              </div>
+                );
+              })()}
               
               {/* Free tier badge */}
               <div className="flex items-center justify-center gap-2 py-3 bg-primary/5 rounded-lg border border-primary/20">
