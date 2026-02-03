@@ -57,8 +57,42 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-8 animate-pulse">
+        {/* Header skeleton */}
+        <div>
+          <div className="h-9 w-40 bg-muted/50 rounded" />
+          <div className="h-5 w-56 bg-muted/30 rounded mt-2" />
+        </div>
+        
+        {/* Stats cards skeleton */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="glass-card border-border/50">
+              <CardHeader className="pb-2">
+                <div className="h-4 w-24 bg-muted/50 rounded" />
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 w-16 bg-muted/50 rounded" />
+                <div className="h-3 w-32 bg-muted/30 rounded mt-2" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        
+        {/* Chart skeleton */}
+        <Card className="glass-card border-border/50">
+          <CardHeader>
+            <div className="h-6 w-40 bg-muted/50 rounded" />
+            <div className="h-4 w-32 bg-muted/30 rounded mt-1" />
+          </CardHeader>
+          <CardContent>
+            <div className="h-[200px] flex items-end gap-2">
+              {[...Array(7)].map((_, i) => (
+                <div key={i} className="flex-1 bg-muted/30 rounded-t" style={{ height: `${30 + Math.random() * 100}px` }} />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
