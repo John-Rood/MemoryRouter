@@ -60,9 +60,9 @@ export default function SignUpPage() {
       </p>
       <p className="text-center text-xs text-muted-foreground">
         By signing up, you agree to our{" "}
-        <Link href="/terms" className="underline hover:text-foreground">Terms</Link>
+        <a href="https://memoryrouter.ai/terms" className="underline hover:text-foreground" target="_blank" rel="noopener noreferrer">Terms</a>
         {" "}and{" "}
-        <Link href="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>
+        <a href="https://memoryrouter.ai/privacy" className="underline hover:text-foreground" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
       </p>
     </div>
   );

@@ -11,7 +11,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="fixed inset-0 grid-bg pointer-events-none opacity-50"></div>
       
       {/* Content */}
-      <div className="relative z-10 w-full px-4 py-12">
+      <div className="relative z-10 w-full px-4 py-12 flex items-center justify-center">
         {children}
       </div>
     </div>
