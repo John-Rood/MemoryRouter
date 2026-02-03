@@ -43,12 +43,12 @@ const models = [
   
 ]
 
-const providerStyles: Record<string, { border: string; badge: string; context: string }> = {
-  openai: { border: 'border-[#10a37f]/30 hover:border-[#10a37f]/60 hover:shadow-[0_0_30px_rgba(16,163,127,0.15)]', badge: 'bg-[#10a37f]/15 text-[#10a37f]', context: 'text-green-400' },
-  anthropic: { border: 'border-[#cc9366]/30 hover:border-[#cc9366]/60 hover:shadow-[0_0_30px_rgba(204,147,102,0.15)]', badge: 'bg-[#cc9366]/15 text-[#cc9366]', context: 'text-cyan-400' },
-  google: { border: 'border-[#ea4335]/30 hover:border-[#ea4335]/60 hover:shadow-[0_0_30px_rgba(234,67,53,0.15)]', badge: 'bg-[#ea4335]/15 text-[#ea4335]', context: 'text-red-400' },
-  meta: { border: 'border-[#0088ff]/30 hover:border-[#0088ff]/60 hover:shadow-[0_0_30px_rgba(0,136,255,0.15)]', badge: 'bg-[#0088ff]/15 text-[#0088ff]', context: 'text-blue-400' },
-  mistral: { border: 'border-[#ff7538]/30 hover:border-[#ff7538]/60 hover:shadow-[0_0_30px_rgba(255,117,56,0.15)]', badge: 'bg-[#ff7538]/15 text-[#ff7538]', context: 'text-orange-400' },
+const providerStyles: Record<string, { border: string; badge: string; context: string; glow: string }> = {
+  openai: { border: 'border-emerald-500/30 hover:border-emerald-500/60', glow: 'hover:shadow-lg hover:shadow-emerald-500/20', badge: 'bg-emerald-500/15 text-emerald-400', context: 'text-green-400' },
+  anthropic: { border: 'border-orange-400/30 hover:border-orange-400/60', glow: 'hover:shadow-lg hover:shadow-orange-400/20', badge: 'bg-orange-400/15 text-orange-300', context: 'text-cyan-400' },
+  google: { border: 'border-red-500/30 hover:border-red-500/60', glow: 'hover:shadow-lg hover:shadow-red-500/20', badge: 'bg-red-500/15 text-red-400', context: 'text-red-400' },
+  meta: { border: 'border-blue-500/30 hover:border-blue-500/60', glow: 'hover:shadow-lg hover:shadow-blue-500/20', badge: 'bg-blue-500/15 text-blue-400', context: 'text-blue-400' },
+  mistral: { border: 'border-orange-500/30 hover:border-orange-500/60', glow: 'hover:shadow-lg hover:shadow-orange-500/20', badge: 'bg-orange-500/15 text-orange-400', context: 'text-orange-400' },
 }
 
 const providerLabels: Record<string, string> = {
@@ -106,7 +106,7 @@ export function ModelsGrid() {
               return (
                 <div
                   key={i}
-                  className={`card-glass rounded-2xl p-6 transition-all ${styles.border}`}
+                  className={`card-glass rounded-2xl p-6 transition-all duration-300 border ${styles.border} ${styles.glow}`}
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex flex-wrap gap-2">
