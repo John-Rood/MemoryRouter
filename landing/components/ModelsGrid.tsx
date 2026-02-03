@@ -46,7 +46,7 @@ const models = [
 const providerStyles: Record<string, { border: string; badge: string; context: string }> = {
   openai: { border: 'border-[#10a37f]/30 hover:border-[#10a37f]/60 hover:shadow-[0_0_30px_rgba(16,163,127,0.15)]', badge: 'bg-[#10a37f]/15 text-[#10a37f]', context: 'text-green-400' },
   anthropic: { border: 'border-[#cc9366]/30 hover:border-[#cc9366]/60 hover:shadow-[0_0_30px_rgba(204,147,102,0.15)]', badge: 'bg-[#cc9366]/15 text-[#cc9366]', context: 'text-cyan-400' },
-  google: { border: 'border-[#4285f4]/30 hover:border-[#4285f4]/60 hover:shadow-[0_0_30px_rgba(66,133,244,0.15)]', badge: 'bg-[#4285f4]/15 text-[#4285f4]', context: 'text-blue-400' },
+  google: { border: 'border-[#ea4335]/30 hover:border-[#ea4335]/60 hover:shadow-[0_0_30px_rgba(234,67,53,0.15)]', badge: 'bg-[#ea4335]/15 text-[#ea4335]', context: 'text-red-400' },
   meta: { border: 'border-[#0088ff]/30 hover:border-[#0088ff]/60 hover:shadow-[0_0_30px_rgba(0,136,255,0.15)]', badge: 'bg-[#0088ff]/15 text-[#0088ff]', context: 'text-blue-400' },
   mistral: { border: 'border-[#ff7538]/30 hover:border-[#ff7538]/60 hover:shadow-[0_0_30px_rgba(255,117,56,0.15)]', badge: 'bg-[#ff7538]/15 text-[#ff7538]', context: 'text-orange-400' },
 }
