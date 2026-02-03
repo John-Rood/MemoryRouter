@@ -151,7 +151,7 @@ export default function ModelsPage() {
           {/* Main Footer Grid */}
           <div className="grid grid-cols-2 md:grid-cols-10 gap-8 mb-12">
             {/* Brand + Newsletter */}
-            <div className="col-span-2 md:col-span-4 md:pr-8 overflow-hidden">
+            <div className="col-span-2 md:col-span-4 pr-6 md:pr-12 overflow-hidden">
               <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition mb-4">
                 <Image src="/logo.png" alt="MemoryRouter" width={32} height={32} className="rounded-lg" />
                 <span className="text-xl font-bold">MemoryRouter</span>
