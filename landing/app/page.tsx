@@ -816,7 +816,7 @@ export default function Home() {
           {/* Main Footer Grid - standard 4-column pattern */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 mb-12">
             {/* Brand + Newsletter - spans 2 cols on mobile, 1 on desktop */}
-            <div className="col-span-2 md:col-span-1">
+            <div className="col-span-2 md:col-span-1 overflow-hidden">
               <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition mb-4">
                 <Image src="/logo.png" alt="MemoryRouter" width={32} height={32} className="rounded-lg" />
                 <span className="text-xl font-bold">MemoryRouter</span>

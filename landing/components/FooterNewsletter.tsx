@@ -35,7 +35,7 @@ export function FooterNewsletter() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3 max-w-full">
       <input
         type="email"
         value={email}
@@ -43,12 +43,12 @@ export function FooterNewsletter() {
         placeholder="you@company.com"
         required
         disabled={status === 'loading'}
-        className="bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500/50 text-sm w-full sm:w-64 disabled:opacity-50"
+        className="bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500/50 text-sm w-full disabled:opacity-50"
       />
       <button
         type="submit"
         disabled={status === 'loading'}
-        className="bg-white/10 hover:bg-white/20 border border-white/10 px-6 py-3 rounded-lg font-medium text-sm whitespace-nowrap transition disabled:opacity-50"
+        className="bg-white/10 hover:bg-white/20 border border-white/10 px-6 py-3 rounded-lg font-medium text-sm whitespace-nowrap transition disabled:opacity-50 w-full sm:w-auto"
       >
         {status === 'loading' ? 'Subscribing...' : 'Subscribe'}
       </button>
