@@ -2,6 +2,7 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
@@ -24,9 +25,13 @@ function LoginContent() {
       {/* Logo */}
       <div className="text-center space-y-4">
         <div className="flex items-center justify-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-neon flex items-center justify-center">
-            <span className="text-black font-bold text-lg">M</span>
-          </div>
+          <Image 
+            src="/logo.png" 
+            alt="MemoryRouter" 
+            width={40} 
+            height={40} 
+            className="rounded-xl"
+          />
           <span className="text-2xl font-bold">MemoryRouter</span>
         </div>
         <p className="text-muted-foreground">Sign in to manage your AI memory</p>

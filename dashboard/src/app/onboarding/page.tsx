@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -137,9 +138,13 @@ export default function OnboardingPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-gradient-neon flex items-center justify-center">
-              <span className="text-black font-bold text-lg">M</span>
-            </div>
+            <Image 
+              src="/logo.png" 
+              alt="MemoryRouter" 
+              width={40} 
+              height={40} 
+              className="rounded-xl"
+            />
             <span className="text-2xl font-bold">MemoryRouter</span>
           </div>
           <h1 className="text-3xl font-bold mb-2">Welcome! Let&apos;s get you set up</h1>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { BarChart3, Key, Settings, CreditCard, BookOpen, Menu, X, LogOut, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -40,9 +41,13 @@ export function Sidebar({ user, creditBalanceCents }: SidebarProps) {
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-neon flex items-center justify-center">
-            <span className="text-black font-bold text-sm">M</span>
-          </div>
+          <Image 
+            src="/logo.png" 
+            alt="MemoryRouter" 
+            width={28} 
+            height={28} 
+            className="rounded-lg"
+          />
           <span className="font-semibold">MemoryRouter</span>
         </div>
         <div className="ml-auto">
@@ -62,9 +67,13 @@ export function Sidebar({ user, creditBalanceCents }: SidebarProps) {
       )}>
         {/* Logo */}
         <div className="flex h-14 items-center gap-2 px-6 border-b border-border">
-          <div className="w-8 h-8 rounded-lg bg-gradient-neon flex items-center justify-center">
-            <span className="text-black font-bold">M</span>
-          </div>
+          <Image 
+            src="/logo.png" 
+            alt="MemoryRouter" 
+            width={32} 
+            height={32} 
+            className="rounded-lg"
+          />
           <span className="text-lg font-semibold">MemoryRouter</span>
         </div>
         
