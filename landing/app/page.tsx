@@ -814,7 +814,7 @@ export default function Home() {
       <footer className="border-t border-white/5 bg-[#09090b]/50">
         <div className="max-w-6xl mx-auto px-6 py-16">
           {/* Main Footer Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-12 gap-8 mb-12">
+          <div className="grid grid-cols-2 md:grid-cols-10 gap-8 mb-12">
             {/* Brand + Newsletter */}
             <div className="col-span-2 md:col-span-4 md:pr-8 overflow-hidden">
               <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition mb-4">
@@ -834,7 +834,7 @@ export default function Home() {
             </div>
             
             {/* Product Column */}
-            <div className="md:col-span-3 md:pl-4">
+            <div className="md:col-span-2">
               <h4 className="text-sm font-semibold text-white mb-4">Product</h4>
               <ul className="space-y-3 text-sm">
                 <li><a href="#calculator" className="text-gray-400 hover:text-white transition">Calculator</a></li>
@@ -857,7 +857,7 @@ export default function Home() {
             </div>
             
             {/* Company Column */}
-            <div className="md:col-span-3">
+            <div className="md:col-span-2">
               <h4 className="text-sm font-semibold text-white mb-4">Company</h4>
               <ul className="space-y-3 text-sm">
                 <li><a href="https://twitter.com/memoryrouter" className="text-gray-400 hover:text-white transition">Twitter</a></li>
