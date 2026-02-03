@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { googleOAuthConfig } from '@/lib/auth/oauth-config';
 import { verifyStateCookie, clearStateCookie } from '@/lib/auth/oauth-utils';
 import { createSession, setSessionCookies } from '@/lib/auth/session';
-import { setMockUser } from '@/lib/auth/server';
+import { createOrUpdateUser, updateUserStripeCustomer } from '@/lib/auth/user-service';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 interface GoogleTokenResponse {
   access_token: string;
@@ -78,27 +81,44 @@ export async function GET(request: NextRequest) {
     
     const googleUser: GoogleUserInfo = await userInfoResponse.json();
     
-    // 3. Create or get user (mock for MVP)
-    const userId = `google_${googleUser.id}`;
-    const internalUserId = `usr_${userId.replace(/[^a-z0-9]/gi, '').slice(0, 24)}`;
-    
-    // Store user in mock store
-    setMockUser({
-      id: userId,
+    // 3. Create or update user in D1
+    const user = await createOrUpdateUser({
+      provider: 'google',
+      providerId: googleUser.id,
       email: googleUser.email,
       name: googleUser.name,
       avatarUrl: googleUser.picture,
-      internalUserId,
-      onboardingCompleted: false, // New users need onboarding
     });
     
-    // 4. Create session
-    const session = await createSession(userId, googleUser.email);
+    // 4. Create Stripe customer if new user (no existing stripeCustomerId)
+    if (!user.stripeCustomerId && process.env.STRIPE_SECRET_KEY) {
+      try {
+        const stripeCustomer = await stripe.customers.create({
+          email: user.email,
+          name: user.name || undefined,
+          metadata: { user_id: user.id },
+        });
+        
+        updateUserStripeCustomer(user.id, stripeCustomer.id);
+        console.log(`[Google OAuth] Created Stripe customer: ${stripeCustomer.id}`);
+      } catch (stripeError) {
+        console.error('[Google OAuth] Stripe customer creation failed:', stripeError);
+        // Don't fail auth if Stripe fails
+      }
+    }
     
-    // 5. Set cookies and redirect
-    const response = NextResponse.redirect(new URL('/onboarding', request.url));
+    // 5. Create session
+    const session = await createSession(user.id, user.email);
+    
+    // 6. Determine redirect URL based on onboarding status
+    const redirectUrl = user.onboardingCompleted ? '/' : '/onboarding';
+    
+    // 7. Set cookies and redirect
+    const response = NextResponse.redirect(new URL(redirectUrl, request.url));
     setSessionCookies(response, session);
     clearStateCookie(response, 'google');
+    
+    console.log(`[Google OAuth] User authenticated: ${user.email} (${user.id})`);
     
     return response;
     

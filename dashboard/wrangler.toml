@@ -1,0 +1,21 @@
+# MemoryRouter Dashboard - Cloudflare Pages Configuration
+# Deploy: npx wrangler pages deploy .vercel/output/static --project-name memoryrouter-dashboard
+
+name = "memoryrouter-dashboard"
+compatibility_date = "2024-01-01"
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "memoryrouter-dashboard"
+database_id = "82f34c00-6fb8-4535-b41a-2df271d7b8e0"
+
+# Environment variables (set via Cloudflare dashboard or wrangler secret)
+# JWT_SECRET
+# GOOGLE_CLIENT_ID
+# GOOGLE_CLIENT_SECRET
+# GITHUB_CLIENT_ID
+# GITHUB_CLIENT_SECRET
+# STRIPE_SECRET_KEY
+# STRIPE_WEBHOOK_SECRET
+# ENCRYPTION_KEY
