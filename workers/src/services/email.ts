@@ -24,9 +24,8 @@ interface ResendResponse {
 }
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
-// Use verified domain or Resend's test domain
-// TODO: Change to hello@memoryrouter.ai after domain verification in Resend
-const FROM_EMAIL = 'MemoryRouter <onboarding@resend.dev>';
+// Verified domain in Resend
+const FROM_EMAIL = 'MemoryRouter <hello@memoryrouter.ai>';
 const REPLY_TO = 'john@johnrood.com';
 
 /**
