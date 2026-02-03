@@ -217,17 +217,27 @@ export async function revokeMemoryKey(
 /**
  * Hono middleware for memory key authentication
  * Optimized: parallel KV lookups, deferred lastUsedAt update
+ * 
+ * Supports multiple auth patterns:
+ * 1. Authorization: Bearer mk_xxx (standard)
+ * 2. x-api-key: mk_xxx (Anthropic SDK style)
+ * 3. X-Memory-Key: mk_xxx (pass-through mode — keeps Authorization for provider)
  */
 export function authMiddleware(env: AuthEnv) {
   return async (c: Context, next: Next) => {
-    // Support both Authorization header (OpenAI style) and x-api-key (Anthropic style)
+    // Support multiple auth patterns for flexibility
     const authHeader = c.req.header('Authorization');
     const xApiKey = c.req.header('x-api-key');
+    const xMemoryKey = c.req.header('X-Memory-Key');
     
-    // Try Authorization header first, then x-api-key
+    // Priority: X-Memory-Key > Authorization > x-api-key
+    // X-Memory-Key enables pass-through mode (Authorization goes to provider)
     let memoryKey: string | null = null;
     
-    if (authHeader) {
+    if (xMemoryKey && xMemoryKey.startsWith('mk_')) {
+      // Pass-through mode: memory key in dedicated header
+      memoryKey = xMemoryKey;
+    } else if (authHeader) {
       memoryKey = extractMemoryKey(authHeader);
     } else if (xApiKey) {
       // x-api-key is used directly (Anthropic SDK style)

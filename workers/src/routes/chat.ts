@@ -204,9 +204,24 @@ export function createChatRouter() {
     const provider = detectProvider(body.model);
     
     // Get provider API key
-    // Priority: X-Provider-Key header > stored keys > env fallback
-    // X-Provider-Key allows pass-through auth (e.g., Clawdbot with Max tokens)
-    const passedProviderKey = c.req.header('X-Provider-Key');
+    // Priority: X-Provider-Key > Authorization (when X-Memory-Key used) > stored keys > env
+    // This enables clean pass-through auth for Clawdbot integration
+    const xProviderKey = c.req.header('X-Provider-Key');
+    const xMemoryKey = c.req.header('X-Memory-Key');
+    const authHeader = c.req.header('Authorization');
+    
+    // If X-Memory-Key is used, Authorization header contains the provider key
+    let passedProviderKey: string | undefined;
+    if (xProviderKey) {
+      passedProviderKey = xProviderKey;
+    } else if (xMemoryKey && authHeader) {
+      // Extract provider key from Authorization header (Bearer token)
+      const parts = authHeader.split(' ');
+      if (parts.length === 2 && parts[0].toLowerCase() === 'bearer') {
+        passedProviderKey = parts[1];
+      }
+    }
+    
     const apiKey = passedProviderKey || getProviderKey(userContext.providerKeys, provider, env);
     const usingPassthrough = !!passedProviderKey;
     if (usingPassthrough) {
