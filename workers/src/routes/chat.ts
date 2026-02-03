@@ -204,11 +204,18 @@ export function createChatRouter() {
     const provider = detectProvider(body.model);
     
     // Get provider API key
-    const apiKey = getProviderKey(userContext.providerKeys, provider, env);
+    // Priority: X-Provider-Key header > stored keys > env fallback
+    // X-Provider-Key allows pass-through auth (e.g., Clawdbot with Max tokens)
+    const passedProviderKey = c.req.header('X-Provider-Key');
+    const apiKey = passedProviderKey || getProviderKey(userContext.providerKeys, provider, env);
+    const usingPassthrough = !!passedProviderKey;
+    if (usingPassthrough) {
+      console.log(`[AUTH] Using pass-through provider key for ${provider}`);
+    }
     if (!apiKey) {
       return c.json({ 
         error: `No API key configured for provider: ${provider}`,
-        hint: `Add your ${provider} API key in your account settings`,
+        hint: `Add your ${provider} API key in your account settings, or pass X-Provider-Key header`,
       }, 400);
     }
     
