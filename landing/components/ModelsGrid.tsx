@@ -43,12 +43,12 @@ const models = [
   
 ]
 
-const providerStyles: Record<string, { border: string; badge: string; context: string; glow: string }> = {
-  openai: { border: 'border-emerald-500/30 hover:border-emerald-500/60', glow: 'hover:shadow-lg hover:shadow-emerald-500/20', badge: 'bg-emerald-500/15 text-emerald-400', context: 'text-green-400' },
-  anthropic: { border: 'border-orange-400/30 hover:border-orange-400/60', glow: 'hover:shadow-lg hover:shadow-orange-400/20', badge: 'bg-orange-400/15 text-orange-300', context: 'text-cyan-400' },
-  google: { border: 'border-red-500/30 hover:border-red-500/60', glow: 'hover:shadow-lg hover:shadow-red-500/20', badge: 'bg-red-500/15 text-red-400', context: 'text-red-400' },
-  meta: { border: 'border-blue-500/30 hover:border-blue-500/60', glow: 'hover:shadow-lg hover:shadow-blue-500/20', badge: 'bg-blue-500/15 text-blue-400', context: 'text-blue-400' },
-  mistral: { border: 'border-orange-500/30 hover:border-orange-500/60', glow: 'hover:shadow-lg hover:shadow-orange-500/20', badge: 'bg-orange-500/15 text-orange-400', context: 'text-orange-400' },
+const providerStyles: Record<string, { cardClass: string; badge: string; context: string }> = {
+  openai: { cardClass: 'provider-openai', badge: 'badge-openai', context: 'text-green-400' },
+  anthropic: { cardClass: 'provider-anthropic', badge: 'badge-anthropic', context: 'text-cyan-400' },
+  google: { cardClass: 'provider-google', badge: 'badge-google', context: 'text-red-400' },
+  meta: { cardClass: 'provider-meta', badge: 'badge-meta', context: 'text-blue-400' },
+  mistral: { cardClass: 'provider-mistral', badge: 'badge-mistral', context: 'text-orange-400' },
 }
 
 const providerLabels: Record<string, string> = {
@@ -106,7 +106,7 @@ export function ModelsGrid() {
               return (
                 <div
                   key={i}
-                  className={`card-glass rounded-2xl p-6 transition-all duration-300 border ${styles.border} ${styles.glow}`}
+                  className={`card-glass rounded-2xl p-6 transition-all duration-300 ${styles.cardClass}`}
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex flex-wrap gap-2">

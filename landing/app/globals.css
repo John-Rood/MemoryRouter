@@ -163,3 +163,25 @@ details summary::-webkit-details-marker {
 details summary {
   list-style: none;
 }
+
+/* Provider card colors - matches models.html exactly */
+.provider-openai { border-color: rgba(16, 163, 127, 0.3) !important; }
+.provider-openai:hover { border-color: rgba(16, 163, 127, 0.6) !important; box-shadow: 0 0 30px rgba(16, 163, 127, 0.15); }
+
+.provider-anthropic { border-color: rgba(204, 147, 102, 0.3) !important; }
+.provider-anthropic:hover { border-color: rgba(204, 147, 102, 0.6) !important; box-shadow: 0 0 30px rgba(204, 147, 102, 0.15); }
+
+.provider-google { border-color: rgba(234, 67, 53, 0.3) !important; }
+.provider-google:hover { border-color: rgba(234, 67, 53, 0.6) !important; box-shadow: 0 0 30px rgba(234, 67, 53, 0.15); }
+
+.provider-meta { border-color: rgba(0, 136, 255, 0.3) !important; }
+.provider-meta:hover { border-color: rgba(0, 136, 255, 0.6) !important; box-shadow: 0 0 30px rgba(0, 136, 255, 0.15); }
+
+.provider-mistral { border-color: rgba(255, 117, 56, 0.3) !important; }
+.provider-mistral:hover { border-color: rgba(255, 117, 56, 0.6) !important; box-shadow: 0 0 30px rgba(255, 117, 56, 0.15); }
+
+.badge-openai { background: rgba(16, 163, 127, 0.15); color: #10a37f; }
+.badge-anthropic { background: rgba(204, 147, 102, 0.15); color: #cc9366; }
+.badge-google { background: rgba(234, 67, 53, 0.15); color: #ea4335; }
+.badge-meta { background: rgba(0, 136, 255, 0.15); color: #0088ff; }
+.badge-mistral { background: rgba(255, 117, 56, 0.15); color: #ff7538; }
