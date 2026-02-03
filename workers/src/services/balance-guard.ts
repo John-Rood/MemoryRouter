@@ -160,19 +160,36 @@ export class BalanceGuard {
    * 
    * FAIL OPEN: On D1 errors, allows request (availability > enforcement)
    * 
-   * D1 Schema lookup:
-   * 1. memory_keys.id = memoryKey → get user_id
-   * 2. billing.user_id = user_id → get balance info
+   * Single JOIN query for minimal latency:
+   * memory_keys JOIN billing → get all billing info in one round trip
    */
   async checkBalanceAsync(memoryKey: string): Promise<BalanceGuardResult> {
     try {
-      // Step 1: Look up user_id from memory_keys table
-      const memKeyRow = await this.db
-        .prepare('SELECT user_id FROM memory_keys WHERE id = ? OR key = ?')
+      // Single query with JOIN — one D1 round trip instead of two
+      const row = await this.db
+        .prepare(`
+          SELECT 
+            mk.user_id,
+            b.credit_balance_cents,
+            b.free_tier_tokens_used,
+            b.free_tier_exhausted,
+            b.monthly_cap_cents,
+            b.monthly_spend_cents
+          FROM memory_keys mk
+          LEFT JOIN billing b ON b.user_id = mk.user_id
+          WHERE mk.id = ? OR mk.key = ?
+        `)
         .bind(memoryKey, memoryKey)
-        .first() as { user_id: string } | null;
+        .first() as {
+          user_id: string;
+          credit_balance_cents: number | null;
+          free_tier_tokens_used: number | null;
+          free_tier_exhausted: number | null;
+          monthly_cap_cents: number | null;
+          monthly_spend_cents: number | null;
+        } | null;
       
-      if (!memKeyRow) {
+      if (!row) {
         // Memory key not in D1 — user hasn't completed onboarding
         // FAIL OPEN: Allow request, billing will be skipped
         console.log(`[BALANCE_GUARD] Memory key ${memoryKey} not in D1 — allowing (fail open)`);
@@ -182,38 +199,25 @@ export class BalanceGuard {
         };
       }
       
-      const userId = memKeyRow.user_id;
-      
-      // Step 2: Look up billing info for this user
-      const billingRow = await this.db
-        .prepare(`
-          SELECT 
-            credit_balance_cents,
-            free_tier_tokens_used,
-            free_tier_exhausted,
-            monthly_cap_cents,
-            monthly_spend_cents
-          FROM billing 
-          WHERE user_id = ?
-        `)
-        .bind(userId)
-        .first() as {
-          credit_balance_cents: number;
-          free_tier_tokens_used: number;
-          free_tier_exhausted: number;
-          monthly_cap_cents: number | null;
-          monthly_spend_cents: number;
-        } | null;
-      
-      if (!billingRow) {
+      // LEFT JOIN means billing columns may be null if no billing record
+      if (row.credit_balance_cents === null) {
         // No billing record — user hasn't been billed yet
         // FAIL OPEN: Allow request (new user, free tier)
-        console.log(`[BALANCE_GUARD] No billing record for user ${userId} — allowing (fail open)`);
+        console.log(`[BALANCE_GUARD] No billing record for user ${row.user_id} — allowing (fail open)`);
         return {
           allowed: true,
           cached: false,
         };
       }
+      
+      // Extract billing data (now guaranteed non-null)
+      const billingRow = {
+        credit_balance_cents: row.credit_balance_cents,
+        free_tier_tokens_used: row.free_tier_tokens_used ?? 0,
+        free_tier_exhausted: row.free_tier_exhausted ?? 0,
+        monthly_cap_cents: row.monthly_cap_cents,
+        monthly_spend_cents: row.monthly_spend_cents ?? 0,
+      };
       
       // Calculate free tokens remaining
       const freeTokensRemaining = Math.max(0, FREE_TIER_LIMIT - billingRow.free_tier_tokens_used);
