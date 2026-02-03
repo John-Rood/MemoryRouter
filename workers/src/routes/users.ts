@@ -5,11 +5,13 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { sendWelcomeEmail } from '../services/email';
 
 interface Env {
   VECTORS_D1: D1Database;
   METADATA_KV: KVNamespace;
   DASHBOARD_API_KEY: string;
+  RESEND_API_KEY: string;
 }
 
 // Create router
@@ -112,6 +114,22 @@ users.post('/upsert', async (c) => {
     const user = await c.env.VECTORS_D1.prepare(
       `SELECT * FROM users WHERE id = ?`
     ).bind(userId).first();
+
+    // Send welcome email for new users (fire and forget)
+    if (isNew && email && c.env.RESEND_API_KEY) {
+      // Use waitUntil to not block the response
+      c.executionCtx.waitUntil(
+        sendWelcomeEmail(c.env.RESEND_API_KEY, email, name || 'there')
+          .then(result => {
+            if (result.success) {
+              console.log(`[User] Welcome email sent to ${email}, id: ${result.id}`);
+            } else {
+              console.error(`[User] Failed to send welcome email to ${email}:`, result.error);
+            }
+          })
+          .catch(err => console.error('[User] Welcome email error:', err))
+      );
+    }
 
     return c.json({ user, isNew });
 

@@ -49,9 +49,17 @@ import {
   type InjectionResult,
   type MemoryChunk as TransformMemoryChunk,
 } from '../services/memory-transform';
+import {
+  BalanceGuard,
+  createBalanceGuard,
+  buildBlockedUserResponse,
+  buildInsufficientBalanceResponse,
+  type BalanceGuardResult,
+  type BlockedUserRecord,
+} from '../services/balance-guard';
 
 // ==================== BILLING TOGGLE ====================
-const BILLING_ENABLED = false;  // Set to true when ready for production
+const BILLING_ENABLED = true;  // Billing is now enabled
 
 /**
  * Build embedding config from environment
@@ -133,6 +141,27 @@ export function createChatRouter() {
     // Get user context (set by auth middleware)
     const userContext = getUserContext(c);
     let memoryOptions = parseMemoryOptions(c);
+    
+    // ==================== BILLING: BLOCKED CACHE CHECK ====================
+    // Check blocked user cache FIRST (<1ms) — instant rejection for known blocked users
+    let balanceGuard: BalanceGuard | null = null;
+    let balanceCheckPromise: Promise<BalanceGuardResult> | null = null;
+    
+    if (BILLING_ENABLED && env.VECTORS_D1 && env.METADATA_KV) {
+      balanceGuard = createBalanceGuard(env.METADATA_KV, env.VECTORS_D1);
+      const userId = userContext.memoryKey.key; // Use memory key as account ID
+      
+      // Instant check: is this user blocked in cache?
+      const blockedRecord = await balanceGuard.checkBlockedCache(userId);
+      if (blockedRecord) {
+        console.log(`[BILLING] Blocked user (cached): ${userId} - ${blockedRecord.reason}`);
+        return buildBlockedUserResponse(blockedRecord);
+      }
+      
+      // Start parallel balance check (will await before LLM call)
+      // This runs in parallel with memory retrieval
+      balanceCheckPromise = balanceGuard.checkBalanceAsync(userId);
+    }
     
     // Parse request body
     let body: ChatCompletionRequest & { session_id?: string };
@@ -383,6 +412,30 @@ export function createChatRouter() {
     
     // Mark end of MR processing, start of provider call
     mrProcessingTime = Date.now() - startTime;
+    
+    // ==================== BILLING: BALANCE CHECK VERIFICATION ====================
+    // Before forwarding to provider, verify balance check completed OK
+    // This runs AFTER memory retrieval (parallel) but BEFORE LLM call
+    let balanceCheckResult: BalanceGuardResult | null = null;
+    
+    if (BILLING_ENABLED && balanceCheckPromise) {
+      const userId = userContext.memoryKey.key;
+      balanceCheckResult = await balanceCheckPromise;
+      
+      if (!balanceCheckResult.allowed) {
+        // Don't call the LLM - user doesn't have balance
+        console.log(`[BILLING] Insufficient balance: ${userId} - ${balanceCheckResult.reason}`);
+        
+        return buildInsufficientBalanceResponse(
+          balanceCheckResult.reason || 'insufficient_balance',
+          balanceCheckResult.balanceCheck?.balance_cents ?? 0,
+          balanceCheckResult.balanceCheck?.free_tokens_remaining ?? 0
+        );
+      }
+      
+      console.log(`[BILLING] Balance OK: ${userId} - balance=${balanceCheckResult.balanceCheck?.balance_cents}c, free=${balanceCheckResult.balanceCheck?.free_tokens_remaining}`);
+    }
+    
     providerStartTime = Date.now();
     
     // Forward to provider
@@ -524,19 +577,19 @@ export function createChatRouter() {
             );
           }
           
-          // ===== BILLING (DISABLED FOR TESTING) - STREAMING PATH =====
-          if (BILLING_ENABLED) {
-            // await billingService.recordUsage({ tokens, cost, memoryKey });
-            console.log('[BILLING] Would record usage (streaming)');
-          } else {
-            console.log('[BILLING DISABLED] Would record (streaming):', {
-              memoryKey: userContext.memoryKey.key,
-              tokensRetrieved: retrieval?.tokenCount ?? 0,
-              tokensInjected: memoryTokensUsed,
-              responseLength: fullResponse.length,
-              model: body.model,
-              provider: provider,
-            });
+          // ===== BILLING: RECORD USAGE & DEDUCT BALANCE (streaming path) =====
+          if (BILLING_ENABLED && balanceGuard && memoryTokensUsed > 0) {
+            const userId = userContext.memoryKey.key;
+            ctx.waitUntil(
+              balanceGuard.recordUsageAndDeduct(
+                userId,
+                memoryTokensUsed,
+                body.model,
+                provider,
+                sessionId
+              )
+            );
+            console.log(`[BILLING] Queued usage recording (streaming): ${userId} - ${memoryTokensUsed} tokens`);
           }
 
           // ===== USAGE TRACKING (fire-and-forget) =====
@@ -613,18 +666,19 @@ export function createChatRouter() {
     // Check for debug mode
     const debugMode = c.req.header('X-Debug') === 'true' || c.req.query('debug') === 'true';
     
-    // ===== BILLING (DISABLED FOR TESTING) =====
-    if (BILLING_ENABLED) {
-      // await billingService.recordUsage({ tokens, cost, memoryKey });
-      console.log('[BILLING] Would record usage');
-    } else {
-      console.log('[BILLING DISABLED] Would record:', {
-        memoryKey: userContext.memoryKey.key,
-        tokensRetrieved: retrieval?.tokenCount ?? 0,
-        tokensInjected: memoryTokensUsed,
-        model: body.model,
-        provider: provider,
-      });
+    // ===== BILLING: RECORD USAGE & DEDUCT BALANCE (non-streaming path) =====
+    if (BILLING_ENABLED && balanceGuard && memoryTokensUsed > 0) {
+      const userId = userContext.memoryKey.key;
+      ctx.waitUntil(
+        balanceGuard.recordUsageAndDeduct(
+          userId,
+          memoryTokensUsed,
+          body.model,
+          provider,
+          sessionId
+        )
+      );
+      console.log(`[BILLING] Queued usage recording: ${userId} - ${memoryTokensUsed} tokens`);
     }
 
     // ===== USAGE TRACKING (fire-and-forget) =====

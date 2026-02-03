@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,42 +9,103 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CreditCard, Plus, TrendingUp, Wallet, History, Sparkles, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { CreditCard, Plus, TrendingUp, Wallet, History, Sparkles, CheckCircle2, XCircle, Loader2, RefreshCw } from "lucide-react";
 
-// Mock data
-const mockBilling = {
-  creditBalanceCents: 2450,
-  freeTierTokensUsed: 12500000,
+// Types for billing data
+interface BillingData {
+  creditBalanceCents: number;
+  freeTierTokensUsed: number;
+  freeTierLimit: number;
+  autoReupEnabled: boolean;
+  autoReupAmountCents: number;
+  autoReupTriggerCents: number;
+  hasPaymentMethod: boolean;
+  paymentMethod: { brand: string; last4: string; expMonth: number; expYear: number } | null;
+}
+
+interface Transaction {
+  id: string;
+  type: string;
+  amountCents: number;
+  description: string;
+  createdAt: string;
+  balanceAfterCents: number;
+}
+
+// Default state (used while loading)
+const defaultBilling: BillingData = {
+  creditBalanceCents: 0,
+  freeTierTokensUsed: 0,
   freeTierLimit: 50000000,
   autoReupEnabled: true,
   autoReupAmountCents: 2000,
   autoReupTriggerCents: 500,
-  hasPaymentMethod: true,
-  paymentMethod: { brand: "visa", last4: "4242", expMonth: 12, expYear: 2027 },
+  hasPaymentMethod: false,
+  paymentMethod: null,
 };
-
-const mockTransactions = [
-  { id: "1", type: "credit", amountCents: 2000, description: "Added $20.00 credits", createdAt: "2026-02-01 14:32", balanceAfterCents: 2450 },
-  { id: "2", type: "debit", amountCents: -50, description: "Memory usage - 100K tokens", createdAt: "2026-02-01 12:15", balanceAfterCents: 450 },
-  { id: "3", type: "credit", amountCents: 500, description: "Auto-reup $5.00", createdAt: "2026-01-31 09:00", balanceAfterCents: 500 },
-  { id: "4", type: "free_tier", amountCents: 0, description: "Free tier activated - 50M tokens", createdAt: "2026-01-15 10:00", balanceAfterCents: 0 },
-];
 
 const presetAmounts = [5, 10, 20, 50, 100];
 
 export default function BillingPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [billing, setBilling] = useState(mockBilling);
+  const [billing, setBilling] = useState<BillingData>(defaultBilling);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isAddingFunds, setIsAddingFunds] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState(20);
   const [customAmount, setCustomAmount] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
   
   const balanceDollars = (billing.creditBalanceCents / 100).toFixed(2);
   const freeTierPercent = Math.min(100, (billing.freeTierTokensUsed / billing.freeTierLimit) * 100);
   const freeTierRemaining = billing.freeTierLimit - billing.freeTierTokensUsed;
+  
+  // Fetch billing data from API
+  const fetchBilling = useCallback(async () => {
+    try {
+      setIsFetching(true);
+      const response = await fetch("/api/billing/overview");
+      if (!response.ok) {
+        throw new Error("Failed to fetch billing");
+      }
+      const data = await response.json();
+      
+      setBilling({
+        creditBalanceCents: Math.round(data.creditBalance * 100),
+        freeTierTokensUsed: data.freeTierTokensUsed || 0,
+        freeTierLimit: 50000000,
+        autoReupEnabled: data.autoReup?.enabled ?? true,
+        autoReupAmountCents: Math.round((data.autoReup?.amount || 20) * 100),
+        autoReupTriggerCents: Math.round((data.autoReup?.trigger || 5) * 100),
+        hasPaymentMethod: data.hasPaymentMethod || false,
+        paymentMethod: null, // Payment method details from Stripe would need separate endpoint
+      });
+      
+      // Transform transactions
+      if (data.transactions && Array.isArray(data.transactions)) {
+        setTransactions(data.transactions.map((t: { id: string; type: string; amount: number; description: string; createdAt: string }) => ({
+          id: t.id,
+          type: t.type,
+          amountCents: Math.round(t.amount * 100),
+          description: t.description,
+          createdAt: new Date(t.createdAt).toLocaleString(),
+          balanceAfterCents: 0, // Not available from current API
+        })));
+      }
+    } catch (error) {
+      console.error("Failed to fetch billing:", error);
+      setNotification({ type: "error", message: "Failed to load billing data" });
+    } finally {
+      setIsFetching(false);
+    }
+  }, []);
+  
+  // Initial fetch
+  useEffect(() => {
+    fetchBilling();
+  }, [fetchBilling]);
   
   // Handle success/canceled URL params
   useEffect(() => {
@@ -57,8 +118,10 @@ export default function BillingPage() {
         type: "success",
         message: amount ? `Successfully added $${parseFloat(amount).toFixed(2)} to your account!` : "Payment successful! Credits have been added to your account.",
       });
-      // Clear URL params after showing notification
+      // Clear URL params and refresh billing data
       router.replace("/billing", { scroll: false });
+      // Wait a bit for webhook to process, then refresh
+      setTimeout(() => fetchBilling(), 2000);
     } else if (canceled === "true") {
       setNotification({
         type: "error",
@@ -66,7 +129,7 @@ export default function BillingPage() {
       });
       router.replace("/billing", { scroll: false });
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, fetchBilling]);
   
   // Auto-dismiss notification after 5 seconds
   useEffect(() => {
@@ -323,7 +386,7 @@ export default function BillingPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {billing.hasPaymentMethod ? (
+          {billing.hasPaymentMethod && billing.paymentMethod ? (
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-8 bg-muted rounded flex items-center justify-center">
@@ -353,30 +416,43 @@ export default function BillingPage() {
       {/* Transaction History */}
       <Card className="glass-card border-border/50">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <History className="h-5 w-5" />
-            Transaction History
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Transaction History
+            </CardTitle>
+            <Button variant="ghost" size="icon" onClick={fetchBilling} disabled={isFetching}>
+              <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {mockTransactions.map((tx) => (
-              <div key={tx.id} className="flex items-center justify-between py-3 border-b border-border/30 last:border-0">
-                <div>
-                  <p className="font-medium">{tx.description}</p>
-                  <p className="text-sm text-muted-foreground">{tx.createdAt}</p>
+          {isFetching && transactions.length === 0 ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : transactions.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No transactions yet</p>
+              <p className="text-sm mt-1">Add funds to get started</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {transactions.map((tx) => (
+                <div key={tx.id} className="flex items-center justify-between py-3 border-b border-border/30 last:border-0">
+                  <div>
+                    <p className="font-medium">{tx.description}</p>
+                    <p className="text-sm text-muted-foreground">{tx.createdAt}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`font-mono font-medium ${tx.type === 'credit' ? 'text-neon-green' : 'text-destructive'}`}>
+                      {tx.type === 'credit' ? '+' : '-'}${Math.abs(tx.amountCents / 100).toFixed(2)}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className={`font-mono font-medium ${tx.amountCents >= 0 ? 'text-neon-green' : 'text-destructive'}`}>
-                    {tx.amountCents >= 0 ? '+' : ''}${(tx.amountCents / 100).toFixed(2)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Balance: ${(tx.balanceAfterCents / 100).toFixed(2)}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

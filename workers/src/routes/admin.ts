@@ -4,13 +4,21 @@
  * Provides:
  * - POST /admin/reembed — Re-embed all vectors with current embedding provider
  * - GET /admin/keys — List all memory keys
+ * - DELETE /admin/blocked-cache/:userId — Clear blocked user cache (for webhooks/admin)
+ * - GET /admin/blocked-users — List all blocked users
  */
 
 import { generateEmbedding, EmbeddingConfig } from '../services/providers';
+import { 
+  createBalanceGuard, 
+  listBlockedUsers,
+  type BlockedUserRecord 
+} from '../services/balance-guard';
 
 interface Env {
   METADATA_KV: KVNamespace;
   VAULT_DO: DurableObjectNamespace;
+  VECTORS_D1?: D1Database;
   ADMIN_SECRET?: string;
   AI: Ai;  // Cloudflare Workers AI binding (embeddings)
 }
@@ -234,12 +242,12 @@ export async function handleClear(request: Request, env: Env): Promise<Response>
   try {
     const stub = getVaultStub(memoryKey, 'core', env);
     const resetRes = await stub.fetch(new Request('http://do/reset', { method: 'POST' }));
-    const result = await resetRes.json();
+    const result = await resetRes.json() as Record<string, unknown>;
     
     return Response.json({
       status: 'cleared',
       memoryKey,
-      ...result,
+      ...(typeof result === 'object' && result !== null ? result : {}),
     });
   } catch (err) {
     return Response.json({ error: String(err) }, { status: 500 });
@@ -526,4 +534,115 @@ export async function handleDebugStorage(request: Request, env: Env & { VECTORS_
   }
 
   return Response.json(results);
+}
+
+// ==================== BLOCKED USER CACHE MANAGEMENT ====================
+
+/**
+ * GET /admin/blocked-users
+ * 
+ * List all users currently in the blocked cache.
+ */
+export async function handleListBlockedUsers(request: Request, env: Env): Promise<Response> {
+  if (!verifyAdmin(request, env)) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const blockedUsers = await listBlockedUsers(env.METADATA_KV);
+  
+  // Add computed fields
+  const enrichedUsers = blockedUsers.map(user => ({
+    ...user,
+    blocked_for_seconds: Math.floor((Date.now() - user.blockedAt) / 1000),
+    ttl_remaining_seconds: Math.max(0, Math.floor((user.ttlMs - (Date.now() - user.blockedAt)) / 1000)),
+    blocked_at_iso: new Date(user.blockedAt).toISOString(),
+  }));
+
+  return Response.json({
+    count: blockedUsers.length,
+    users: enrichedUsers,
+  });
+}
+
+/**
+ * DELETE /admin/blocked-cache/:userId
+ * 
+ * Remove a user from the blocked cache.
+ * Used by Stripe webhooks after successful payment.
+ */
+export async function handleClearBlockedCache(request: Request, env: Env): Promise<Response> {
+  if (!verifyAdmin(request, env)) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const url = new URL(request.url);
+  const userId = url.searchParams.get('userId') || url.pathname.split('/').pop();
+  
+  if (!userId || userId === 'blocked-cache') {
+    return Response.json({ error: 'Missing userId parameter' }, { status: 400 });
+  }
+
+  if (!env.VECTORS_D1) {
+    return Response.json({ error: 'D1 database not configured' }, { status: 500 });
+  }
+
+  const balanceGuard = createBalanceGuard(env.METADATA_KV, env.VECTORS_D1);
+  const success = await balanceGuard.removeFromBlockedCache(userId);
+  
+  if (success) {
+    return Response.json({
+      status: 'cleared',
+      userId,
+      message: `User ${userId} removed from blocked cache. Next request will perform fresh balance check.`,
+    });
+  } else {
+    return Response.json({
+      status: 'warning',
+      userId,
+      message: `Failed to clear cache for ${userId}. User may not have been blocked.`,
+    });
+  }
+}
+
+/**
+ * POST /admin/block-user
+ * 
+ * Manually block a user (for testing or admin action).
+ */
+export async function handleBlockUser(request: Request, env: Env): Promise<Response> {
+  if (!verifyAdmin(request, env)) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (!env.VECTORS_D1) {
+    return Response.json({ error: 'D1 database not configured' }, { status: 500 });
+  }
+
+  try {
+    const body = await request.json() as {
+      userId: string;
+      reason?: 'insufficient_balance' | 'suspended' | 'cap_reached';
+    };
+
+    if (!body.userId) {
+      return Response.json({ error: 'Missing userId in body' }, { status: 400 });
+    }
+
+    const balanceGuard = createBalanceGuard(env.METADATA_KV, env.VECTORS_D1);
+    await balanceGuard.addToBlockedCache(
+      body.userId,
+      body.reason || 'insufficient_balance',
+      0, // balance
+      0  // free tokens
+    );
+
+    return Response.json({
+      status: 'blocked',
+      userId: body.userId,
+      reason: body.reason || 'insufficient_balance',
+      message: `User ${body.userId} added to blocked cache for 5 minutes.`,
+    });
+  } catch (e) {
+    return Response.json({ error: String(e) }, { status: 500 });
+  }
 }

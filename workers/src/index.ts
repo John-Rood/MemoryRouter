@@ -13,7 +13,18 @@ import { createPassthroughRouter } from './routes/passthrough';
 import { createAnthropicRouter } from './routes/anthropic';
 import { createGoogleRouter } from './routes/google';
 import { StorageManager } from './services/storage';
-import { handleReembed, handleListKeys, handleClear, handleSetProviderKey, handleGetProviderKeys, handleDebugStorage, handleDoExport } from './routes/admin';
+import { 
+  handleReembed, 
+  handleListKeys, 
+  handleClear, 
+  handleSetProviderKey, 
+  handleGetProviderKeys, 
+  handleDebugStorage, 
+  handleDoExport,
+  handleListBlockedUsers,
+  handleClearBlockedCache,
+  handleBlockUser,
+} from './routes/admin';
 import { getKeyUsage, getTopKeys, rollupDaily, getRecentEvents } from './services/usage';
 import { users as usersRouter } from './routes/users';
 
@@ -459,6 +470,19 @@ app.get('/admin/debug-storage', async (c) => {
 
 app.get('/admin/do-export', async (c) => {
   return handleDoExport(c.req.raw, c.env as any);
+});
+
+// Blocked user cache management (for billing)
+app.get('/admin/blocked-users', async (c) => {
+  return handleListBlockedUsers(c.req.raw, c.env as any);
+});
+
+app.delete('/admin/blocked-cache/:userId', async (c) => {
+  return handleClearBlockedCache(c.req.raw, c.env as any);
+});
+
+app.post('/admin/block-user', async (c) => {
+  return handleBlockUser(c.req.raw, c.env as any);
 });
 
 // ========== User Management API (Dashboard) ==========

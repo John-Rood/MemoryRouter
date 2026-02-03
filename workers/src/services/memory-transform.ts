@@ -39,8 +39,8 @@ export interface MemoryChunk {
 export interface ExtractionResult {
   /** Body with memory_mode and per-message memory flags stripped — safe to forward */
   cleanedBody: Record<string, unknown>;
-  /** The extracted memory mode from the request */
-  memoryMode: 'all' | 'none' | 'selective' | null;
+  /** The extracted memory mode from the request (normalized to new values) */
+  memoryMode: 'on' | 'off' | 'read' | 'write' | null;
   /** Messages with their memory storage flags */
   messagesWithMemoryFlags: Array<{
     role: string;
@@ -138,7 +138,7 @@ function detectBodyFormat(body: Record<string, unknown>): BodyFormat {
  * Extract memory flags from request body and clean for forwarding.
  * 
  * Handles:
- * - Top-level `memory_mode`: 'all' | 'none' | 'selective'
+ * - Top-level `memory_mode`: 'on' | 'off' | 'read' | 'write' (legacy: 'all' | 'none' | 'selective')
  * - Per-message `memory: false` flags
  * - All provider formats (OpenAI, Anthropic, Google)
  * 
@@ -176,16 +176,26 @@ export function extractMemoryFlags(
 }
 
 /**
- * Extract and remove memory_mode from body
+ * Extract and remove memory_mode from body.
+ * Normalizes legacy values to new naming:
+ * - 'all' → 'on' (retrieve + store)
+ * - 'none' → 'off' (no memory)
+ * - 'selective' → 'read' (retrieve only, closest equivalent)
  */
-function extractMemoryMode(body: Record<string, unknown>): 'all' | 'none' | 'selective' | null {
+function extractMemoryMode(body: Record<string, unknown>): 'on' | 'off' | 'read' | 'write' | null {
   const mode = body.memory_mode as string | undefined;
   delete body.memory_mode;
   
-  if (mode === 'all' || mode === 'none' || mode === 'selective') {
+  // Normalize legacy values
+  if (mode === 'all') return 'on';
+  if (mode === 'none') return 'off';
+  if (mode === 'selective') return 'read';  // closest equivalent
+  
+  // New values pass through
+  if (mode === 'on' || mode === 'off' || mode === 'read' || mode === 'write') {
     return mode;
   }
-  return null;
+  return null;  // defaults to 'on' behavior
 }
 
 /**
@@ -634,8 +644,8 @@ export function transformRequestWithMemory(
   // Extract flags and clean body
   const extraction = extractMemoryFlags(body);
   
-  // Skip injection if memory_mode is 'none'
-  if (extraction.memoryMode === 'none') {
+  // Skip injection if memory_mode is 'off'
+  if (extraction.memoryMode === 'off') {
     return {
       extraction,
       injection: {

@@ -51,7 +51,18 @@ export function parseMemoryOptions(c: Context): MemoryOptions {
   }
   
   // Full control via headers or query params (query params take precedence)
-  const mode = (url.searchParams.get('mode') ?? c.req.header('X-Memory-Mode') ?? 'on') as MemoryOptions['mode'];
+  const rawMode = url.searchParams.get('mode') ?? c.req.header('X-Memory-Mode') ?? 'on';
+  // Normalize legacy values: all → on, none → off, selective → read
+  let mode: MemoryOptions['mode'];
+  if (rawMode === 'all') {
+    mode = 'on';
+  } else if (rawMode === 'none') {
+    mode = 'off';
+  } else if (rawMode === 'selective') {
+    mode = 'read';
+  } else {
+    mode = rawMode as MemoryOptions['mode'];
+  }
   const storeInput = (url.searchParams.get('store') ?? c.req.header('X-Memory-Store')) !== 'false';
   const storeResponse = (url.searchParams.get('store_response') ?? c.req.header('X-Memory-Store-Response')) !== 'false';
   const contextLimit = parseInt(url.searchParams.get('limit') ?? c.req.header('X-Memory-Context-Limit') ?? '30', 10);
@@ -87,9 +98,19 @@ export function parseMemoryOptionsFromBody(
     }
   }
   
-  // Granular overrides
+  // Granular overrides (normalize legacy values)
   if (body.memory_mode !== undefined) {
-    options.mode = body.memory_mode as MemoryOptions['mode'];
+    const mode = body.memory_mode as string;
+    // Normalize legacy values: all → on, none → off, selective → read
+    if (mode === 'all') {
+      options.mode = 'on';
+    } else if (mode === 'none') {
+      options.mode = 'off';
+    } else if (mode === 'selective') {
+      options.mode = 'read';
+    } else {
+      options.mode = mode as MemoryOptions['mode'];
+    }
   }
   if (body.memory_store !== undefined) {
     options.storeInput = body.memory_store === true || body.memory_store === 'true';
