@@ -834,7 +834,7 @@ export default function Home() {
             </div>
             
             {/* Product Column */}
-            <div className="md:col-span-2 md:pl-4">
+            <div className="md:col-span-3 md:pl-4">
               <h4 className="text-sm font-semibold text-white mb-4">Product</h4>
               <ul className="space-y-3 text-sm">
                 <li><a href="#calculator" className="text-gray-400 hover:text-white transition">Calculator</a></li>
@@ -857,7 +857,7 @@ export default function Home() {
             </div>
             
             {/* Company Column */}
-            <div className="md:col-span-2">
+            <div className="md:col-span-3">
               <h4 className="text-sm font-semibold text-white mb-4">Company</h4>
               <ul className="space-y-3 text-sm">
                 <li><a href="https://twitter.com/memoryrouter" className="text-gray-400 hover:text-white transition">Twitter</a></li>
