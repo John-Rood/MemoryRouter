@@ -5,8 +5,8 @@ import { generateState, setStateCookie } from '@/lib/auth/oauth-utils';
 export async function GET(request: NextRequest) {
   // Check if OAuth is configured
   if (!githubOAuthConfig.clientId || githubOAuthConfig.clientId === 'undefined') {
-    // Redirect to demo login for development
-    return NextResponse.redirect(new URL('/api/auth/demo', request.url));
+    // OAuth not configured - redirect to login with error
+    return NextResponse.redirect(new URL('/login?error=oauth_not_configured', request.url));
   }
   
   const state = generateState();

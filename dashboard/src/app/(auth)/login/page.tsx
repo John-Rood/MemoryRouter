@@ -64,23 +64,6 @@ export default function LoginPage() {
           Continue with GitHub
         </AuthButton>
         
-        {/* Divider */}
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-white/10"></div>
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-[#0a0a0a] px-3 text-gray-500">or</span>
-          </div>
-        </div>
-        
-        {/* Demo login */}
-        <a 
-          href="/api/auth/demo"
-          className="w-full h-12 text-base flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
-        >
-          Try Demo Account
-        </a>
       </div>
       
       {/* Footer */}

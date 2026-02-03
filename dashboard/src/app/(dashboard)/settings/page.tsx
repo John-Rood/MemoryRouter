@@ -10,8 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { User, Bell, Shield, Trash2 } from "lucide-react";
 
 export default function SettingsPage() {
-  const [name, setName] = useState("Demo User");
-  const [email, setEmail] = useState("demo@memoryrouter.ai");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [retentionDays, setRetentionDays] = useState("90");
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [lowBalanceAlert, setLowBalanceAlert] = useState(true);

@@ -1,0 +1,165 @@
+@import "tailwindcss";
+
+:root {
+  --neon-green: #39ff14;
+  --electric-blue: #00d4ff;
+  --hot-pink: #ff006e;
+  --deep-purple: #8338ec;
+}
+
+body {
+  font-family: 'Space Grotesk', sans-serif;
+  background: #09090b;
+}
+
+code,
+pre {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.neon-text {
+  color: var(--neon-green);
+  text-shadow: 0 0 10px rgba(57, 255, 20, 0.5);
+}
+
+.gradient-text-hero {
+  background: linear-gradient(135deg, #39ff14 0%, #00d4ff 50%, #ff006e 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.money-gradient {
+  background: linear-gradient(135deg, #39ff14 0%, #00ff88 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #39ff14 0%, #00d4ff 100%);
+  color: #000;
+  font-weight: 700;
+}
+
+.btn-primary:hover {
+  box-shadow: 0 0 30px rgba(57, 255, 20, 0.4);
+}
+
+.card-glass {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+}
+
+.card-glow:hover {
+  border-color: rgba(57, 255, 20, 0.3);
+  box-shadow: 0 0 40px rgba(57, 255, 20, 0.1);
+}
+
+.line-glow {
+  background: linear-gradient(90deg, transparent, var(--neon-green), transparent);
+  height: 1px;
+}
+
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+.stat-card {
+  background: linear-gradient(180deg, rgba(57, 255, 20, 0.05) 0%, transparent 100%);
+  border: 1px solid rgba(57, 255, 20, 0.1);
+}
+
+.code-window {
+  background: linear-gradient(180deg, #0f0f13 0%, #09090b 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.typing-cursor::after {
+  content: '|';
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.scroll-mt {
+  scroll-margin-top: 100px;
+}
+
+/* Calculator Range Input */
+input[type='range'] {
+  -webkit-appearance: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  height: 8px;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  background: var(--neon-green);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(57, 255, 20, 0.5);
+}
+
+.fade-in {
+  animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Provider selector */
+.provider-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #9ca3af;
+}
+
+.provider-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.provider-btn-active {
+  background: rgba(57, 255, 20, 0.15) !important;
+  border-color: rgba(57, 255, 20, 0.5) !important;
+  color: #39ff14 !important;
+  box-shadow: 0 0 20px rgba(57, 255, 20, 0.2);
+}
+
+.code-fade {
+  transition: opacity 0.15s ease-out;
+}
+
+/* Details/Summary styling */
+details summary::-webkit-details-marker {
+  display: none;
+}
+
+details summary {
+  list-style: none;
+}
