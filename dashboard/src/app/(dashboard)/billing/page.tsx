@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { CreditCard, Plus, TrendingUp, Wallet, History, Sparkles } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { CreditCard, Plus, TrendingUp, Wallet, History, Sparkles, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 
 // Mock data
 const mockBilling = {
@@ -32,20 +33,92 @@ const mockTransactions = [
 const presetAmounts = [5, 10, 20, 50, 100];
 
 export default function BillingPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [billing, setBilling] = useState(mockBilling);
   const [isAddingFunds, setIsAddingFunds] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState(20);
   const [customAmount, setCustomAmount] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
   
   const balanceDollars = (billing.creditBalanceCents / 100).toFixed(2);
   const freeTierPercent = Math.min(100, (billing.freeTierTokensUsed / billing.freeTierLimit) * 100);
   const freeTierRemaining = billing.freeTierLimit - billing.freeTierTokensUsed;
   
-  const handleAddFunds = () => {
+  // Handle success/canceled URL params
+  useEffect(() => {
+    const success = searchParams.get("success");
+    const canceled = searchParams.get("canceled");
+    const amount = searchParams.get("amount");
+    
+    if (success === "true") {
+      setNotification({
+        type: "success",
+        message: amount ? `Successfully added $${parseFloat(amount).toFixed(2)} to your account!` : "Payment successful! Credits have been added to your account.",
+      });
+      // Clear URL params after showing notification
+      router.replace("/billing", { scroll: false });
+    } else if (canceled === "true") {
+      setNotification({
+        type: "error",
+        message: "Payment was canceled. No charges were made.",
+      });
+      router.replace("/billing", { scroll: false });
+    }
+  }, [searchParams, router]);
+  
+  // Auto-dismiss notification after 5 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+  
+  const handleAddFunds = async () => {
     const amount = customAmount ? parseFloat(customAmount) : selectedAmount;
-    // In production, this would create a Stripe checkout session
-    alert(`Would add $${amount.toFixed(2)} via Stripe`);
-    setIsAddingFunds(false);
+    
+    if (isNaN(amount) || amount < 5) {
+      setNotification({ type: "error", message: "Minimum amount is $5" });
+      return;
+    }
+    
+    if (amount > 10000) {
+      setNotification({ type: "error", message: "Maximum amount is $10,000" });
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      const response = await fetch("/api/billing/add-funds", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create checkout session");
+      }
+      
+      if (data.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+      } else {
+        throw new Error("No checkout URL returned");
+      }
+    } catch (error) {
+      console.error("Error adding funds:", error);
+      setNotification({
+        type: "error",
+        message: error instanceof Error ? error.message : "Failed to add funds. Please try again.",
+      });
+      setIsLoading(false);
+      setIsAddingFunds(false);
+    }
   };
   
   const toggleAutoReup = () => {
@@ -61,6 +134,19 @@ export default function BillingPage() {
           Manage your credits, payment methods, and billing settings
         </p>
       </div>
+      
+      {/* Notification */}
+      {notification && (
+        <Alert variant={notification.type === "success" ? "default" : "destructive"} className={notification.type === "success" ? "border-neon-green/50 bg-neon-green/10" : ""}>
+          {notification.type === "success" ? (
+            <CheckCircle2 className="h-4 w-4 text-neon-green" />
+          ) : (
+            <XCircle className="h-4 w-4" />
+          )}
+          <AlertTitle>{notification.type === "success" ? "Success" : "Error"}</AlertTitle>
+          <AlertDescription>{notification.message}</AlertDescription>
+        </Alert>
+      )}
       
       {/* Balance Cards */}
       <div className="grid gap-4 md:grid-cols-2">
@@ -104,6 +190,7 @@ export default function BillingPage() {
                           setSelectedAmount(amount);
                           setCustomAmount("");
                         }}
+                        disabled={isLoading}
                       >
                         ${amount}
                       </Button>
@@ -118,21 +205,33 @@ export default function BillingPage() {
                         type="number"
                         min="5"
                         max="10000"
+                        step="0.01"
                         placeholder="Enter amount"
                         className="pl-7 bg-muted/50"
                         value={customAmount}
                         onChange={(e) => setCustomAmount(e.target.value)}
+                        disabled={isLoading}
                       />
                     </div>
+                    <p className="text-xs text-muted-foreground">Minimum $5, maximum $10,000</p>
                   </div>
                   <div className="text-sm text-muted-foreground">
                     Total: <span className="font-medium text-foreground">${customAmount || selectedAmount}</span>
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="ghost" onClick={() => setIsAddingFunds(false)}>Cancel</Button>
-                  <Button className="btn-neon" onClick={handleAddFunds}>
-                    Pay ${customAmount || selectedAmount}
+                  <Button variant="ghost" onClick={() => setIsAddingFunds(false)} disabled={isLoading}>
+                    Cancel
+                  </Button>
+                  <Button className="btn-neon" onClick={handleAddFunds} disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Redirecting...
+                      </>
+                    ) : (
+                      <>Pay ${customAmount || selectedAmount}</>
+                    )}
                   </Button>
                 </DialogFooter>
               </DialogContent>
