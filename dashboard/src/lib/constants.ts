@@ -11,10 +11,70 @@ export const REUP_TRIGGERS = [1, 5, 10] as const;
 export const MONTHLY_CAPS = [50, 100, 500] as const;
 
 export const PROVIDERS = [
-  { id: "openai", name: "OpenAI", prefix: "sk-" },
-  { id: "anthropic", name: "Anthropic", prefix: "sk-ant-" },
-  { id: "google", name: "Google", prefix: "AI" },
-  { id: "openrouter", name: "OpenRouter", prefix: "sk-or-" },
+  { 
+    id: "openai", 
+    name: "OpenAI", 
+    prefix: "sk-",
+    placeholder: "sk-proj-...",
+    apiKeyUrl: "https://platform.openai.com/api-keys",
+    formatHint: "Starts with sk-proj- or sk-"
+  },
+  { 
+    id: "anthropic", 
+    name: "Anthropic", 
+    prefix: "sk-ant-",
+    placeholder: "sk-ant-...",
+    apiKeyUrl: "https://console.anthropic.com/settings/keys",
+    formatHint: "Starts with sk-ant-"
+  },
+  { 
+    id: "google", 
+    name: "Google AI", 
+    prefix: "AI",
+    placeholder: "AIza...",
+    apiKeyUrl: "https://aistudio.google.com/app/apikey",
+    formatHint: "Starts with AIza"
+  },
+  { 
+    id: "xai", 
+    name: "xAI (Grok)", 
+    prefix: "xai-",
+    placeholder: "xai-...",
+    apiKeyUrl: "https://console.x.ai/",
+    formatHint: "Starts with xai-"
+  },
+  { 
+    id: "deepseek", 
+    name: "DeepSeek", 
+    prefix: "sk-",
+    placeholder: "sk-...",
+    apiKeyUrl: "https://platform.deepseek.com/api_keys",
+    formatHint: "Starts with sk-"
+  },
+  { 
+    id: "mistral", 
+    name: "Mistral", 
+    prefix: "",
+    placeholder: "...",
+    apiKeyUrl: "https://console.mistral.ai/api-keys",
+    formatHint: "UUID format"
+  },
+  { 
+    id: "cohere", 
+    name: "Cohere", 
+    prefix: "",
+    placeholder: "...",
+    apiKeyUrl: "https://dashboard.cohere.com/api-keys",
+    formatHint: "Alphanumeric string"
+  },
+  { 
+    id: "openrouter", 
+    name: "OpenRouter", 
+    prefix: "sk-or-",
+    placeholder: "sk-or-...",
+    apiKeyUrl: "https://openrouter.ai/settings/keys",
+    formatHint: "Starts with sk-or-"
+  },
 ] as const;
 
 export const RETENTION_OPTIONS = [

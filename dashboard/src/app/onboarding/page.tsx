@@ -7,14 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Copy, ArrowRight, Eye, EyeOff, Sparkles, Key, Zap } from "lucide-react";
-
-const providers = [
-  { value: "openai", label: "OpenAI", placeholder: "sk-proj-..." },
-  { value: "anthropic", label: "Anthropic", placeholder: "sk-ant-..." },
-  { value: "google", label: "Google AI", placeholder: "AIza..." },
-  { value: "openrouter", label: "OpenRouter", placeholder: "sk-or-..." },
-];
+import { Check, Copy, ArrowRight, Eye, EyeOff, Sparkles, Key, Zap, ExternalLink } from "lucide-react";
+import { PROVIDERS } from "@/lib/constants";
 
 const steps = [
   { id: 1, title: "Add Provider Key", description: "Connect your AI provider" },
@@ -144,8 +138,8 @@ export default function OnboardingPage() {
                     <SelectValue placeholder="Choose your AI provider" />
                   </SelectTrigger>
                   <SelectContent>
-                    {providers.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                    {PROVIDERS.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -156,7 +150,7 @@ export default function OnboardingPage() {
                 <div className="relative">
                   <Input
                     type={showKey ? "text" : "password"}
-                    placeholder={providers.find(p => p.value === provider)?.placeholder || "Enter your API key"}
+                    placeholder={PROVIDERS.find(p => p.id === provider)?.placeholder || "Enter your API key"}
                     value={providerKey}
                     onChange={(e) => { setProviderKey(e.target.value); setValidationError(""); }}
                     className="bg-muted/50 h-12 pr-10 font-mono"
@@ -171,6 +165,11 @@ export default function OnboardingPage() {
                     {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
                 </div>
+                {provider && (
+                  <p className="text-xs text-muted-foreground">
+                    {PROVIDERS.find(p => p.id === provider)?.formatHint}
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground">
                   Your key is encrypted and stored securely. We never see the plaintext.
                 </p>
@@ -196,12 +195,26 @@ export default function OnboardingPage() {
                 )}
               </Button>
               
-              <p className="text-center text-sm text-muted-foreground">
-                Don&apos;t have a key?{" "}
-                <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                  Get one from OpenAI
-                </a>
-              </p>
+              {/* Dynamic provider link */}
+              {(() => {
+                const selectedProvider = PROVIDERS.find(p => p.id === provider);
+                const displayName = selectedProvider?.name || "your provider";
+                const apiKeyUrl = selectedProvider?.apiKeyUrl || "https://platform.openai.com/api-keys";
+                return (
+                  <p className="text-center text-sm text-muted-foreground">
+                    Don&apos;t have a key?{" "}
+                    <a 
+                      href={apiKeyUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-primary hover:underline inline-flex items-center gap-1"
+                    >
+                      Get one from {displayName}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </p>
+                );
+              })()}
             </CardContent>
           </Card>
         )}

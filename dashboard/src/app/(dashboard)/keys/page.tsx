@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Copy, Trash2, Key, Check, Eye, EyeOff } from "lucide-react";
+import { Plus, Copy, Trash2, Key, Check, Eye, EyeOff, ExternalLink } from "lucide-react";
+import { PROVIDERS } from "@/lib/constants";
 
 // Mock data for MVP
 const mockMemoryKeys = [
@@ -21,13 +22,6 @@ const mockMemoryKeys = [
 const mockProviderKeys = [
   { id: "1", provider: "openai", keyHint: "sk-proj••••xxxx", createdAt: "2026-01-15", isDefault: true },
   { id: "2", provider: "anthropic", keyHint: "sk-ant-••••yyyy", createdAt: "2026-01-20", isDefault: false },
-];
-
-const providers = [
-  { value: "openai", label: "OpenAI", placeholder: "sk-proj-..." },
-  { value: "anthropic", label: "Anthropic", placeholder: "sk-ant-..." },
-  { value: "google", label: "Google AI", placeholder: "AIza..." },
-  { value: "openrouter", label: "OpenRouter", placeholder: "sk-or-..." },
 ];
 
 export default function KeysPage() {
@@ -66,7 +60,6 @@ export default function KeysPage() {
   };
   
   const addProviderKey = () => {
-    const provider = providers.find(p => p.value === newProvider);
     const newKey = {
       id: Date.now().toString(),
       provider: newProvider,
@@ -237,8 +230,8 @@ export default function KeysPage() {
                         <SelectValue placeholder="Select a provider" />
                       </SelectTrigger>
                       <SelectContent>
-                        {providers.map((p) => (
-                          <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                        {PROVIDERS.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -249,7 +242,7 @@ export default function KeysPage() {
                       <Input 
                         id="apiKey" 
                         type={showProviderKey ? "text" : "password"}
-                        placeholder={providers.find(p => p.value === newProvider)?.placeholder || "Enter your API key"}
+                        placeholder={PROVIDERS.find(p => p.id === newProvider)?.placeholder || "Enter your API key"}
                         value={newProviderKey}
                         onChange={(e) => setNewProviderKey(e.target.value)}
                         className="bg-muted/50 pr-10"
@@ -264,6 +257,21 @@ export default function KeysPage() {
                         {showProviderKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </Button>
                     </div>
+                    {newProvider && (
+                      <p className="text-xs text-muted-foreground">
+                        {PROVIDERS.find(p => p.id === newProvider)?.formatHint}
+                        {" · "}
+                        <a 
+                          href={PROVIDERS.find(p => p.id === newProvider)?.apiKeyUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-primary hover:underline inline-flex items-center gap-1"
+                        >
+                          Get a key
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </p>
+                    )}
                   </div>
                 </div>
                 <DialogFooter>
