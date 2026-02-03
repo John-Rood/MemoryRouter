@@ -1,0 +1,69 @@
+'use client'
+
+import { useState } from 'react'
+
+export function NewsletterForm() {
+  const [email, setEmail] = useState('')
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email || status === 'loading') return
+    
+    setStatus('loading')
+    
+    try {
+      const response = await fetch('https://app.memoryrouter.ai/api/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      
+      if (response.ok) {
+        setStatus('success')
+        setEmail('')
+      } else {
+        setStatus('error')
+      }
+    } catch {
+      setStatus('error')
+    }
+  }
+  
+  return (
+    <section id="newsletter" className="py-16 px-6">
+      <div className="max-w-2xl mx-auto text-center">
+        <h3 className="text-2xl font-bold mb-4">Stay Updated</h3>
+        <p className="text-gray-400 mb-6">
+          Get the latest on AI memory, new features, and tips for building smarter AI apps.
+        </p>
+        
+        <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 justify-center">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@company.com"
+            required
+            disabled={status === 'loading' || status === 'success'}
+            className="bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500/50 text-sm w-full sm:w-64 disabled:opacity-50"
+          />
+          <button
+            type="submit"
+            disabled={status === 'loading' || status === 'success'}
+            className="bg-white/10 hover:bg-white/20 border border-white/10 px-6 py-3 rounded-lg font-medium text-sm whitespace-nowrap transition disabled:opacity-50"
+          >
+            {status === 'loading' ? 'Subscribing...' : status === 'success' ? 'Subscribed!' : 'Subscribe'}
+          </button>
+        </form>
+        
+        {status === 'success' && (
+          <p className="text-green-400 text-sm mt-4">✓ You&apos;re subscribed! Check your email.</p>
+        )}
+        {status === 'error' && (
+          <p className="text-red-400 text-sm mt-4">Something went wrong. Try again?</p>
+        )}
+      </div>
+    </section>
+  )
+}
