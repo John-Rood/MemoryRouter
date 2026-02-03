@@ -1,7 +1,8 @@
 import Image from 'next/image'
+import Link from 'next/link'
 import { Calculator } from '@/components/Calculator'
 import { CodeSwitcher } from '@/components/CodeSwitcher'
-import { NewsletterForm } from '@/components/NewsletterForm'
+import { FooterNewsletter } from '@/components/FooterNewsletter'
 
 export default function Home() {
   return (
@@ -15,10 +16,10 @@ export default function Home() {
       {/* Nav */}
       <nav className="fixed w-full z-50 bg-[#09090b]/80 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition">
             <Image src="/logo.png" alt="MemoryRouter" width={32} height={32} className="rounded-lg" />
             <span className="text-xl font-bold">MemoryRouter</span>
-          </div>
+          </Link>
           <div className="hidden md:flex items-center gap-8">
             <a href="#calculator" className="text-gray-400 hover:text-white transition text-sm">
               Calculator
@@ -804,39 +805,56 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Newsletter Signup - Client Component */}
-      <NewsletterForm />
+      {/* Newsletter Signup + Footer */}
+      <footer className="border-t border-white/5">
+        {/* Newsletter Section */}
+        <section id="newsletter" className="py-16 px-6">
+          <div className="max-w-2xl mx-auto">
+            <div className="card-glass rounded-2xl p-8 border-white/5">
+              <div className="flex flex-col md:flex-row items-center gap-6">
+                <div className="flex-1 text-center md:text-left">
+                  <h3 className="text-xl font-bold mb-2">Stay in the loop</h3>
+                  <p className="text-gray-400 text-sm">
+                    Deep dives on AI memory, engineering insights, and product updates. No spam, unsubscribe anytime.
+                  </p>
+                </div>
+                <FooterNewsletter />
+              </div>
+            </div>
+          </div>
+        </section>
 
-      {/* Footer */}
-      <footer className="py-12 px-6 border-t border-white/5">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <Image src="/logo.png" alt="MemoryRouter" width={32} height={32} className="rounded-lg" />
-              <span className="text-lg font-bold">MemoryRouter</span>
+        {/* Footer Links */}
+        <div className="py-12 px-6">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition">
+                <Image src="/logo.png" alt="MemoryRouter" width={32} height={32} className="rounded-lg" />
+                <span className="text-lg font-bold">MemoryRouter</span>
+              </Link>
+              <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-sm text-gray-500">
+                <a href="/models" className="hover:text-white transition">
+                  Models
+                </a>
+                <a href="#" className="hover:text-white transition">
+                  Docs
+                </a>
+                <a href="#" className="hover:text-white transition">
+                  GitHub
+                </a>
+                <a href="#" className="hover:text-white transition">
+                  Twitter
+                </a>
+                <span className="text-gray-700">•</span>
+                <a href="/privacy" className="hover:text-white transition">
+                  Privacy
+                </a>
+                <a href="/terms" className="hover:text-white transition">
+                  Terms
+                </a>
+              </div>
+              <div className="text-sm text-gray-600">© 2026 MemoryRouter</div>
             </div>
-            <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-sm text-gray-500">
-              <a href="/models" className="hover:text-white transition">
-                Models
-              </a>
-              <a href="#" className="hover:text-white transition">
-                Docs
-              </a>
-              <a href="#" className="hover:text-white transition">
-                GitHub
-              </a>
-              <a href="#" className="hover:text-white transition">
-                Twitter
-              </a>
-              <span className="text-gray-700">•</span>
-              <a href="/privacy" className="hover:text-white transition">
-                Privacy
-              </a>
-              <a href="/terms" className="hover:text-white transition">
-                Terms
-              </a>
-            </div>
-            <div className="text-sm text-gray-600">© 2026 MemoryRouter</div>
           </div>
         </div>
       </footer>
