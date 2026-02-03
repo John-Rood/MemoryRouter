@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
-import { Toaster } from "sonner";
+import dynamic from "next/dynamic";
 import "./globals.css";
+
+// Lazy load toaster - not needed for initial render
+const Toaster = dynamic(() => import("sonner").then(mod => mod.Toaster), {
+  ssr: false,
+});
 
 const spaceGrotesk = Space_Grotesk({ 
   subsets: ["latin"],
