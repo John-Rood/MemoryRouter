@@ -107,6 +107,26 @@
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        
+        /* Provider selector */
+        .provider-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #9ca3af;
+        }
+        .provider-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+        .provider-btn-active {
+            background: rgba(57, 255, 20, 0.15) !important;
+            border-color: rgba(57, 255, 20, 0.5) !important;
+            color: #39ff14 !important;
+            box-shadow: 0 0 20px rgba(57, 255, 20, 0.2);
+        }
+        .code-fade {
+            transition: opacity 0.15s ease-out;
+        }
     </style>
 </head>
 <body class="text-white antialiased overflow-x-hidden">
@@ -600,7 +620,32 @@
             <div class="text-center mb-16">
                 <p class="text-pink-400 font-medium text-sm tracking-wide uppercase mb-3">Integration</p>
                 <h2 class="text-3xl md:text-5xl font-bold mb-4">Your Code. Now With Memory.</h2>
-                <p class="text-xl text-gray-400">Drop-in compatible with every OpenAI SDK.</p>
+                <p class="text-xl text-gray-400">Native SDK support for every major provider.</p>
+            </div>
+
+            <!-- Provider Selector -->
+            <div class="flex flex-wrap justify-center gap-2 mb-8">
+                <button onclick="setProvider('openai')" data-provider="openai" class="provider-btn provider-btn-active px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                    OpenAI
+                </button>
+                <button onclick="setProvider('anthropic')" data-provider="anthropic" class="provider-btn px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                    Anthropic
+                </button>
+                <button onclick="setProvider('google')" data-provider="google" class="provider-btn px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                    Google AI
+                </button>
+                <button onclick="setProvider('xai')" data-provider="xai" class="provider-btn px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                    xAI (Grok)
+                </button>
+                <button onclick="setProvider('deepseek')" data-provider="deepseek" class="provider-btn px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                    DeepSeek
+                </button>
+                <button onclick="setProvider('mistral')" data-provider="mistral" class="provider-btn px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                    Mistral
+                </button>
+                <button onclick="setProvider('cohere')" data-provider="cohere" class="provider-btn px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                    Cohere
+                </button>
             </div>
 
             <div class="grid lg:grid-cols-2 gap-6">
@@ -610,13 +655,13 @@
                         <span class="text-yellow-400 font-mono text-sm font-bold">Python</span>
                     </div>
                     <div class="p-5 text-sm overflow-x-auto">
-                        <pre><code><span class="text-gray-500"># pip install openai</span>
+                        <pre><code id="python-code"><span class="text-gray-500"># pip install openai</span>
 <span class="text-purple-400">from</span> openai <span class="text-purple-400">import</span> OpenAI
 
 <span class="text-gray-500"># Memory key = isolated context</span>
 client = OpenAI(
     base_url=<span class="text-green-400">"https://api.memoryrouter.ai/v1"</span>,
-    api_key=<span class="text-green-400">"mr-user-123-key"</span>
+    api_key=<span class="text-green-400">"mk_your-memory-key"</span>
 )
 
 <span class="text-gray-500"># That's it. AI now remembers this user.</span>
@@ -633,18 +678,18 @@ response = client.chat.completions.create(
                         <span class="text-blue-400 font-mono text-sm font-bold">TypeScript</span>
                     </div>
                     <div class="p-5 text-sm overflow-x-auto">
-                        <pre><code><span class="text-gray-500">// npm install openai</span>
+                        <pre><code id="typescript-code"><span class="text-gray-500">// npm install openai</span>
 <span class="text-purple-400">import</span> OpenAI <span class="text-purple-400">from</span> <span class="text-green-400">'openai'</span>;
 
 <span class="text-gray-500">// Each key = separate memory context</span>
 <span class="text-purple-400">const</span> client = <span class="text-purple-400">new</span> OpenAI({
   baseURL: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
-  apiKey: <span class="text-green-400">'mr-conversation-456'</span>
+  apiKey: <span class="text-green-400">'mk_your-memory-key'</span>
 });
 
 <span class="text-gray-500">// Same API. Memory handled automatically.</span>
 <span class="text-purple-400">const</span> response = <span class="text-purple-400">await</span> client.chat.completions.create({
-  model: <span class="text-green-400">'claude-3-5-sonnet-20241022'</span>,
+  model: <span class="text-green-400">'gpt-4o'</span>,
   messages: [{ role: <span class="text-green-400">'user'</span>, content: <span class="text-green-400">'...'</span> }]
 });</code></pre>
                     </div>
@@ -657,7 +702,7 @@ response = client.chat.completions.create(
                         <span class="text-gray-500 text-sm">— One memory per user</span>
                     </div>
                     <div class="p-5 text-sm overflow-x-auto">
-                        <pre><code><span class="text-gray-500">// SaaS pattern: each user gets isolated memory</span>
+                        <pre><code id="multitenant-code"><span class="text-gray-500">// SaaS pattern: each user gets isolated memory</span>
 <span class="text-purple-400">function</span> <span class="text-cyan-400">getClientForUser</span>(userId: <span class="text-yellow-400">string</span>) {
   <span class="text-purple-400">return new</span> OpenAI({
     baseURL: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
@@ -938,6 +983,225 @@ response = client.chat.completions.create(
 
         slider.addEventListener('input', updateCalculator);
         updateCalculator(); // Initial calculation
+    </script>
+
+    <!-- Provider Code Switcher -->
+    <script>
+        const providerExamples = {
+            openai: {
+                pythonInstall: '# pip install openai',
+                pythonImport: '<span class="text-purple-400">from</span> openai <span class="text-purple-400">import</span> OpenAI',
+                pythonSetup: `client = OpenAI(
+    base_url=<span class="text-green-400">"https://api.memoryrouter.ai/v1"</span>,
+    api_key=<span class="text-green-400">"mk_your-memory-key"</span>
+)`,
+                pythonCall: `response = client.chat.completions.create(
+    model=<span class="text-green-400">"gpt-4o"</span>,
+    messages=[{<span class="text-green-400">"role"</span>: <span class="text-green-400">"user"</span>, <span class="text-green-400">"content"</span>: <span class="text-green-400">"..."</span>}]
+)`,
+                tsInstall: '// npm install openai',
+                tsImport: `<span class="text-purple-400">import</span> OpenAI <span class="text-purple-400">from</span> <span class="text-green-400">'openai'</span>;`,
+                tsSetup: `<span class="text-purple-400">const</span> client = <span class="text-purple-400">new</span> OpenAI({
+  baseURL: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
+  apiKey: <span class="text-green-400">'mk_your-memory-key'</span>
+});`,
+                tsCall: `<span class="text-purple-400">const</span> response = <span class="text-purple-400">await</span> client.chat.completions.create({
+  model: <span class="text-green-400">'gpt-4o'</span>,
+  messages: [{ role: <span class="text-green-400">'user'</span>, content: <span class="text-green-400">'...'</span> }]
+});`,
+                mtClass: 'OpenAI',
+                isNative: true
+            },
+            anthropic: {
+                pythonInstall: '# pip install anthropic',
+                pythonImport: '<span class="text-purple-400">from</span> anthropic <span class="text-purple-400">import</span> Anthropic',
+                pythonSetup: `client = Anthropic(
+    base_url=<span class="text-green-400">"https://api.memoryrouter.ai/v1"</span>,
+    api_key=<span class="text-green-400">"mk_your-memory-key"</span>
+)`,
+                pythonCall: `response = client.messages.create(
+    model=<span class="text-green-400">"claude-sonnet-4-20250514"</span>,
+    max_tokens=<span class="text-cyan-400">1024</span>,
+    messages=[{<span class="text-green-400">"role"</span>: <span class="text-green-400">"user"</span>, <span class="text-green-400">"content"</span>: <span class="text-green-400">"..."</span>}]
+)`,
+                tsInstall: '// npm install @anthropic-ai/sdk',
+                tsImport: `<span class="text-purple-400">import</span> Anthropic <span class="text-purple-400">from</span> <span class="text-green-400">'@anthropic-ai/sdk'</span>;`,
+                tsSetup: `<span class="text-purple-400">const</span> client = <span class="text-purple-400">new</span> Anthropic({
+  baseURL: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
+  apiKey: <span class="text-green-400">'mk_your-memory-key'</span>
+});`,
+                tsCall: `<span class="text-purple-400">const</span> response = <span class="text-purple-400">await</span> client.messages.create({
+  model: <span class="text-green-400">'claude-sonnet-4-20250514'</span>,
+  max_tokens: <span class="text-cyan-400">1024</span>,
+  messages: [{ role: <span class="text-green-400">'user'</span>, content: <span class="text-green-400">'...'</span> }]
+});`,
+                mtClass: 'Anthropic',
+                isNative: true
+            },
+            google: {
+                pythonInstall: '# pip install google-generativeai',
+                pythonImport: '<span class="text-purple-400">import</span> google.generativeai <span class="text-purple-400">as</span> genai',
+                pythonSetup: `genai.configure(
+    api_key=<span class="text-green-400">"mk_your-memory-key"</span>,
+    transport=<span class="text-green-400">"rest"</span>,
+    client_options={<span class="text-green-400">"api_endpoint"</span>: <span class="text-green-400">"https://api.memoryrouter.ai"</span>}
+)`,
+                pythonCall: `model = genai.GenerativeModel(<span class="text-green-400">"gemini-1.5-pro"</span>)
+response = model.generate_content(<span class="text-green-400">"..."</span>)`,
+                tsInstall: '// npm install @google/generative-ai',
+                tsImport: `<span class="text-purple-400">import</span> { GoogleGenerativeAI } <span class="text-purple-400">from</span> <span class="text-green-400">'@google/generative-ai'</span>;`,
+                tsSetup: `<span class="text-purple-400">const</span> genAI = <span class="text-purple-400">new</span> GoogleGenerativeAI(<span class="text-green-400">'mk_your-memory-key'</span>, {
+  baseUrl: <span class="text-green-400">'https://api.memoryrouter.ai'</span>
+});
+<span class="text-purple-400">const</span> model = genAI.getGenerativeModel({ model: <span class="text-green-400">'gemini-1.5-pro'</span> });`,
+                tsCall: `<span class="text-purple-400">const</span> response = <span class="text-purple-400">await</span> model.generateContent(<span class="text-green-400">'...'</span>);`,
+                mtClass: 'GoogleGenerativeAI',
+                isNative: true
+            },
+            xai: {
+                pythonInstall: '# pip install openai  <span class="text-gray-600"># xAI uses OpenAI-compatible API</span>',
+                pythonImport: '<span class="text-purple-400">from</span> openai <span class="text-purple-400">import</span> OpenAI',
+                pythonSetup: `client = OpenAI(
+    base_url=<span class="text-green-400">"https://api.memoryrouter.ai/v1"</span>,
+    api_key=<span class="text-green-400">"mk_your-memory-key"</span>
+)`,
+                pythonCall: `response = client.chat.completions.create(
+    model=<span class="text-green-400">"grok-2"</span>,
+    messages=[{<span class="text-green-400">"role"</span>: <span class="text-green-400">"user"</span>, <span class="text-green-400">"content"</span>: <span class="text-green-400">"..."</span>}]
+)`,
+                tsInstall: '// npm install openai  <span class="text-gray-600">// xAI uses OpenAI-compatible API</span>',
+                tsImport: `<span class="text-purple-400">import</span> OpenAI <span class="text-purple-400">from</span> <span class="text-green-400">'openai'</span>;`,
+                tsSetup: `<span class="text-purple-400">const</span> client = <span class="text-purple-400">new</span> OpenAI({
+  baseURL: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
+  apiKey: <span class="text-green-400">'mk_your-memory-key'</span>
+});`,
+                tsCall: `<span class="text-purple-400">const</span> response = <span class="text-purple-400">await</span> client.chat.completions.create({
+  model: <span class="text-green-400">'grok-2'</span>,
+  messages: [{ role: <span class="text-green-400">'user'</span>, content: <span class="text-green-400">'...'</span> }]
+});`,
+                mtClass: 'OpenAI',
+                isNative: false
+            },
+            deepseek: {
+                pythonInstall: '# pip install openai  <span class="text-gray-600"># DeepSeek uses OpenAI-compatible API</span>',
+                pythonImport: '<span class="text-purple-400">from</span> openai <span class="text-purple-400">import</span> OpenAI',
+                pythonSetup: `client = OpenAI(
+    base_url=<span class="text-green-400">"https://api.memoryrouter.ai/v1"</span>,
+    api_key=<span class="text-green-400">"mk_your-memory-key"</span>
+)`,
+                pythonCall: `response = client.chat.completions.create(
+    model=<span class="text-green-400">"deepseek-chat"</span>,
+    messages=[{<span class="text-green-400">"role"</span>: <span class="text-green-400">"user"</span>, <span class="text-green-400">"content"</span>: <span class="text-green-400">"..."</span>}]
+)`,
+                tsInstall: '// npm install openai  <span class="text-gray-600">// DeepSeek uses OpenAI-compatible API</span>',
+                tsImport: `<span class="text-purple-400">import</span> OpenAI <span class="text-purple-400">from</span> <span class="text-green-400">'openai'</span>;`,
+                tsSetup: `<span class="text-purple-400">const</span> client = <span class="text-purple-400">new</span> OpenAI({
+  baseURL: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
+  apiKey: <span class="text-green-400">'mk_your-memory-key'</span>
+});`,
+                tsCall: `<span class="text-purple-400">const</span> response = <span class="text-purple-400">await</span> client.chat.completions.create({
+  model: <span class="text-green-400">'deepseek-chat'</span>,
+  messages: [{ role: <span class="text-green-400">'user'</span>, content: <span class="text-green-400">'...'</span> }]
+});`,
+                mtClass: 'OpenAI',
+                isNative: false
+            },
+            mistral: {
+                pythonInstall: '# pip install mistralai',
+                pythonImport: '<span class="text-purple-400">from</span> mistralai <span class="text-purple-400">import</span> Mistral',
+                pythonSetup: `client = Mistral(
+    server_url=<span class="text-green-400">"https://api.memoryrouter.ai/v1"</span>,
+    api_key=<span class="text-green-400">"mk_your-memory-key"</span>
+)`,
+                pythonCall: `response = client.chat.complete(
+    model=<span class="text-green-400">"mistral-large-latest"</span>,
+    messages=[{<span class="text-green-400">"role"</span>: <span class="text-green-400">"user"</span>, <span class="text-green-400">"content"</span>: <span class="text-green-400">"..."</span>}]
+)`,
+                tsInstall: '// npm install @mistralai/mistralai',
+                tsImport: `<span class="text-purple-400">import</span> { Mistral } <span class="text-purple-400">from</span> <span class="text-green-400">'@mistralai/mistralai'</span>;`,
+                tsSetup: `<span class="text-purple-400">const</span> client = <span class="text-purple-400">new</span> Mistral({
+  serverURL: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
+  apiKey: <span class="text-green-400">'mk_your-memory-key'</span>
+});`,
+                tsCall: `<span class="text-purple-400">const</span> response = <span class="text-purple-400">await</span> client.chat.complete({
+  model: <span class="text-green-400">'mistral-large-latest'</span>,
+  messages: [{ role: <span class="text-green-400">'user'</span>, content: <span class="text-green-400">'...'</span> }]
+});`,
+                mtClass: 'Mistral',
+                isNative: true
+            },
+            cohere: {
+                pythonInstall: '# pip install cohere',
+                pythonImport: '<span class="text-purple-400">import</span> cohere',
+                pythonSetup: `client = cohere.ClientV2(
+    base_url=<span class="text-green-400">"https://api.memoryrouter.ai/v1"</span>,
+    api_key=<span class="text-green-400">"mk_your-memory-key"</span>
+)`,
+                pythonCall: `response = client.chat(
+    model=<span class="text-green-400">"command-r-plus"</span>,
+    messages=[{<span class="text-green-400">"role"</span>: <span class="text-green-400">"user"</span>, <span class="text-green-400">"content"</span>: <span class="text-green-400">"..."</span>}]
+)`,
+                tsInstall: '// npm install cohere-ai',
+                tsImport: `<span class="text-purple-400">import</span> { CohereClientV2 } <span class="text-purple-400">from</span> <span class="text-green-400">'cohere-ai'</span>;`,
+                tsSetup: `<span class="text-purple-400">const</span> client = <span class="text-purple-400">new</span> CohereClientV2({
+  baseURL: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
+  token: <span class="text-green-400">'mk_your-memory-key'</span>
+});`,
+                tsCall: `<span class="text-purple-400">const</span> response = <span class="text-purple-400">await</span> client.chat({
+  model: <span class="text-green-400">'command-r-plus'</span>,
+  messages: [{ role: <span class="text-green-400">'user'</span>, content: <span class="text-green-400">'...'</span> }]
+});`,
+                mtClass: 'CohereClientV2',
+                isNative: true
+            }
+        };
+
+        function setProvider(providerId) {
+            const example = providerExamples[providerId];
+            if (!example) return;
+
+            // Update button states
+            document.querySelectorAll('.provider-btn').forEach(btn => {
+                btn.classList.remove('provider-btn-active');
+            });
+            document.querySelector(`[data-provider="${providerId}"]`).classList.add('provider-btn-active');
+
+            // Update Python code
+            const pythonCode = document.getElementById('python-code');
+            pythonCode.innerHTML = `<span class="text-gray-500">${example.pythonInstall}</span>
+${example.pythonImport}
+
+<span class="text-gray-500"># Memory key = isolated context</span>
+${example.pythonSetup}
+
+<span class="text-gray-500"># That's it. AI now remembers this user.</span>
+${example.pythonCall}`;
+
+            // Update TypeScript code
+            const tsCode = document.getElementById('typescript-code');
+            tsCode.innerHTML = `<span class="text-gray-500">${example.tsInstall}</span>
+${example.tsImport}
+
+<span class="text-gray-500">// Each key = separate memory context</span>
+${example.tsSetup}
+
+<span class="text-gray-500">// Same API. Memory handled automatically.</span>
+${example.tsCall}`;
+
+            // Update Multi-tenant code
+            const mtCode = document.getElementById('multitenant-code');
+            mtCode.innerHTML = `<span class="text-gray-500">// SaaS pattern: each user gets isolated memory</span>
+<span class="text-purple-400">function</span> <span class="text-cyan-400">getClientForUser</span>(userId: <span class="text-yellow-400">string</span>) {
+  <span class="text-purple-400">return new</span> ${example.mtClass}({
+    ${providerId === 'mistral' ? 'serverURL' : 'baseURL'}: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
+    ${providerId === 'cohere' ? 'token' : 'apiKey'}: userMemoryKeys[userId]  <span class="text-gray-500">// Per-user memory isolation</span>
+  });
+}
+
+<span class="text-gray-500">// User A: "I prefer dark mode and brief responses"</span>
+<span class="text-gray-500">// User B: "I like detailed explanations with examples"</span>
+<span class="text-gray-500">// Each gets a personalized AI - memories never leak between users</span>`;
+        }
     </script>
 </body>
 </html>
