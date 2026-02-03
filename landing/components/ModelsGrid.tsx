@@ -55,8 +55,8 @@ const providerLabels: Record<string, string> = {
   openai: 'OpenAI',
   anthropic: 'Anthropic',
   google: 'Google',
-  meta: 'Meta',
-  mistral: 'Mistral',
+  meta: 'Meta via OpenRouter',
+  mistral: 'Mistral via OpenRouter',
 }
 
 const badgeStyles: Record<string, string> = {
