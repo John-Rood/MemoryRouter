@@ -814,9 +814,9 @@ export default function Home() {
       <footer className="border-t border-white/5 bg-[#09090b]/50">
         <div className="max-w-6xl mx-auto px-6 py-16">
           {/* Main Footer Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-12 gap-8 lg:gap-8 mb-12">
-            {/* Brand + Newsletter - spans more columns on large screens */}
-            <div className="col-span-2 sm:col-span-3 lg:col-span-5">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
+            {/* Brand + Newsletter */}
+            <div className="lg:col-span-5">
               <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition mb-4">
                 <Image src="/logo.png" alt="MemoryRouter" width={32} height={32} className="rounded-lg" />
                 <span className="text-xl font-bold">MemoryRouter</span>
@@ -833,38 +833,41 @@ export default function Home() {
               <p className="text-gray-600 text-xs">No spam, unsubscribe anytime.</p>
             </div>
             
-            {/* Product Column */}
-            <div className="col-span-1 lg:col-span-2">
-              <h4 className="text-sm font-semibold text-white mb-4">Product</h4>
-              <ul className="space-y-3 text-sm">
-                <li><a href="#calculator" className="text-gray-400 hover:text-white transition">Calculator</a></li>
-                <li><a href="#how-it-works" className="text-gray-400 hover:text-white transition">How It Works</a></li>
-                <li><a href="#pricing" className="text-gray-400 hover:text-white transition">Pricing</a></li>
-                <li><a href="/models" className="text-gray-400 hover:text-white transition">Models</a></li>
-                <li><a href="#use-cases" className="text-gray-400 hover:text-white transition">Use Cases</a></li>
-              </ul>
-            </div>
-            
-            {/* Developers Column */}
-            <div className="col-span-1 lg:col-span-2">
-              <h4 className="text-sm font-semibold text-white mb-4">Developers</h4>
-              <ul className="space-y-3 text-sm">
-                <li><a href="https://docs.memoryrouter.ai" className="text-gray-400 hover:text-white transition">Documentation</a></li>
-                <li><a href="https://docs.memoryrouter.ai/api-reference" className="text-gray-400 hover:text-white transition">API Reference</a></li>
-                <li><a href="#faq" className="text-gray-400 hover:text-white transition">FAQ</a></li>
-                <li><a href="https://github.com/memoryrouter" className="text-gray-400 hover:text-white transition">GitHub</a></li>
-              </ul>
-            </div>
-            
-            {/* Company Column */}
-            <div className="col-span-1 lg:col-span-3">
-              <h4 className="text-sm font-semibold text-white mb-4">Company</h4>
-              <ul className="space-y-3 text-sm">
-                <li><a href="https://twitter.com/memoryrouter" className="text-gray-400 hover:text-white transition">Twitter</a></li>
-                <li><a href="mailto:hello@memoryrouter.ai" className="text-gray-400 hover:text-white transition">Contact</a></li>
-                <li><a href="/privacy" className="text-gray-400 hover:text-white transition">Privacy Policy</a></li>
-                <li><a href="/terms" className="text-gray-400 hover:text-white transition">Terms of Service</a></li>
-              </ul>
+            {/* Link Columns - flex row, centered on mobile */}
+            <div className="lg:col-span-7 flex flex-wrap justify-center lg:justify-end gap-12 lg:gap-16">
+              {/* Product Column */}
+              <div>
+                <h4 className="text-sm font-semibold text-white mb-4">Product</h4>
+                <ul className="space-y-3 text-sm">
+                  <li><a href="#calculator" className="text-gray-400 hover:text-white transition">Calculator</a></li>
+                  <li><a href="#how-it-works" className="text-gray-400 hover:text-white transition">How It Works</a></li>
+                  <li><a href="#pricing" className="text-gray-400 hover:text-white transition">Pricing</a></li>
+                  <li><a href="/models" className="text-gray-400 hover:text-white transition">Models</a></li>
+                  <li><a href="#use-cases" className="text-gray-400 hover:text-white transition">Use Cases</a></li>
+                </ul>
+              </div>
+              
+              {/* Developers Column */}
+              <div>
+                <h4 className="text-sm font-semibold text-white mb-4">Developers</h4>
+                <ul className="space-y-3 text-sm">
+                  <li><a href="https://docs.memoryrouter.ai" className="text-gray-400 hover:text-white transition">Documentation</a></li>
+                  <li><a href="https://docs.memoryrouter.ai/api-reference" className="text-gray-400 hover:text-white transition">API Reference</a></li>
+                  <li><a href="#faq" className="text-gray-400 hover:text-white transition">FAQ</a></li>
+                  <li><a href="https://github.com/memoryrouter" className="text-gray-400 hover:text-white transition">GitHub</a></li>
+                </ul>
+              </div>
+              
+              {/* Company Column */}
+              <div>
+                <h4 className="text-sm font-semibold text-white mb-4">Company</h4>
+                <ul className="space-y-3 text-sm">
+                  <li><a href="https://twitter.com/memoryrouter" className="text-gray-400 hover:text-white transition">Twitter</a></li>
+                  <li><a href="mailto:hello@memoryrouter.ai" className="text-gray-400 hover:text-white transition">Contact</a></li>
+                  <li><a href="/privacy" className="text-gray-400 hover:text-white transition">Privacy Policy</a></li>
+                  <li><a href="/terms" className="text-gray-400 hover:text-white transition">Terms of Service</a></li>
+                </ul>
+              </div>
             </div>
           </div>
           
