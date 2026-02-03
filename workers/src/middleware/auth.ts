@@ -7,6 +7,7 @@ import { Context, Next } from 'hono';
 
 /**
  * Memory key info (stored in KV)
+ * Provider keys are inlined to avoid a second KV lookup
  */
 export interface MemoryKeyInfo {
   key: string;              // 'mk_xxx'
@@ -15,6 +16,7 @@ export interface MemoryKeyInfo {
   isActive: boolean;
   createdAt: number;
   lastUsedAt?: number;
+  providerKeys?: ProviderKeys;  // Inlined for single-lookup auth
 }
 
 /**
@@ -219,10 +221,8 @@ export function authMiddleware(env: AuthEnv) {
       }, 401);
     }
     
-    // Parallel: validate key + prepare for provider keys lookup
-    const keyInfoPromise = validateMemoryKeyFast(memoryKey, env.METADATA_KV);
-    
-    const keyInfo = await keyInfoPromise;
+    // Single KV lookup for auth + provider keys (inlined)
+    const keyInfo = await validateMemoryKeyFast(memoryKey, env.METADATA_KV);
     if (!keyInfo) {
       return c.json({ 
         error: 'Invalid or inactive memory key',
@@ -230,8 +230,8 @@ export function authMiddleware(env: AuthEnv) {
       }, 401);
     }
     
-    // Now load provider keys (we need userId from keyInfo)
-    const providerKeys = await loadProviderKeys(keyInfo.userId, env.METADATA_KV);
+    // Use inlined provider keys if available, otherwise load separately (backwards compat)
+    const providerKeys = keyInfo.providerKeys || await loadProviderKeys(keyInfo.userId, env.METADATA_KV);
     
     // Defer lastUsedAt update — don't block the request
     c.executionCtx.waitUntil(
