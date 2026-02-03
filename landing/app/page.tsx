@@ -814,14 +814,14 @@ export default function Home() {
       <footer className="border-t border-white/5 bg-[#09090b]/50">
         <div className="max-w-6xl mx-auto px-6 py-16">
           {/* Main Footer Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
+          <div className="flex flex-col lg:flex-row lg:justify-between gap-12 mb-12">
             {/* Brand + Newsletter */}
-            <div className="lg:col-span-5">
+            <div className="lg:max-w-sm">
               <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition mb-4">
                 <Image src="/logo.png" alt="MemoryRouter" width={32} height={32} className="rounded-lg" />
                 <span className="text-xl font-bold">MemoryRouter</span>
               </Link>
-              <p className="text-gray-400 text-sm mb-6 max-w-xs">
+              <p className="text-gray-400 text-sm mb-6">
                 AI memory infrastructure. Same memory, any model. Stop paying for AI to forget.
               </p>
               
@@ -833,8 +833,8 @@ export default function Home() {
               <p className="text-gray-600 text-xs">No spam, unsubscribe anytime.</p>
             </div>
             
-            {/* Link Columns - flex row, centered on mobile */}
-            <div className="lg:col-span-7 flex flex-wrap justify-center lg:justify-end gap-12 lg:gap-16">
+            {/* Link Columns - grid that flows naturally */}
+            <div className="grid grid-cols-3 gap-8 sm:gap-12">
               {/* Product Column */}
               <div>
                 <h4 className="text-sm font-semibold text-white mb-4">Product</h4>
@@ -851,8 +851,8 @@ export default function Home() {
               <div>
                 <h4 className="text-sm font-semibold text-white mb-4">Developers</h4>
                 <ul className="space-y-3 text-sm">
-                  <li><a href="https://docs.memoryrouter.ai" className="text-gray-400 hover:text-white transition">Documentation</a></li>
-                  <li><a href="https://docs.memoryrouter.ai/api-reference" className="text-gray-400 hover:text-white transition">API Reference</a></li>
+                  <li><a href="https://docs.memoryrouter.ai" className="text-gray-400 hover:text-white transition">Docs</a></li>
+                  <li><a href="https://docs.memoryrouter.ai/api-reference" className="text-gray-400 hover:text-white transition">API</a></li>
                   <li><a href="#faq" className="text-gray-400 hover:text-white transition">FAQ</a></li>
                   <li><a href="https://github.com/memoryrouter" className="text-gray-400 hover:text-white transition">GitHub</a></li>
                 </ul>
@@ -864,8 +864,8 @@ export default function Home() {
                 <ul className="space-y-3 text-sm">
                   <li><a href="https://twitter.com/memoryrouter" className="text-gray-400 hover:text-white transition">Twitter</a></li>
                   <li><a href="mailto:hello@memoryrouter.ai" className="text-gray-400 hover:text-white transition">Contact</a></li>
-                  <li><a href="/privacy" className="text-gray-400 hover:text-white transition">Privacy Policy</a></li>
-                  <li><a href="/terms" className="text-gray-400 hover:text-white transition">Terms of Service</a></li>
+                  <li><a href="/privacy" className="text-gray-400 hover:text-white transition">Privacy</a></li>
+                  <li><a href="/terms" className="text-gray-400 hover:text-white transition">Terms</a></li>
                 </ul>
               </div>
             </div>
