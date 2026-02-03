@@ -84,26 +84,50 @@ export default function OnboardingPage() {
     
     try {
       // Validate the API key against the provider
-      const response = await fetch("/api/keys/validate", {
+      const validateResponse = await fetch("/api/keys/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider, apiKey: providerKey }),
       });
       
-      const result = await response.json();
+      const validateResult = await validateResponse.json();
       
-      if (!result.valid) {
-        setValidationError(result.error || "Invalid API key. Please check and try again.");
+      if (!validateResult.valid) {
+        setValidationError(validateResult.error || "Invalid API key. Please check and try again.");
         setIsLoading(false);
         return;
       }
       
-      // Key is valid - generate a memory key
-      // Generate a longer, secure key (48 chars after prefix)
-      const randomBytes = new Uint8Array(36);
-      crypto.getRandomValues(randomBytes);
-      const newMemoryKey = `mk_${Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('')}`;
-      setMemoryKey(newMemoryKey);
+      // Key is valid - save the provider key
+      const saveProviderResponse = await fetch("/api/keys/provider", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, apiKey: providerKey }),
+      });
+      
+      if (!saveProviderResponse.ok) {
+        const error = await saveProviderResponse.json();
+        setValidationError(error.error || "Failed to save provider key.");
+        setIsLoading(false);
+        return;
+      }
+      
+      // Create a memory key via the backend
+      const memoryKeyResponse = await fetch("/api/keys/memory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Default" }),
+      });
+      
+      if (!memoryKeyResponse.ok) {
+        const error = await memoryKeyResponse.json();
+        setValidationError(error.error || "Failed to create memory key.");
+        setIsLoading(false);
+        return;
+      }
+      
+      const memoryKeyResult = await memoryKeyResponse.json();
+      setMemoryKey(memoryKeyResult.key.key);
       setSelectedProvider(provider); // Store provider for step 2 code example
       setIsLoading(false);
       setCurrentStep(2);
