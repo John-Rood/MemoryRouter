@@ -13,6 +13,8 @@
   "rewrites": [
     { "source": "/test", "destination": "/test.html" },
     { "source": "/debug", "destination": "/debug.html" },
-    { "source": "/models", "destination": "/models.html" }
+    { "source": "/models", "destination": "/models.html" },
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/terms", "destination": "/terms.html" }
   ]
 }
