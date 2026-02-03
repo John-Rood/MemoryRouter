@@ -1,137 +1,282 @@
 "use client";
 
 import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { CreditCard, Plus, Trash2, ArrowUpRight, ArrowDownRight } from "lucide-react";
-import { formatTokens } from "@/lib/constants";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { CreditCard, Plus, TrendingUp, Wallet, History, Sparkles } from "lucide-react";
 
+// Mock data
 const mockBilling = {
-  creditBalance: 15.42,
-  creditTokens: 15_420_000,
-  autoReup: { amount: 20, trigger: 5 },
-  paymentMethods: [{ id: "pm_1", brand: "visa", last4: "4242", expMonth: 12, expYear: 2028, isDefault: true }],
-  transactions: [
-    { id: "tx_1", date: "Jan 26, 2026", description: "Auto-reup", amount: 20.0, balance: 35.42, type: "credit" as const },
-    { id: "tx_2", date: "Jan 24, 2026", description: "Auto-reup", amount: 20.0, balance: 15.42, type: "credit" as const },
-  ],
-  usage: { tokensStored: 36_200_000, storedCost: 36.2, tokensRetrieved: 142_800_000, savedUsd: 428 },
+  creditBalanceCents: 2450,
+  freeTierTokensUsed: 12500000,
+  freeTierLimit: 50000000,
+  autoReupEnabled: true,
+  autoReupAmountCents: 2000,
+  autoReupTriggerCents: 500,
+  hasPaymentMethod: true,
+  paymentMethod: { brand: "visa", last4: "4242", expMonth: 12, expYear: 2027 },
 };
 
+const mockTransactions = [
+  { id: "1", type: "credit", amountCents: 2000, description: "Added $20.00 credits", createdAt: "2026-02-01 14:32", balanceAfterCents: 2450 },
+  { id: "2", type: "debit", amountCents: -50, description: "Memory usage - 100K tokens", createdAt: "2026-02-01 12:15", balanceAfterCents: 450 },
+  { id: "3", type: "credit", amountCents: 500, description: "Auto-reup $5.00", createdAt: "2026-01-31 09:00", balanceAfterCents: 500 },
+  { id: "4", type: "free_tier", amountCents: 0, description: "Free tier activated - 50M tokens", createdAt: "2026-01-15 10:00", balanceAfterCents: 0 },
+];
+
+const presetAmounts = [5, 10, 20, 50, 100];
+
 export default function BillingPage() {
-  const [addingFunds, setAddingFunds] = useState(false);
-
-  const handleAddFunds = async (amount: number) => {
-    setAddingFunds(true);
-    console.log("Add funds:", amount);
-    setTimeout(() => setAddingFunds(false), 1000);
+  const [billing, setBilling] = useState(mockBilling);
+  const [isAddingFunds, setIsAddingFunds] = useState(false);
+  const [selectedAmount, setSelectedAmount] = useState(20);
+  const [customAmount, setCustomAmount] = useState("");
+  
+  const balanceDollars = (billing.creditBalanceCents / 100).toFixed(2);
+  const freeTierPercent = Math.min(100, (billing.freeTierTokensUsed / billing.freeTierLimit) * 100);
+  const freeTierRemaining = billing.freeTierLimit - billing.freeTierTokensUsed;
+  
+  const handleAddFunds = () => {
+    const amount = customAmount ? parseFloat(customAmount) : selectedAmount;
+    // In production, this would create a Stripe checkout session
+    alert(`Would add $${amount.toFixed(2)} via Stripe`);
+    setIsAddingFunds(false);
   };
-
+  
+  const toggleAutoReup = () => {
+    setBilling({ ...billing, autoReupEnabled: !billing.autoReupEnabled });
+  };
+  
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Billing</h1>
-        <p className="text-muted-foreground">Manage credits, payment methods, and view history.</p>
+        <h1 className="text-3xl font-bold gradient-text">Billing</h1>
+        <p className="text-muted-foreground mt-1">
+          Manage your credits, payment methods, and billing settings
+        </p>
       </div>
-
-      <Card>
-        <CardHeader><CardTitle className="text-base">Credit Balance</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div className="text-center py-4">
-            <p className="text-4xl font-bold">${mockBilling.creditBalance.toFixed(2)}</p>
-            <p className="text-sm text-muted-foreground mt-1">{formatTokens(mockBilling.creditTokens)} tokens</p>
-            <p className="text-xs text-muted-foreground mt-2">Auto-reup: ${mockBilling.autoReup.amount} when balance &lt; ${mockBilling.autoReup.trigger}</p>
-          </div>
-          <div className="flex flex-wrap justify-center gap-2">
-            {[20, 50, 100].map((amount) => (
-              <Button key={amount} variant="outline" onClick={() => handleAddFunds(amount)} disabled={addingFunds}>
-                <Plus className="mr-1 h-3 w-3" />Add ${amount}
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle className="text-base">Payment Method</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          {mockBilling.paymentMethods.map((pm) => (
-            <div key={pm.id} className="flex items-center justify-between rounded-md border px-4 py-3">
-              <div className="flex items-center gap-3">
-                <CreditCard className="h-8 w-8 text-muted-foreground" />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm uppercase">{pm.brand}</span>
-                    <span className="text-sm text-muted-foreground">**** {pm.last4}</span>
-                    {pm.isDefault && <Badge variant="secondary" className="text-xs">DEFAULT</Badge>}
-                  </div>
-                  <p className="text-xs text-muted-foreground">Expires {pm.expMonth}/{pm.expYear}</p>
-                </div>
-              </div>
-              <Button variant="ghost" size="sm" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+      
+      {/* Balance Cards */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Credit Balance */}
+        <Card className="glass-card border-primary/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Wallet className="h-4 w-4" />
+              Credit Balance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-baseline gap-2">
+              <span className="text-4xl font-bold money-gradient">${balanceDollars}</span>
             </div>
-          ))}
-          <Button variant="outline" size="sm"><Plus className="mr-1 h-3 w-3" />Add Payment Method</Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle className="text-base">Transaction History</CardTitle></CardHeader>
-        <CardContent>
-          <div className="space-y-0">
-            {mockBilling.transactions.map((tx, i) => (
-              <div key={tx.id}>
-                <div className="flex items-center justify-between py-3">
-                  <div className="flex items-center gap-3">
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-full ${tx.type === "credit" ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"}`}>
-                      {tx.type === "credit" ? <ArrowDownRight className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{tx.description}</p>
-                      <p className="text-xs text-muted-foreground">{tx.date}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-sm font-medium ${tx.type === "credit" ? "text-green-500" : "text-red-500"}`}>
-                      {tx.type === "credit" ? "+" : "-"}${tx.amount.toFixed(2)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">${tx.balance.toFixed(2)}</p>
-                  </div>
-                </div>
-                {i < mockBilling.transactions.length - 1 && <Separator />}
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Usage Summary</CardTitle>
-          <CardDescription>This month</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Tokens stored</span>
-            <div className="text-right">
-              <span>{formatTokens(mockBilling.usage.tokensStored)}</span>
-              <span className="text-muted-foreground ml-2">${mockBilling.usage.storedCost.toFixed(2)}</span>
-            </div>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Tokens retrieved</span>
-            <div className="text-right">
-              <span>{formatTokens(mockBilling.usage.tokensRetrieved)}</span>
-              <Badge variant="secondary" className="ml-2 text-xs">FREE</Badge>
-            </div>
-          </div>
-          <Separator />
-          <div className="flex items-start gap-2 rounded-md bg-green-500/10 px-4 py-3">
-            <p className="text-sm font-medium text-green-500">
-              Memory saved you an estimated ${mockBilling.usage.savedUsd} in inference costs this month.
+            <p className="text-sm text-muted-foreground mt-2">
+              Available for memory operations
             </p>
+            <Dialog open={isAddingFunds} onOpenChange={setIsAddingFunds}>
+              <DialogTrigger asChild>
+                <Button className="btn-neon mt-4 w-full">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Funds
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="glass-card">
+                <DialogHeader>
+                  <DialogTitle>Add Funds</DialogTitle>
+                  <DialogDescription>
+                    Add credits to your account. All funds are non-refundable.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="grid grid-cols-5 gap-2">
+                    {presetAmounts.map((amount) => (
+                      <Button
+                        key={amount}
+                        variant={selectedAmount === amount && !customAmount ? "default" : "outline"}
+                        className={selectedAmount === amount && !customAmount ? "btn-neon" : ""}
+                        onClick={() => {
+                          setSelectedAmount(amount);
+                          setCustomAmount("");
+                        }}
+                      >
+                        ${amount}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="custom">Custom Amount</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                      <Input
+                        id="custom"
+                        type="number"
+                        min="5"
+                        max="10000"
+                        placeholder="Enter amount"
+                        className="pl-7 bg-muted/50"
+                        value={customAmount}
+                        onChange={(e) => setCustomAmount(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Total: <span className="font-medium text-foreground">${customAmount || selectedAmount}</span>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="ghost" onClick={() => setIsAddingFunds(false)}>Cancel</Button>
+                  <Button className="btn-neon" onClick={handleAddFunds}>
+                    Pay ${customAmount || selectedAmount}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </CardContent>
+        </Card>
+        
+        {/* Free Tier */}
+        <Card className="glass-card border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-neon-purple" />
+              Free Tier
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-baseline gap-2">
+              <span className="text-4xl font-bold">{(freeTierRemaining / 1000000).toFixed(1)}M</span>
+              <span className="text-muted-foreground">tokens remaining</span>
+            </div>
+            <div className="mt-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Used</span>
+                <span>{(billing.freeTierTokensUsed / 1000000).toFixed(1)}M / 50M</span>
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-neon rounded-full transition-all" 
+                  style={{ width: `${freeTierPercent}%` }}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      
+      {/* Auto-Reup Settings */}
+      <Card className="glass-card border-border/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            Auto-Reup
+          </CardTitle>
+          <CardDescription>
+            Automatically add funds when your balance drops below a threshold
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Enable Auto-Reup</Label>
+              <p className="text-sm text-muted-foreground">
+                Never run out of credits unexpectedly
+              </p>
+            </div>
+            <Switch 
+              checked={billing.autoReupEnabled} 
+              onCheckedChange={toggleAutoReup}
+            />
+          </div>
+          
+          {billing.autoReupEnabled && (
+            <div className="grid gap-4 md:grid-cols-2 pt-4 border-t border-border/30">
+              <div className="space-y-2">
+                <Label>Reup Amount</Label>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-bold">${(billing.autoReupAmountCents / 100).toFixed(0)}</span>
+                  <span className="text-muted-foreground">per charge</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Trigger Threshold</Label>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-bold">${(billing.autoReupTriggerCents / 100).toFixed(2)}</span>
+                  <span className="text-muted-foreground">balance trigger</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      
+      {/* Payment Method */}
+      <Card className="glass-card border-border/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5" />
+            Payment Method
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {billing.hasPaymentMethod ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-8 bg-muted rounded flex items-center justify-center">
+                  <span className="text-xs font-bold uppercase">{billing.paymentMethod.brand}</span>
+                </div>
+                <div>
+                  <p className="font-medium">•••• {billing.paymentMethod.last4}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Expires {billing.paymentMethod.expMonth}/{billing.paymentMethod.expYear}
+                  </p>
+                </div>
+              </div>
+              <Button variant="outline">Update</Button>
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-muted-foreground mb-4">No payment method on file</p>
+              <Button className="btn-neon">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Payment Method
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      
+      {/* Transaction History */}
+      <Card className="glass-card border-border/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="h-5 w-5" />
+            Transaction History
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {mockTransactions.map((tx) => (
+              <div key={tx.id} className="flex items-center justify-between py-3 border-b border-border/30 last:border-0">
+                <div>
+                  <p className="font-medium">{tx.description}</p>
+                  <p className="text-sm text-muted-foreground">{tx.createdAt}</p>
+                </div>
+                <div className="text-right">
+                  <p className={`font-mono font-medium ${tx.amountCents >= 0 ? 'text-neon-green' : 'text-destructive'}`}>
+                    {tx.amountCents >= 0 ? '+' : ''}${(tx.amountCents / 100).toFixed(2)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Balance: ${(tx.balanceAfterCents / 100).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>

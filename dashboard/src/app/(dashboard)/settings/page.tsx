@@ -1,149 +1,186 @@
 "use client";
 
 import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { AlertCircle } from "lucide-react";
-import { PRICING, REUP_AMOUNTS, REUP_TRIGGERS, MONTHLY_CAPS } from "@/lib/constants";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { User, Bell, Shield, Trash2 } from "lucide-react";
 
 export default function SettingsPage() {
-  const [autoReup, setAutoReup] = useState(true);
-  const [reupAmount, setReupAmount] = useState(PRICING.DEFAULT_REUP_AMOUNT.toString());
-  const [customReup, setCustomReup] = useState("");
-  const [triggerAmount, setTriggerAmount] = useState(PRICING.DEFAULT_REUP_TRIGGER.toString());
-  const [customTrigger, setCustomTrigger] = useState("");
-  const [monthlyCap, setMonthlyCap] = useState("none");
-  const [customCap, setCustomCap] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    setSaving(true);
-    console.log("Save settings");
-    setTimeout(() => setSaving(false), 1000);
+  const [name, setName] = useState("Demo User");
+  const [email, setEmail] = useState("demo@memoryrouter.ai");
+  const [retentionDays, setRetentionDays] = useState("90");
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [lowBalanceAlert, setLowBalanceAlert] = useState(true);
+  const [usageReports, setUsageReports] = useState(false);
+  
+  const handleSaveProfile = () => {
+    // In production, this would update the user via API
+    alert("Profile saved!");
   };
-
+  
+  const handleDeleteAccount = () => {
+    if (confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
+      alert("Account deletion requested");
+    }
+  };
+  
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">Configure auto-reup and account preferences.</p>
+        <h1 className="text-3xl font-bold gradient-text">Settings</h1>
+        <p className="text-muted-foreground mt-1">
+          Manage your account and preferences
+        </p>
       </div>
-
-      <Card>
+      
+      {/* Profile Settings */}
+      <Card className="glass-card border-border/50">
         <CardHeader>
-          <CardTitle className="text-base">Auto-Reup</CardTitle>
-          <CardDescription>Automatically add credits when your balance runs low.</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Profile
+          </CardTitle>
+          <CardDescription>Your account information</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="name">Display Name</Label>
+              <Input 
+                id="name" 
+                value={name} 
+                onChange={(e) => setName(e.target.value)}
+                className="bg-muted/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input 
+                id="email" 
+                type="email" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)}
+                className="bg-muted/50"
+                disabled
+              />
+              <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+            </div>
+          </div>
+          <Button onClick={handleSaveProfile}>Save Changes</Button>
+        </CardContent>
+      </Card>
+      
+      {/* Memory Settings */}
+      <Card className="glass-card border-border/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Memory Settings
+          </CardTitle>
+          <CardDescription>Configure default memory behavior</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="retention">Default Retention Period</Label>
+            <Select value={retentionDays} onValueChange={setRetentionDays}>
+              <SelectTrigger className="w-[200px] bg-muted/50">
+                <SelectValue placeholder="Select retention" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="30">30 days</SelectItem>
+                <SelectItem value="60">60 days</SelectItem>
+                <SelectItem value="90">90 days</SelectItem>
+                <SelectItem value="180">180 days</SelectItem>
+                <SelectItem value="365">365 days</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              How long to retain memories before automatic cleanup
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* Notification Settings */}
+      <Card className="glass-card border-border/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5" />
+            Notifications
+          </CardTitle>
+          <CardDescription>Choose what alerts you receive</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex items-center justify-between">
-            <Label htmlFor="auto-reup" className="text-sm font-medium">Auto-reup enabled</Label>
-            <Switch id="auto-reup" checked={autoReup} onCheckedChange={setAutoReup} />
+            <div className="space-y-0.5">
+              <Label>Email Notifications</Label>
+              <p className="text-sm text-muted-foreground">
+                Receive important account updates via email
+              </p>
+            </div>
+            <Switch 
+              checked={emailNotifications} 
+              onCheckedChange={setEmailNotifications}
+            />
           </div>
-
-          {autoReup && (
-            <>
-              <Separator />
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">Reup Amount</Label>
-                <RadioGroup value={reupAmount} onValueChange={setReupAmount} className="flex flex-wrap gap-2">
-                  {REUP_AMOUNTS.map((amount) => (
-                    <div key={amount} className="flex items-center">
-                      <RadioGroupItem value={amount.toString()} id={`reup-${amount}`} className="peer sr-only" />
-                      <Label htmlFor={`reup-${amount}`} className="flex cursor-pointer items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 hover:bg-accent transition-colors">
-                        ${amount}
-                      </Label>
-                    </div>
-                  ))}
-                  <div className="flex items-center">
-                    <RadioGroupItem value="custom" id="reup-custom" className="peer sr-only" />
-                    <Label htmlFor="reup-custom" className="flex cursor-pointer items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 hover:bg-accent transition-colors">Custom</Label>
-                  </div>
-                </RadioGroup>
-                {reupAmount === "custom" && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">$</span>
-                    <Input type="number" min={PRICING.MIN_REUP_AMOUNT} value={customReup} onChange={(e) => setCustomReup(e.target.value)} className="w-32" />
-                  </div>
-                )}
-              </div>
-
-              <Separator />
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">When to Reup</Label>
-                <RadioGroup value={triggerAmount} onValueChange={setTriggerAmount} className="flex flex-wrap gap-2">
-                  {REUP_TRIGGERS.map((amount) => (
-                    <div key={amount} className="flex items-center">
-                      <RadioGroupItem value={amount.toString()} id={`trigger-${amount}`} className="peer sr-only" />
-                      <Label htmlFor={`trigger-${amount}`} className="flex cursor-pointer items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 hover:bg-accent transition-colors">${amount}</Label>
-                    </div>
-                  ))}
-                  <div className="flex items-center">
-                    <RadioGroupItem value="custom" id="trigger-custom" className="peer sr-only" />
-                    <Label htmlFor="trigger-custom" className="flex cursor-pointer items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 hover:bg-accent transition-colors">Custom</Label>
-                  </div>
-                </RadioGroup>
-                {triggerAmount === "custom" && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">$</span>
-                    <Input type="number" min={1} value={customTrigger} onChange={(e) => setCustomTrigger(e.target.value)} className="w-32" />
-                  </div>
-                )}
-              </div>
-
-              <Separator />
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">Monthly Spending Cap</Label>
-                <RadioGroup value={monthlyCap} onValueChange={setMonthlyCap} className="flex flex-wrap gap-2">
-                  <div className="flex items-center">
-                    <RadioGroupItem value="none" id="cap-none" className="peer sr-only" />
-                    <Label htmlFor="cap-none" className="flex cursor-pointer items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 hover:bg-accent transition-colors">No limit</Label>
-                  </div>
-                  {MONTHLY_CAPS.map((amount) => (
-                    <div key={amount} className="flex items-center">
-                      <RadioGroupItem value={amount.toString()} id={`cap-${amount}`} className="peer sr-only" />
-                      <Label htmlFor={`cap-${amount}`} className="flex cursor-pointer items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 hover:bg-accent transition-colors">${amount}</Label>
-                    </div>
-                  ))}
-                  <div className="flex items-center">
-                    <RadioGroupItem value="custom" id="cap-custom" className="peer sr-only" />
-                    <Label htmlFor="cap-custom" className="flex cursor-pointer items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 hover:bg-accent transition-colors">Custom</Label>
-                  </div>
-                </RadioGroup>
-                {monthlyCap === "custom" && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">$</span>
-                    <Input type="number" min={10} value={customCap} onChange={(e) => setCustomCap(e.target.value)} className="w-32" />
-                  </div>
-                )}
-                <div className="flex items-start gap-2 rounded-md bg-muted px-3 py-2">
-                  <AlertCircle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                  <p className="text-xs text-muted-foreground">When cap is reached, API requests will return 402.</p>
-                </div>
-              </div>
-            </>
-          )}
-
-          <Button onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save Settings"}</Button>
+          
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Low Balance Alerts</Label>
+              <p className="text-sm text-muted-foreground">
+                Get notified when your credit balance is low
+              </p>
+            </div>
+            <Switch 
+              checked={lowBalanceAlert} 
+              onCheckedChange={setLowBalanceAlert}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Weekly Usage Reports</Label>
+              <p className="text-sm text-muted-foreground">
+                Receive a summary of your usage each week
+              </p>
+            </div>
+            <Switch 
+              checked={usageReports} 
+              onCheckedChange={setUsageReports}
+            />
+          </div>
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader><CardTitle className="text-base">Account</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
+      
+      {/* Danger Zone */}
+      <Card className="glass-card border-destructive/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <Trash2 className="h-5 w-5" />
+            Danger Zone
+          </CardTitle>
+          <CardDescription>Irreversible actions</CardDescription>
+        </CardHeader>
+        <CardContent>
           <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-sm font-medium">Email</Label>
-              <p className="text-sm text-muted-foreground">john@example.com</p>
+            <div className="space-y-0.5">
+              <p className="font-medium">Delete Account</p>
+              <p className="text-sm text-muted-foreground">
+                Permanently delete your account and all associated data
+              </p>
             </div>
-            <Button variant="outline" size="sm">Change</Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteAccount}
+            >
+              Delete Account
+            </Button>
           </div>
-          <Separator />
-          <Button variant="destructive" size="sm">Delete Account</Button>
         </CardContent>
       </Card>
     </div>

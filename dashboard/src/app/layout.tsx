@@ -1,16 +1,47 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
 
-const geistSans = localFont({ src: "./fonts/GeistVF.woff", variable: "--font-geist-sans", weight: "100 900" });
-const geistMono = localFont({ src: "./fonts/GeistMonoVF.woff", variable: "--font-geist-mono", weight: "100 900" });
+const spaceGrotesk = Space_Grotesk({ 
+  subsets: ["latin"],
+  variable: "--font-sans",
+});
 
-export const metadata: Metadata = { title: "MemoryRouter Dashboard", description: "Give your AI a photographic memory" };
+const jetbrainsMono = JetBrains_Mono({ 
+  subsets: ["latin"],
+  variable: "--font-mono",
+});
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export const metadata: Metadata = {
+  title: "MemoryRouter Dashboard",
+  description: "Manage your AI memory keys, billing, and usage",
+  icons: {
+    icon: "/favicon.ico",
+  },
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>{children}</body>
+      <body className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
+        {children}
+        <Toaster 
+          position="bottom-right" 
+          theme="dark"
+          toastOptions={{
+            style: {
+              background: 'hsl(240 6% 6%)',
+              border: '1px solid rgba(255, 255, 255, 0.05)',
+              color: 'white',
+            },
+          }}
+        />
+      </body>
     </html>
   );
 }
