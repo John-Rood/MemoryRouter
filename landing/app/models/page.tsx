@@ -61,7 +61,7 @@ export default function ModelsPage() {
         <div className="max-w-5xl mx-auto text-center relative">
           {/* Badge */}
           <div className="inline-flex items-center gap-2 bg-cyan-500/10 border border-cyan-500/20 rounded-full px-4 py-2 mb-8">
-            <span className="text-cyan-400 text-sm font-medium">200+ models via OpenRouter</span>
+            <span className="text-cyan-400 text-sm font-medium">200+ models supported</span>
           </div>
 
           <h1 className="text-5xl md:text-7xl font-bold mb-8 leading-[1.05] tracking-tight">

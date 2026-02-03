@@ -9,7 +9,6 @@ const providers = [
   { id: 'google', label: 'Google' },
   { id: 'meta', label: 'Meta/Llama' },
   { id: 'mistral', label: 'Mistral' },
-  { id: 'deepseek', label: 'DeepSeek' },
 ]
 
 const models = [
@@ -42,10 +41,6 @@ const models = [
   { provider: 'mistral', name: 'Ministral 3 14B', context: '128K', badges: [], desc: 'Best-in-class edge model. Vision + reasoning in 14B params. Perfect for local deployment.', tags: ['Vision', 'Edge', 'Open Weights'] },
   { provider: 'mistral', name: 'Mistral Small 3.2', context: '128K', badges: [], desc: '24B enterprise-ready compact model. Vision capabilities with Apache 2.0 license.', tags: ['Vision', 'Fast', 'Open Weights'] },
   
-  // DeepSeek
-  { provider: 'deepseek', name: 'DeepSeek V3.2', context: '164K', badges: ['Flagship'], desc: '685B sparse attention model. GPT-5/Gemini 3 level performance. Agentic tools built-in.', tags: ['Sparse Attention', 'Agentic', 'Open Weights'] },
-  { provider: 'deepseek', name: 'DeepSeek R1-0528', context: '164K', badges: ['Reasoning'], desc: 'Latest reasoning model. Enhanced math, coding, and reduced hallucination. o1 rival at 90% less.', tags: ['Chain-of-Thought', 'STEM', 'Open Weights'] },
-  { provider: 'deepseek', name: 'DeepSeek V3.1', context: '128K', badges: [], desc: '671B hybrid model. Think/Non-Think modes. Strong tool calling and function use.', tags: ['Hybrid Reasoning', 'Tool Calling', 'MoE'] },
 ]
 
 const providerStyles: Record<string, { border: string; badge: string; context: string }> = {
@@ -54,16 +49,14 @@ const providerStyles: Record<string, { border: string; badge: string; context: s
   google: { border: 'border-[#4285f4]/30 hover:border-[#4285f4]/60 hover:shadow-[0_0_30px_rgba(66,133,244,0.15)]', badge: 'bg-[#4285f4]/15 text-[#4285f4]', context: 'text-blue-400' },
   meta: { border: 'border-[#0088ff]/30 hover:border-[#0088ff]/60 hover:shadow-[0_0_30px_rgba(0,136,255,0.15)]', badge: 'bg-[#0088ff]/15 text-[#0088ff]', context: 'text-blue-400' },
   mistral: { border: 'border-[#ff7538]/30 hover:border-[#ff7538]/60 hover:shadow-[0_0_30px_rgba(255,117,56,0.15)]', badge: 'bg-[#ff7538]/15 text-[#ff7538]', context: 'text-orange-400' },
-  deepseek: { border: 'border-[#4ecdc4]/30 hover:border-[#4ecdc4]/60 hover:shadow-[0_0_30px_rgba(78,205,196,0.15)]', badge: 'bg-[#4ecdc4]/15 text-[#4ecdc4]', context: 'text-teal-400' },
 }
 
 const providerLabels: Record<string, string> = {
   openai: 'OpenAI',
   anthropic: 'Anthropic',
   google: 'Google',
-  meta: 'Meta via OpenRouter',
+  meta: 'Meta',
   mistral: 'Mistral',
-  deepseek: 'DeepSeek',
 }
 
 const badgeStyles: Record<string, string> = {
@@ -148,17 +141,17 @@ export function ModelsGrid() {
             <div className="card-glass rounded-2xl p-6 transition-all bg-gradient-to-br from-green-500/5 to-cyan-500/5 border-green-500/20">
               <div className="flex items-start justify-between mb-4">
                 <span className="text-xs font-medium px-2 py-1 rounded-full bg-gradient-to-r from-green-500/20 to-cyan-500/20 text-green-400">
-                  OpenRouter
+                  And More
                 </span>
               </div>
               <h3 className="text-xl font-bold mb-2 gradient-text-hero">200+ More Models</h3>
               <p className="text-gray-400 text-sm mb-4">
-                Cohere, Yi, Qwen, Perplexity, Together, and dozens more. If it&apos;s on OpenRouter, it works with MemoryRouter.
+                Cohere, Perplexity, Together, and dozens more. All major providers supported.
               </p>
               <div className="flex flex-wrap gap-2">
                 <span className="text-xs bg-white/5 px-2 py-1 rounded">Cohere</span>
-                <span className="text-xs bg-white/5 px-2 py-1 rounded">Yi</span>
-                <span className="text-xs bg-white/5 px-2 py-1 rounded">Qwen</span>
+                <span className="text-xs bg-white/5 px-2 py-1 rounded">Perplexity</span>
+                <span className="text-xs bg-white/5 px-2 py-1 rounded">Together</span>
                 <span className="text-xs bg-white/5 px-2 py-1 rounded">+ more</span>
               </div>
             </div>
