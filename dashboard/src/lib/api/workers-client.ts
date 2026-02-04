@@ -6,29 +6,66 @@
 const WORKERS_API_URL = process.env.WORKERS_API_URL || 'https://api.memoryrouter.ai';
 const DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || '';
 
+// Timeout for API calls (5 seconds)
+const API_TIMEOUT_MS = 5000;
+
 interface ApiOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: unknown;
+  timeoutMs?: number;
+  cache?: RequestCache;
+  revalidate?: number;
 }
 
 async function apiCall<T>(path: string, options: ApiOptions = {}): Promise<T> {
-  const { method = 'GET', body } = options;
+  const { method = 'GET', body, timeoutMs = API_TIMEOUT_MS, cache, revalidate } = options;
+  
+  const startTime = Date.now();
+  const url = `${WORKERS_API_URL}${path}`;
+  console.log(`[apiCall] ${method} ${path} starting`);
 
-  const response = await fetch(`${WORKERS_API_URL}${path}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Dashboard-Key': DASHBOARD_API_KEY,
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  // Set up timeout via AbortController
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error((error as { error: string }).error || `API error: ${response.status}`);
+  try {
+    const fetchOptions: RequestInit & { next?: { revalidate: number } } = {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Dashboard-Key': DASHBOARD_API_KEY,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+      cache,
+    };
+    
+    // Add Next.js revalidation if specified
+    if (revalidate !== undefined) {
+      fetchOptions.next = { revalidate };
+    }
+
+    const response = await fetch(url, fetchOptions);
+    
+    console.log(`[apiCall] ${method} ${path} completed in ${Date.now() - startTime}ms (status: ${response.status})`);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error((error as { error: string }).error || `API error: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    const elapsed = Date.now() - startTime;
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error(`[apiCall] ${method} ${path} TIMEOUT after ${elapsed}ms`);
+      throw new Error(`API request timed out after ${timeoutMs}ms`);
+    }
+    console.error(`[apiCall] ${method} ${path} FAILED after ${elapsed}ms:`, error);
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return response.json();
 }
 
 // ============================================================================
@@ -106,7 +143,8 @@ export interface Transaction {
 }
 
 export async function getBilling(userId: string): Promise<{ billing: Billing; transactions: Transaction[] }> {
-  return apiCall(`/api/users/${userId}/billing`);
+  // Cache billing data for 30 seconds to avoid hammering the API on every page navigation
+  return apiCall(`/api/users/${userId}/billing`, { revalidate: 30 });
 }
 
 export async function updateBilling(userId: string, data: {
