@@ -49,9 +49,18 @@ interface Chat {
   createdAt: number;
 }
 
+interface MemoryKey {
+  id: string;
+  key: string;
+  name: string;
+  isActive: boolean;
+}
+
 export default function PlaygroundPage() {
   const [environment, setEnvironment] = useState<"production" | "staging">("production");
-  const [apiKey, setApiKey] = useState("");
+  const [memoryKeys, setMemoryKeys] = useState<MemoryKey[]>([]);
+  const [selectedKeyId, setSelectedKeyId] = useState<string>("");
+  const [isLoadingKeys, setIsLoadingKeys] = useState(true);
   const [model, setModel] = useState("");
   const [models, setModels] = useState<{ provider: string; models: string[] }[]>([]);
   const [defaultModel, setDefaultModel] = useState("openai/gpt-4o");
@@ -66,17 +75,42 @@ export default function PlaygroundPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const getApiBase = () => ENVIRONMENTS[environment];
+  const selectedKey = memoryKeys.find((k) => k.id === selectedKeyId);
+
+  // Fetch memory keys
+  useEffect(() => {
+    async function fetchKeys() {
+      try {
+        const response = await fetch("/api/keys/memory");
+        if (response.ok) {
+          const data = await response.json();
+          const keys = data.keys || [];
+          setMemoryKeys(keys);
+          // Pre-select first key if none selected
+          const savedKeyId = localStorage.getItem("mr_debug_keyid");
+          if (savedKeyId && keys.find((k: MemoryKey) => k.id === savedKeyId)) {
+            setSelectedKeyId(savedKeyId);
+          } else if (keys.length > 0) {
+            setSelectedKeyId(keys[0].id);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch keys:", error);
+      } finally {
+        setIsLoadingKeys(false);
+      }
+    }
+    fetchKeys();
+  }, []);
 
   // Load config from localStorage
   useEffect(() => {
     const savedEnv = localStorage.getItem("mr_debug_env") as "production" | "staging" | null;
-    const savedKey = localStorage.getItem("mr_debug_apikey");
     const savedModel = localStorage.getItem("mr_debug_model");
     const savedChats = localStorage.getItem("mr_debug_chats");
     const savedSessionId = localStorage.getItem("mr_debug_sessionid");
 
     if (savedEnv) setEnvironment(savedEnv);
-    if (savedKey) setApiKey(savedKey);
     if (savedModel) setModel(savedModel);
     if (savedSessionId) setSessionId(savedSessionId);
 
@@ -88,17 +122,19 @@ export default function PlaygroundPage() {
         if (firstChatId) setActiveChatId(firstChatId);
       } catch {}
     }
-
-    // Fetch models if we have an API key
-    if (savedKey) {
-      fetchModels(savedKey, savedEnv || "production", savedModel || null);
-    }
   }, []);
+
+  // Fetch models when key is selected
+  useEffect(() => {
+    if (selectedKey) {
+      fetchModels(selectedKey.key, environment, model || null);
+    }
+  }, [selectedKey, environment]);
 
   // Save config on changes
   useEffect(() => {
     localStorage.setItem("mr_debug_env", environment);
-    localStorage.setItem("mr_debug_apikey", apiKey);
+    if (selectedKeyId) localStorage.setItem("mr_debug_keyid", selectedKeyId);
     if (model) localStorage.setItem("mr_debug_model", model);
     localStorage.setItem("mr_debug_chats", JSON.stringify(chats));
     if (sessionId) {
@@ -106,7 +142,7 @@ export default function PlaygroundPage() {
     } else {
       localStorage.removeItem("mr_debug_sessionid");
     }
-  }, [environment, apiKey, model, chats, sessionId]);
+  }, [environment, selectedKeyId, model, chats, sessionId]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -164,8 +200,8 @@ export default function PlaygroundPage() {
   };
 
   const clearMemory = async () => {
-    if (!apiKey) {
-      alert("Enter an API key first");
+    if (!selectedKey) {
+      alert("Select a memory key first");
       return;
     }
 
@@ -173,7 +209,7 @@ export default function PlaygroundPage() {
     if (!confirm(`⚠️ This will DELETE all memories from the ${vaultType}.\n\nThis cannot be undone.\n\nAre you sure?`)) return;
 
     try {
-      const headers: Record<string, string> = { Authorization: `Bearer ${apiKey}` };
+      const headers: Record<string, string> = { Authorization: `Bearer ${selectedKey.key}` };
       if (sessionId) headers["X-Session-ID"] = sessionId;
 
       const response = await fetch(`${getApiBase()}/v1/memory`, {
@@ -197,8 +233,8 @@ export default function PlaygroundPage() {
   };
 
   const sendMessage = async () => {
-    if (!apiKey) {
-      alert("Please enter API key");
+    if (!selectedKey) {
+      alert("Please select a memory key");
       return;
     }
     if (!model) {
@@ -250,7 +286,7 @@ export default function PlaygroundPage() {
 
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${selectedKey.key}`,
         "X-Memory-Mode": memoryMode,
         "X-Memory-Store": String(memoryStore),
         "X-Memory-Store-Response": String(memoryStore),
@@ -341,15 +377,11 @@ export default function PlaygroundPage() {
           <div className="px-4 pb-4 space-y-4 border-t border-white/[0.04]">
             <SettingsPanel
               environment={environment}
-              setEnvironment={(e) => {
-                setEnvironment(e);
-                if (apiKey) fetchModels(apiKey, e, model);
-              }}
-              apiKey={apiKey}
-              setApiKey={(k) => {
-                setApiKey(k);
-                if (k) fetchModels(k, environment, model);
-              }}
+              setEnvironment={setEnvironment}
+              memoryKeys={memoryKeys}
+              selectedKeyId={selectedKeyId}
+              setSelectedKeyId={setSelectedKeyId}
+              isLoadingKeys={isLoadingKeys}
               model={model}
               setModel={setModel}
               models={models}
@@ -360,21 +392,32 @@ export default function PlaygroundPage() {
               setMemoryStore={setMemoryStore}
               sessionId={sessionId}
               setSessionId={setSessionId}
-              onNewChat={createChat}
-              onResetSession={resetSession}
             />
 
             {/* Chat List - Mobile */}
             <ChatList chats={sortedChats} activeChatId={activeChatId} onSelect={(id) => { setActiveChatId(id); setSettingsOpen(false); }} />
 
-            {/* Clear Memory - Mobile */}
-            <button
-              onClick={clearMemory}
-              className="w-full py-2.5 rounded-lg text-sm font-medium border border-white/[0.04] text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors flex items-center justify-center gap-2"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Clear Memory Vault
-            </button>
+            {/* Actions - Mobile */}
+            <div className="space-y-2 pt-2 border-t border-white/[0.04]">
+              <button onClick={createChat} className="w-full btn-neon py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
+                <Plus className="h-4 w-4" />
+                New Conversation
+              </button>
+              <button
+                onClick={resetSession}
+                className="w-full py-2.5 rounded-lg text-sm font-medium border border-white/[0.04] text-muted-foreground hover:text-foreground hover:border-white/10 transition-colors flex items-center justify-center gap-2"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                New Session ID
+              </button>
+              <button
+                onClick={clearMemory}
+                className="w-full py-2.5 rounded-lg text-sm font-medium border border-white/[0.04] text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors flex items-center justify-center gap-2"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Clear Memory Vault
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -392,15 +435,11 @@ export default function PlaygroundPage() {
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             <SettingsPanel
               environment={environment}
-              setEnvironment={(e) => {
-                setEnvironment(e);
-                if (apiKey) fetchModels(apiKey, e, model);
-              }}
-              apiKey={apiKey}
-              setApiKey={(k) => {
-                setApiKey(k);
-                if (k) fetchModels(k, environment, model);
-              }}
+              setEnvironment={setEnvironment}
+              memoryKeys={memoryKeys}
+              selectedKeyId={selectedKeyId}
+              setSelectedKeyId={setSelectedKeyId}
+              isLoadingKeys={isLoadingKeys}
               model={model}
               setModel={setModel}
               models={models}
@@ -411,8 +450,6 @@ export default function PlaygroundPage() {
               setMemoryStore={setMemoryStore}
               sessionId={sessionId}
               setSessionId={setSessionId}
-              onNewChat={createChat}
-              onResetSession={resetSession}
             />
 
             {/* Chat List - Desktop */}
@@ -421,8 +458,19 @@ export default function PlaygroundPage() {
             </div>
           </div>
 
-          {/* Clear Memory - anchored to bottom */}
-          <div className="p-4 border-t border-white/[0.04]">
+          {/* Actions - anchored to bottom */}
+          <div className="p-4 border-t border-white/[0.04] space-y-2">
+            <button onClick={createChat} className="w-full btn-neon py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
+              <Plus className="h-4 w-4" />
+              New Conversation
+            </button>
+            <button
+              onClick={resetSession}
+              className="w-full py-2.5 rounded-lg text-sm font-medium border border-white/[0.04] text-muted-foreground hover:text-foreground hover:border-white/10 transition-colors flex items-center justify-center gap-2"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              New Session ID
+            </button>
             <button
               onClick={clearMemory}
               className="w-full py-2.5 rounded-lg text-sm font-medium border border-white/[0.04] text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors flex items-center justify-center gap-2"
@@ -499,8 +547,10 @@ export default function PlaygroundPage() {
 function SettingsPanel({
   environment,
   setEnvironment,
-  apiKey,
-  setApiKey,
+  memoryKeys,
+  selectedKeyId,
+  setSelectedKeyId,
+  isLoadingKeys,
   model,
   setModel,
   models,
@@ -511,13 +561,13 @@ function SettingsPanel({
   setMemoryStore,
   sessionId,
   setSessionId,
-  onNewChat,
-  onResetSession,
 }: {
   environment: "production" | "staging";
   setEnvironment: (e: "production" | "staging") => void;
-  apiKey: string;
-  setApiKey: (k: string) => void;
+  memoryKeys: MemoryKey[];
+  selectedKeyId: string;
+  setSelectedKeyId: (id: string) => void;
+  isLoadingKeys: boolean;
   model: string;
   setModel: (m: string) => void;
   models: { provider: string; models: string[] }[];
@@ -528,8 +578,6 @@ function SettingsPanel({
   setMemoryStore: (v: boolean) => void;
   sessionId: string | null;
   setSessionId: (s: string | null) => void;
-  onNewChat: () => void;
-  onResetSession: () => void;
 }) {
   return (
     <div className="space-y-4">
@@ -546,16 +594,30 @@ function SettingsPanel({
         </select>
       </div>
 
-      {/* API Key */}
+      {/* Memory Key Dropdown */}
       <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">API Key</label>
-        <input
-          type="password"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-          placeholder="mk_xxxxxxxx"
-          className="w-full bg-card border border-white/[0.04] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary/50 font-mono"
-        />
+        <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Memory Key</label>
+        {isLoadingKeys ? (
+          <div className="w-full bg-card border border-white/[0.04] rounded-lg px-3 py-2.5 text-sm text-muted-foreground">
+            Loading keys...
+          </div>
+        ) : memoryKeys.length === 0 ? (
+          <div className="w-full bg-card border border-white/[0.04] rounded-lg px-3 py-2.5 text-sm text-muted-foreground">
+            No keys found
+          </div>
+        ) : (
+          <select
+            value={selectedKeyId}
+            onChange={(e) => setSelectedKeyId(e.target.value)}
+            className="w-full bg-card border border-white/[0.04] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary/50"
+          >
+            {memoryKeys.map((key) => (
+              <option key={key.id} value={key.id}>
+                {key.name || "Untitled"} ({key.key.slice(0, 10)}...)
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Model */}
@@ -604,21 +666,6 @@ function SettingsPanel({
           className="w-full bg-card border border-white/[0.04] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary/50 font-mono"
         />
         <p className="text-xs text-muted-foreground">Each session ID creates an isolated memory vault</p>
-      </div>
-
-      {/* Actions */}
-      <div className="space-y-2 pt-2">
-        <button onClick={onNewChat} className="w-full btn-neon py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
-          <Plus className="h-4 w-4" />
-          New Conversation
-        </button>
-        <button
-          onClick={onResetSession}
-          className="w-full py-2.5 rounded-lg text-sm font-medium border border-white/[0.04] text-muted-foreground hover:text-foreground hover:border-white/10 transition-colors flex items-center justify-center gap-2"
-        >
-          <RefreshCw className="h-3.5 w-3.5" />
-          New Session ID
-        </button>
       </div>
     </div>
   );
