@@ -719,10 +719,12 @@ export function createChatRouter() {
       ctx.waitUntil(recordUsage(env.VECTORS_D1, usageEvent));
     }
     
-    // Add memory metadata to response
+    // Add memory metadata to response (only in debug mode for playground)
+    // Debug mode: X-Debug: true header or ?debug=true query param
     const enrichedResponse = {
       ...(responseBody as object),
-      _memory: {
+      // Memory metadata (debug only)
+      _memory: debugMode ? {
         key: userContext.memoryKey.key,
         session_id: sessionId ?? null,
         storage: usesDO ? 'durable-objects' : 'kv-r2',
@@ -731,29 +733,30 @@ export function createChatRouter() {
         tokens_injected: memoryTokensUsed,
         injection_format: memoryInjection?.formatUsed ?? null,
         window_breakdown: retrieval?.windowBreakdown ?? { hot: 0, working: 0, longterm: 0 },
-        chunks: debugMode ? (retrieval?.chunks ?? []) : undefined,
+        chunks: retrieval?.chunks ?? [],
         latency_ms: totalTime,
-      },
-      _latency: {
+      } : undefined,
+      // Latency breakdown (debug only)
+      _latency: debugMode ? {
         embedding_ms: embeddingMs,
         mr_processing_ms: mrProcessingTime,
-        mr_overhead_ms: mrProcessingTime - embeddingMs,  // Our actual software overhead
+        mr_overhead_ms: mrProcessingTime - embeddingMs,
         provider_ms: providerTime,
         total_ms: totalTime,
-      },
-      // Memory extraction info (from memory-transform)
-      _extraction: memoryExtraction ? {
+      } : undefined,
+      // Memory extraction info (debug only)
+      _extraction: debugMode && memoryExtraction ? {
         memory_mode: memoryExtraction.memoryMode,
         provider_detected: memoryExtraction.provider,
         messages_with_flags: memoryExtraction.messagesWithMemoryFlags.length,
       } : undefined,
-      // Truncation info (if any truncation occurred)
-      _truncation: truncationResult?.truncated ? {
+      // Truncation info (debug only)
+      _truncation: debugMode && truncationResult?.truncated ? {
         truncated: true,
         tokens_removed: truncationResult.tokensRemoved,
         details: truncationResult.truncationDetails,
       } : undefined,
-      // Debug mode: include full augmented prompt
+      // Full debug info
       _debug: debugMode ? {
         original_messages: body.messages,
         augmented_messages: augmentedMessages,

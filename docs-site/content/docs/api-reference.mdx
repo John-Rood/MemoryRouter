@@ -89,21 +89,11 @@ const response = await client.chat.completions.create({
     "message": {"role": "assistant", "content": "Nice to meet you, Alice!"},
     "finish_reason": "stop"
   }],
-  "usage": {"prompt_tokens": 12, "completion_tokens": 15, "total_tokens": 27},
-  "_memory": {
-    "key": "mk_xxxxxxxxxxxxxxxx",
-    "tokens_retrieved": 847,
-    "chunks_retrieved": 12,
-    "window_breakdown": {"hot": 4, "working": 4, "longterm": 4}
-  },
-  "_latency": {
-    "embedding_ms": 45,
-    "mr_processing_ms": 120,
-    "provider_ms": 890,
-    "total_ms": 1010
-  }
+  "usage": {"prompt_tokens": 12, "completion_tokens": 15, "total_tokens": 27}
 }
 ```
+
+> **Debug Mode:** Add `X-Debug: true` header or `?debug=true` to see memory/latency metadata in the response. Used by the dashboard playground.
 
 ---
 
@@ -192,17 +182,7 @@ MemoryRouter accepts simplified model names and maps them to Anthropic's full id
   "content": [{"type": "text", "text": "Nice to meet you, Alice!"}],
   "model": "claude-sonnet-4-20250514",
   "stop_reason": "end_turn",
-  "usage": {"input_tokens": 12, "output_tokens": 15},
-  "_memory": {
-    "key": "mk_xxxxxxxxxxxxxxxx",
-    "tokens_retrieved": 847,
-    "chunks_retrieved": 12
-  },
-  "_latency": {
-    "mr_processing_ms": 120,
-    "provider_ms": 890,
-    "total_ms": 1010
-  }
+  "usage": {"input_tokens": 12, "output_tokens": 15}
 }
 ```
 
@@ -274,12 +254,7 @@ curl -X POST "https://api.memoryrouter.ai/v1/models/gemini-1.5-pro:streamGenerat
     },
     "finishReason": "STOP"
   }],
-  "usageMetadata": {"promptTokenCount": 12, "candidatesTokenCount": 15},
-  "_memory": {
-    "key": "mk_xxxxxxxxxxxxxxxx",
-    "tokens_retrieved": 847,
-    "chunks_retrieved": 12
-  }
+  "usageMetadata": {"promptTokenCount": 12, "candidatesTokenCount": 15}
 }
 ```
 
