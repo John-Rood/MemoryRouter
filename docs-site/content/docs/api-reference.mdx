@@ -408,7 +408,7 @@ curl -X DELETE https://api.memoryrouter.ai/v1/memory \
   -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx" \
   -H "X-Session-ID: session-123"
 
-# Full reset (allows changing embedding dimensions)
+# Full reset (complete memory wipe)
 curl -X DELETE "https://api.memoryrouter.ai/v1/memory?reset=true" \
   -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx"
 ```
@@ -588,9 +588,7 @@ curl https://api.memoryrouter.ai/health
 ```json
 {
   "status": "healthy",
-  "timestamp": "2024-02-03T14:22:00Z",
-  "environment": "production",
-  "storage": "durable-objects"
+  "timestamp": "2024-02-03T14:22:00Z"
 }
 ```
 
