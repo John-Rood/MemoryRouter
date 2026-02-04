@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
     });
     
     // 6. Determine redirect destination
-    const redirectPath = user.onboarding_completed ? '/dashboard' : '/onboarding';
+    const redirectPath = user.onboarding_completed ? '/' : '/onboarding';
     
     // 7. Set cookies and redirect
     const response = NextResponse.redirect(new URL(redirectPath, request.url));

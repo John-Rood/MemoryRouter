@@ -1,8 +1,8 @@
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 
 const getJwtSecret = () => new TextEncoder().encode(process.env.JWT_SECRET!);
-const ACCESS_TOKEN_EXPIRY = '15m';
-const REFRESH_TOKEN_EXPIRY = '7d';
+const ACCESS_TOKEN_EXPIRY = '30d';
+const REFRESH_TOKEN_EXPIRY = '30d';
 
 export interface TokenPayload extends JWTPayload {
   userId: string;
