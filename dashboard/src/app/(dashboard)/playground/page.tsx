@@ -319,7 +319,7 @@ export default function PlaygroundPage() {
   const sortedChats = Object.entries(chats).sort((a, b) => b[1].createdAt - a[1].createdAt);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] lg:h-screen">
+    <div className="flex flex-col h-[calc(100vh-3.5rem)] lg:h-screen -mx-4 lg:-mx-8 -my-6 lg:-my-8">
       {/* Mobile Settings Toggle */}
       <div className="lg:hidden border-b border-white/[0.04] bg-background/95 backdrop-blur-xl">
         <button
@@ -362,18 +362,26 @@ export default function PlaygroundPage() {
               setSessionId={setSessionId}
               onNewChat={createChat}
               onResetSession={resetSession}
-              onClearMemory={clearMemory}
             />
 
             {/* Chat List - Mobile */}
             <ChatList chats={sortedChats} activeChatId={activeChatId} onSelect={(id) => { setActiveChatId(id); setSettingsOpen(false); }} />
+
+            {/* Clear Memory - Mobile */}
+            <button
+              onClick={clearMemory}
+              className="w-full py-2.5 rounded-lg text-sm font-medium border border-white/[0.04] text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors flex items-center justify-center gap-2"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Clear Memory Vault
+            </button>
           </div>
         )}
       </div>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Desktop Sidebar */}
-        <aside className="hidden lg:flex w-80 flex-col border-r border-white/[0.04] bg-background/50 overflow-hidden">
+        <aside className="hidden lg:flex w-72 flex-col border-r border-white/[0.04] bg-background/50 overflow-hidden">
           <div className="p-4 border-b border-white/[0.04]">
             <h1 className="text-lg font-semibold">
               Playground <span className="text-xs text-muted-foreground ml-2">{environment === "staging" ? "🟡 Staging" : "🟢 Production"}</span>
@@ -405,13 +413,23 @@ export default function PlaygroundPage() {
               setSessionId={setSessionId}
               onNewChat={createChat}
               onResetSession={resetSession}
-              onClearMemory={clearMemory}
             />
 
             {/* Chat List - Desktop */}
             <div className="pt-4 border-t border-white/[0.04]">
               <ChatList chats={sortedChats} activeChatId={activeChatId} onSelect={setActiveChatId} />
             </div>
+          </div>
+
+          {/* Clear Memory - anchored to bottom */}
+          <div className="p-4 border-t border-white/[0.04]">
+            <button
+              onClick={clearMemory}
+              className="w-full py-2.5 rounded-lg text-sm font-medium border border-white/[0.04] text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors flex items-center justify-center gap-2"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Clear Memory Vault
+            </button>
           </div>
         </aside>
 
@@ -495,7 +513,6 @@ function SettingsPanel({
   setSessionId,
   onNewChat,
   onResetSession,
-  onClearMemory,
 }: {
   environment: "production" | "staging";
   setEnvironment: (e: "production" | "staging") => void;
@@ -513,7 +530,6 @@ function SettingsPanel({
   setSessionId: (s: string | null) => void;
   onNewChat: () => void;
   onResetSession: () => void;
-  onClearMemory: () => void;
 }) {
   return (
     <div className="space-y-4">
@@ -602,13 +618,6 @@ function SettingsPanel({
         >
           <RefreshCw className="h-3.5 w-3.5" />
           New Session ID
-        </button>
-        <button
-          onClick={onClearMemory}
-          className="w-full py-2.5 rounded-lg text-sm font-medium border border-white/[0.04] text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors flex items-center justify-center gap-2"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          Clear Memory Vault
         </button>
       </div>
     </div>
