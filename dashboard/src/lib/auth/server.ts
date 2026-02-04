@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { cache } from 'react';
 import { verifyToken, TokenPayload } from './jwt';
 import { getUser, getBilling, completeOnboarding as apiCompleteOnboarding } from '@/lib/api/workers-client';
 
@@ -88,10 +89,16 @@ export async function getFreshUser(userId: string): Promise<AuthUser | null> {
 
 /**
  * Get user's billing info from API.
+ * Wrapped with React cache() to deduplicate requests within the same render cycle.
  */
-export async function getUserBilling(userId: string) {
+export const getUserBilling = cache(async (userId: string) => {
+  const startTime = Date.now();
+  console.log(`[getUserBilling] Fetching for ${userId}`);
+  
   try {
     const { billing, transactions } = await getBilling(userId);
+    console.log(`[getUserBilling] Completed in ${Date.now() - startTime}ms`);
+    
     return {
       userId,
       creditBalanceCents: billing.credit_balance_cents,
@@ -107,7 +114,7 @@ export async function getUserBilling(userId: string) {
       transactions,
     };
   } catch (error) {
-    console.error('Failed to get billing:', error);
+    console.error(`[getUserBilling] Failed after ${Date.now() - startTime}ms:`, error);
     // Return default billing for error case
     return {
       userId,
@@ -124,7 +131,7 @@ export async function getUserBilling(userId: string) {
       transactions: [],
     };
   }
-}
+});
 
 /**
  * Mark user's onboarding as complete.
