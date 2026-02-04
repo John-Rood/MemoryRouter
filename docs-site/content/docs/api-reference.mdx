@@ -308,11 +308,11 @@ Include in request body—they're stripped before forwarding:
 
 ### Memory Modes Explained
 
-| Mode | Retrieve | Store | Use Case |
-|------|----------|-------|----------|
+| Mode | Recall | Remember | Use Case |
+|------|--------|----------|----------|
 | `on` | ✅ | ✅ | Normal operation (default) |
-| `read` | ✅ | ❌ | Use memory but don't pollute it (testing, one-off queries) |
-| `write` | ❌ | ✅ | Store without retrieval (bulk import, backfill) |
+| `read` | ✅ | ❌ | Use memory but don't add to it (testing, one-off queries) |
+| `write` | ❌ | ✅ | Remember without recalling (bulk import, backfill) |
 | `off` | ❌ | ❌ | Stateless request (no memory at all) |
 
 ### Per-Message Memory Control
@@ -352,24 +352,20 @@ curl -X POST https://api.memoryrouter.ai/v1/chat/completions \
 ```
 
 **How it works:**
-- Each session gets its own memory vault
-- Core vault (no session) stores cross-session memories
-- Session memories are retrieved in addition to core memories
+- Each session gets its own memory space
+- Core memory (no session) stores persistent, cross-session context
+- Session memory is recalled alongside core memory
 - Clear a session without affecting core: `DELETE /v1/memory` with `X-Session-ID`
 
 ---
 
 ## Response Headers
 
-MemoryRouter adds these headers to every response:
+MemoryRouter adds timing headers to every response:
 
 | Header | Description |
 |--------|-------------|
-| `X-Memory-Tokens-Retrieved` | Total tokens of context injected |
-| `X-Memory-Chunks-Retrieved` | Number of memory chunks used |
-| `X-Embedding-Ms` | Time for embedding generation |
 | `X-MR-Processing-Ms` | Total MemoryRouter processing time |
-| `X-MR-Overhead-Ms` | MemoryRouter overhead (processing minus embedding) |
 | `X-Provider-Response-Ms` | Time waiting for AI provider |
 | `X-Total-Ms` | End-to-end request time |
 | `X-Session-ID` | Echo of session ID (if provided) |
@@ -391,17 +387,10 @@ curl https://api.memoryrouter.ai/v1/memory/stats \
 ```json
 {
   "key": "mk_xxxxxxxxxxxxxxxx",
-  "storage": "durable-objects",
-  "vectorCount": 1247,
-  "totalTokens": 89432,
-  "bufferTokens": 156,
-  "oldestTimestamp": 1705312200000,
-  "newestTimestamp": 1707058920000,
-  "kronos_config": {
-    "hot_window_hours": 4,
-    "working_window_days": 3,
-    "longterm_window_days": 90
-  }
+  "memories": 1247,
+  "total_tokens": 89432,
+  "oldest": "2024-01-15T10:30:00Z",
+  "newest": "2024-02-04T15:02:00Z"
 }
 ```
 
@@ -426,7 +415,7 @@ curl -X DELETE "https://api.memoryrouter.ai/v1/memory?reset=true" \
 
 ### POST /v1/memory/warmup
 
-Pre-load vectors into memory for faster first request. Useful after cold starts.
+Pre-load memory for faster first request. Useful after cold starts.
 
 ```bash
 curl -X POST https://api.memoryrouter.ai/v1/memory/warmup \
@@ -445,12 +434,8 @@ curl -X POST https://api.memoryrouter.ai/v1/memory/warmup \
 {
   "status": "warm",
   "key": "mk_xxxxxxxxxxxxxxxx",
-  "vaults": [
-    {"vault": "core", "vectors": 1247, "timeMs": 45},
-    {"vault": "session", "vectors": 89, "timeMs": 12}
-  ],
-  "totalVectors": 1336,
-  "warmupTimeMs": 45
+  "memories_loaded": 1336,
+  "warmup_ms": 45
 }
 ```
 
@@ -503,7 +488,7 @@ curl -X POST https://api.memoryrouter.ai/v1/memory/upload \
 
 ## Pass-Through Endpoints
 
-These forward directly to providers without memory injection:
+These forward directly to providers without memory processing:
 
 | Endpoint | Provider | Description |
 |----------|----------|-------------|
@@ -519,7 +504,7 @@ curl -X POST https://api.memoryrouter.ai/v1/audio/transcriptions \
   -F "model=whisper-1"
 ```
 
-> **Note:** MemoryRouter uses Cloudflare Workers AI for internal embeddings (BGE-M3, 1024 dimensions). The `/v1/embeddings` endpoint passes through to OpenAI for compatibility.
+> **Note:** The `/v1/embeddings` endpoint passes through to OpenAI. MemoryRouter handles memory processing internally.
 
 ---
 
@@ -576,17 +561,16 @@ curl "https://api.memoryrouter.ai/v1/account/usage?start=2024-01-01&end=2024-02-
 
 ---
 
-## KRONOS Time Windows
+## Temporal Memory
 
-Memory retrieval uses temporal weighting to prioritize recent context:
+MemoryRouter understands that not all memories are equal. Recent conversations matter more than old ones, but important facts should persist.
 
-| Window | Timeframe | Purpose | Default Allocation |
-|--------|-----------|---------|-------------------|
-| HOT | Last 4 hours | Current conversation | ~33% of results |
-| WORKING | Last 3 days | Recent interactions | ~33% of results |
-| LONG-TERM | Last 90 days | Important facts | ~33% of results |
+Our memory system automatically balances:
+- **Immediate context** — What just happened in this conversation
+- **Recent history** — Interactions from the past few days  
+- **Long-term knowledge** — Important facts that should persist
 
-Results are allocated equally across windows (N/3 per window), ensuring a balance of immediate context and historical knowledge.
+You don't need to configure this — it just works. Your AI will remember what matters, when it matters.
 
 ---
 
