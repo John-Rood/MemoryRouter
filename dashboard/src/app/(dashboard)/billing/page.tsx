@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,103 +10,47 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { CreditCard, Plus, TrendingUp, Wallet, History, Sparkles, CheckCircle2, XCircle, Loader2, RefreshCw } from "lucide-react";
+import { useBilling } from "@/contexts/billing-context";
 
-// Types for billing data
-interface BillingData {
-  creditBalanceCents: number;
-  freeTierTokensUsed: number;
-  freeTierLimit: number;
-  autoReupEnabled: boolean;
-  autoReupAmountCents: number;
-  autoReupTriggerCents: number;
-  hasPaymentMethod: boolean;
-  paymentMethod: { brand: string; last4: string; expMonth: number; expYear: number } | null;
-}
-
-interface Transaction {
-  id: string;
-  type: string;
-  amountCents: number;
-  description: string;
-  createdAt: string;
-  balanceAfterCents: number;
-}
-
-// Default state (used while loading)
-const defaultBilling: BillingData = {
-  creditBalanceCents: 0,
-  freeTierTokensUsed: 0,
-  freeTierLimit: 50000000,
-  autoReupEnabled: true,
-  autoReupAmountCents: 2000,
-  autoReupTriggerCents: 500,
-  hasPaymentMethod: false,
-  paymentMethod: null,
-};
-
+const FREE_TIER_LIMIT = 50000000;
 const presetAmounts = [5, 10, 20, 50, 100];
 
 export default function BillingPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [billing, setBilling] = useState<BillingData>(defaultBilling);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const { billing: contextBilling, refreshBilling, isRefreshing } = useBilling();
+  
   const [isAddingFunds, setIsAddingFunds] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState(20);
   const [customAmount, setCustomAmount] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isAddingPaymentMethod, setIsAddingPaymentMethod] = useState(false);
-  const [isFetching, setIsFetching] = useState(true);
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [localAutoReup, setLocalAutoReup] = useState<boolean | null>(null);
+  
+  // Use context billing data (already fetched by layout - no double fetch!)
+  const billing = {
+    creditBalanceCents: contextBilling?.creditBalanceCents ?? 0,
+    freeTierTokensUsed: contextBilling?.freeTierTokensUsed ?? 0,
+    freeTierLimit: FREE_TIER_LIMIT,
+    autoReupEnabled: localAutoReup ?? contextBilling?.autoReupEnabled ?? true,
+    autoReupAmountCents: contextBilling?.autoReupAmountCents ?? 2000,
+    autoReupTriggerCents: contextBilling?.autoReupTriggerCents ?? 500,
+    hasPaymentMethod: contextBilling?.hasPaymentMethod ?? false,
+  };
+  
+  const transactions = (contextBilling?.transactions || []).map(t => ({
+    id: t.id,
+    type: t.type,
+    amountCents: t.amount_cents,
+    description: t.description,
+    createdAt: new Date(t.created_at).toLocaleString(),
+    balanceAfterCents: 0,
+  }));
   
   const balanceDollars = (billing.creditBalanceCents / 100).toFixed(2);
   const freeTierPercent = Math.min(100, (billing.freeTierTokensUsed / billing.freeTierLimit) * 100);
   const freeTierRemaining = billing.freeTierLimit - billing.freeTierTokensUsed;
-  
-  // Fetch billing data from API
-  const fetchBilling = useCallback(async () => {
-    try {
-      setIsFetching(true);
-      const response = await fetch("/api/billing/overview");
-      if (!response.ok) {
-        throw new Error("Failed to fetch billing");
-      }
-      const data = await response.json();
-      
-      setBilling({
-        creditBalanceCents: Math.round(data.creditBalance * 100),
-        freeTierTokensUsed: data.freeTierTokensUsed || 0,
-        freeTierLimit: 50000000,
-        autoReupEnabled: data.autoReup?.enabled ?? true,
-        autoReupAmountCents: Math.round((data.autoReup?.amount || 20) * 100),
-        autoReupTriggerCents: Math.round((data.autoReup?.trigger || 5) * 100),
-        hasPaymentMethod: data.hasPaymentMethod || false,
-        paymentMethod: null, // Payment method details from Stripe would need separate endpoint
-      });
-      
-      // Transform transactions
-      if (data.transactions && Array.isArray(data.transactions)) {
-        setTransactions(data.transactions.map((t: { id: string; type: string; amount: number; description: string; createdAt: string }) => ({
-          id: t.id,
-          type: t.type,
-          amountCents: Math.round(t.amount * 100),
-          description: t.description,
-          createdAt: new Date(t.createdAt).toLocaleString(),
-          balanceAfterCents: 0, // Not available from current API
-        })));
-      }
-    } catch (error) {
-      console.error("Failed to fetch billing:", error);
-      setNotification({ type: "error", message: "Failed to load billing data" });
-    } finally {
-      setIsFetching(false);
-    }
-  }, []);
-  
-  // Initial fetch
-  useEffect(() => {
-    fetchBilling();
-  }, [fetchBilling]);
   
   // Handle success/canceled URL params
   useEffect(() => {
@@ -124,7 +68,7 @@ export default function BillingPage() {
       // Clear URL params and refresh billing data
       router.replace("/billing", { scroll: false });
       // Wait a bit for webhook to process, then refresh
-      setTimeout(() => fetchBilling(), 2000);
+      setTimeout(() => refreshBilling(), 2000);
     } else if (canceled === "true") {
       setNotification({
         type: "error",
@@ -138,7 +82,7 @@ export default function BillingPage() {
       });
       router.replace("/billing", { scroll: false });
       // Wait a bit for webhook to process, then refresh
-      setTimeout(() => fetchBilling(), 2000);
+      setTimeout(() => refreshBilling(), 2000);
     } else if (setupCanceled === "true") {
       setNotification({
         type: "error",
@@ -146,7 +90,7 @@ export default function BillingPage() {
       });
       router.replace("/billing", { scroll: false });
     }
-  }, [searchParams, router, fetchBilling]);
+  }, [searchParams, router, refreshBilling]);
   
   // Auto-dismiss notification after 5 seconds
   useEffect(() => {
@@ -233,7 +177,7 @@ export default function BillingPage() {
   };
   
   const toggleAutoReup = () => {
-    setBilling({ ...billing, autoReupEnabled: !billing.autoReupEnabled });
+    setLocalAutoReup(!billing.autoReupEnabled);
   };
   
   return (
@@ -509,13 +453,13 @@ export default function BillingPage() {
               <History className="h-5 w-5" />
               Transaction History
             </CardTitle>
-            <Button variant="ghost" size="icon" onClick={fetchBilling} disabled={isFetching}>
-              <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            <Button variant="ghost" size="icon" onClick={refreshBilling} disabled={isRefreshing}>
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          {isFetching && transactions.length === 0 ? (
+          {isRefreshing && transactions.length === 0 ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
