@@ -6,7 +6,7 @@ Base URL: `https://api.memoryrouter.ai`
 
 ## POST /v1/chat/completions
 
-Main endpoint for chat with memory. 100% OpenAI SDK compatible.
+Main endpoint for chat with memory. Works with OpenAI SDK, Anthropic SDK, or any HTTP client.
 
 **Request:**
 ```bash

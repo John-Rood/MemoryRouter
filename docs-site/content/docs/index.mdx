@@ -92,21 +92,30 @@ response = client.chat.completions.create(
 MemoryRouter sits between your app and your AI provider:
 1. **Retrieves** relevant past conversations using semantic search
 2. **Injects** context into your prompt automatically  
-3. **Forwards** to your chosen AI provider (OpenAI, Anthropic, etc.)
+3. **Forwards** to your chosen AI provider
 4. **Stores** new conversations for future retrieval
-5. **Returns** the response (100% OpenAI-compatible format)
+5. **Returns** the response in a consistent format
 
 ---
 
-## Supported Models
+## Supported Providers
+
+Use any model from these providers — just prefix the model name:
 
 | Provider | Example Models | Prefix |
 |----------|---------------|--------|
-| OpenAI | gpt-4o, gpt-4o-mini, o1 | `openai/` |
+| OpenAI | gpt-4o, gpt-4o-mini, o1, o3-mini | `openai/` |
 | Anthropic | claude-3-5-sonnet, claude-3-opus | `anthropic/` |
 | Google | gemini-1.5-pro, gemini-2.0-flash | `google/` |
-| xAI | grok-beta | `xai/` |
-| DeepSeek | deepseek-chat | `deepseek/` |
+| OpenRouter | any model on openrouter.ai | `openrouter/` |
+| xAI | grok-beta, grok-2 | `xai/` |
+| DeepSeek | deepseek-chat, deepseek-reasoner | `deepseek/` |
+| Mistral | mistral-large, mistral-small | `mistral/` |
+| Cerebras | llama-3.1-70b, llama-3.1-8b | `cerebras/` |
+| Azure OpenAI | your deployed models | `azure/` |
+| Ollama | local models | `ollama/` |
+
+**OpenRouter** gives you access to 200+ models through a single API key — perfect for trying different models with the same memory.
 
 ---
 
