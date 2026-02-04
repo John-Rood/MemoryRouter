@@ -41,7 +41,7 @@ const testPrompts = [
   "Name a fruit.",
 ];
 
-export default function PlaygroundPage() {
+export default function TestingPage() {
   const [memoryKeys, setMemoryKeys] = useState<MemoryKey[]>([]);
   const [selectedKeyId, setSelectedKeyId] = useState<string>("");
   const [isLoadingKeys, setIsLoadingKeys] = useState(true);
@@ -338,7 +338,7 @@ export default function PlaygroundPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold gradient-text">Playground</h1>
+          <h1 className="text-3xl font-bold gradient-text">Testing</h1>
           <p className="text-muted-foreground mt-1">
             Test MemoryRouter latency with real requests
           </p>

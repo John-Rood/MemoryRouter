@@ -32,7 +32,7 @@ export default function SettingsPage() {
     <div className="space-y-5">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold gradient-text">Settings</h1>
+        <h1 className="text-3xl font-bold gradient-text">Settings</h1>
         <p className="text-muted-foreground text-sm">
           Manage your account and preferences
         </p>

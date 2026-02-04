@@ -72,10 +72,29 @@ export default function PlaygroundPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [messageInput, setMessageInput] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [userEmail, setUserEmail] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  const isAdmin = userEmail === "john@johnrood.com";
 
   const getApiBase = () => ENVIRONMENTS[environment];
   const selectedKey = memoryKeys.find((k) => k.id === selectedKeyId);
+
+  // Fetch user email for admin check
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        const response = await fetch("/api/user");
+        if (response.ok) {
+          const data = await response.json();
+          setUserEmail(data.email || "");
+        }
+      } catch (error) {
+        console.error("Failed to fetch user:", error);
+      }
+    }
+    fetchUser();
+  }, []);
 
   // Fetch memory keys
   useEffect(() => {
@@ -392,6 +411,7 @@ export default function PlaygroundPage() {
               setMemoryStore={setMemoryStore}
               sessionId={sessionId}
               setSessionId={setSessionId}
+              isAdmin={isAdmin}
             />
 
             {/* Chat List - Mobile */}
@@ -426,7 +446,7 @@ export default function PlaygroundPage() {
         {/* Desktop Sidebar */}
         <aside className="hidden lg:flex w-72 flex-col border-r border-white/[0.08] bg-background/50 overflow-hidden">
           <div className="p-4 border-b border-white/[0.08]">
-            <h1 className="text-lg font-semibold">
+            <h1 className="text-xl font-bold gradient-text">
               Playground
             </h1>
             <p className="text-xs text-muted-foreground mt-1">Test your memory keys</p>
@@ -450,6 +470,7 @@ export default function PlaygroundPage() {
               setMemoryStore={setMemoryStore}
               sessionId={sessionId}
               setSessionId={setSessionId}
+              isAdmin={isAdmin}
             />
 
             {/* Chat List - Desktop */}
@@ -561,6 +582,7 @@ function SettingsPanel({
   setMemoryStore,
   sessionId,
   setSessionId,
+  isAdmin,
 }: {
   environment: "production" | "staging";
   setEnvironment: (e: "production" | "staging") => void;
@@ -578,23 +600,24 @@ function SettingsPanel({
   setMemoryStore: (v: boolean) => void;
   sessionId: string | null;
   setSessionId: (s: string | null) => void;
+  isAdmin: boolean;
 }) {
   return (
     <div className="space-y-4">
-      {/* Environment - hidden for now, will be admin-only later */}
-      {/* 
-      <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Environment</label>
-        <select
-          value={environment}
-          onChange={(e) => setEnvironment(e.target.value as "production" | "staging")}
-          className="w-full bg-card border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary/50 font-mono"
-        >
-          <option value="production">🟢 Production</option>
-          <option value="staging">🟡 Staging</option>
-        </select>
-      </div>
-      */}
+      {/* Environment - admin only */}
+      {isAdmin && (
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Environment</label>
+          <select
+            value={environment}
+            onChange={(e) => setEnvironment(e.target.value as "production" | "staging")}
+            className="w-full bg-card border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary/50 font-mono"
+          >
+            <option value="production">🟢 Production</option>
+            <option value="staging">🟡 Staging</option>
+          </select>
+        </div>
+      )}
 
       {/* Memory Key Dropdown */}
       <div className="space-y-1.5">
