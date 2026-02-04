@@ -3,8 +3,13 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getUserBilling } from "@/lib/auth/server";
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  console.log(`[billing/overview] Request started`);
+  
   // Get current user from session
+  const authStart = Date.now();
   const user = await getCurrentUser(request);
+  console.log(`[billing/overview] Auth took ${Date.now() - authStart}ms`);
   
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -12,11 +17,15 @@ export async function GET(request: NextRequest) {
   
   try {
     // Fetch billing from Workers API
+    const billingStart = Date.now();
     const billing = await getUserBilling(user.userId);
+    console.log(`[billing/overview] Billing fetch took ${Date.now() - billingStart}ms`);
     
     // Convert cents to dollars for display
     const creditBalance = billing.creditBalanceCents / 100;
     const creditTokens = Math.floor(billing.creditBalanceCents * 1000); // $1 = ~1M tokens at $0.001/1k
+    
+    console.log(`[billing/overview] Total time: ${Date.now() - startTime}ms`);
     
     return NextResponse.json({
       status: billing.hasPaymentMethod ? "active" : "pending",
@@ -41,7 +50,7 @@ export async function GET(request: NextRequest) {
       })) || [],
     });
   } catch (error) {
-    console.error("Failed to get billing:", error);
+    console.error(`[billing/overview] Error after ${Date.now() - startTime}ms:`, error);
     return NextResponse.json({ error: "Failed to get billing" }, { status: 500 });
   }
 }
