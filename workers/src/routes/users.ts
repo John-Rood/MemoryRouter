@@ -336,8 +336,9 @@ users.get('/:userId/usage', async (c) => {
     const keys = memoryKeys.map(k => k.key);
     const placeholders = keys.map(() => '?').join(',');
 
-    // Get aggregate usage from usage_daily
+    // Get aggregate usage from usage_daily (rolled up historical data)
     const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
     const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
     const startDate = thirtyDaysAgo.toISOString().split('T')[0];
 
@@ -353,12 +354,58 @@ users.get('/:userId/usage', async (c) => {
       ORDER BY date DESC
     `).bind(...keys, startDate).all();
 
+    // ALSO get today's events from usage_events (not yet rolled up)
+    const todayStart = new Date(todayStr + 'T00:00:00Z').getTime();
+    const { results: todayEvents } = await c.env.VECTORS_D1.prepare(`
+      SELECT 
+        date(timestamp / 1000, 'unixepoch') as date,
+        COUNT(*) as requests,
+        SUM(input_tokens) as tokens_in,
+        SUM(output_tokens) as tokens_out
+      FROM usage_events
+      WHERE memory_key IN (${placeholders})
+        AND timestamp >= ?
+      GROUP BY date(timestamp / 1000, 'unixepoch')
+    `).bind(...keys, todayStart).all();
+
+    // Merge today's events with daily rollups
+    const usageByDate = new Map<string, { date: string; requests: number; tokens_in: number; tokens_out: number }>();
+    
+    for (const day of dailyUsage as any[]) {
+      usageByDate.set(day.date, {
+        date: day.date,
+        requests: day.requests || 0,
+        tokens_in: day.tokens_in || 0,
+        tokens_out: day.tokens_out || 0,
+      });
+    }
+
+    for (const day of todayEvents as any[]) {
+      const existing = usageByDate.get(day.date);
+      if (existing) {
+        existing.requests += day.requests || 0;
+        existing.tokens_in += day.tokens_in || 0;
+        existing.tokens_out += day.tokens_out || 0;
+      } else {
+        usageByDate.set(day.date, {
+          date: day.date,
+          requests: day.requests || 0,
+          tokens_in: day.tokens_in || 0,
+          tokens_out: day.tokens_out || 0,
+        });
+      }
+    }
+
+    // Convert to sorted array
+    const mergedUsage = Array.from(usageByDate.values())
+      .sort((a, b) => b.date.localeCompare(a.date));
+
     // Calculate totals
     let totalRequests = 0;
     let totalTokensIn = 0;
     let totalTokensOut = 0;
 
-    for (const day of dailyUsage as any[]) {
+    for (const day of mergedUsage) {
       totalRequests += day.requests || 0;
       totalTokensIn += day.tokens_in || 0;
       totalTokensOut += day.tokens_out || 0;
@@ -368,7 +415,7 @@ users.get('/:userId/usage', async (c) => {
       totalRequests,
       totalTokensIn,
       totalTokensOut,
-      dailyUsage
+      dailyUsage: mergedUsage
     });
   } catch (error) {
     console.error('Get usage failed:', error);

@@ -38,7 +38,7 @@ export function Sidebar({ user, creditBalanceCents }: SidebarProps) {
   return (
     <>
       {/* Mobile header */}
-      <div className="sticky top-0 z-40 flex h-14 w-full items-center gap-x-4 border-b border-white/[0.04] bg-background/80 backdrop-blur-xl px-4 lg:hidden">
+      <div className="sticky top-0 z-40 flex h-14 w-full items-center gap-x-4 border-b border-white/[0.08] bg-background/80 backdrop-blur-xl px-4 lg:hidden">
         <Button variant="ghost" size="icon" onClick={() => setMobileOpen(!mobileOpen)}>
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
@@ -64,11 +64,11 @@ export function Sidebar({ user, creditBalanceCents }: SidebarProps) {
       
       {/* Sidebar */}
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-white/[0.04] bg-background/95 backdrop-blur-xl transition-transform duration-200 lg:translate-x-0 lg:static lg:z-auto",
+        "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-white/[0.08] bg-background/95 backdrop-blur-xl transition-transform duration-200 lg:translate-x-0 lg:static lg:z-auto",
         mobileOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Logo */}
-        <div className="flex h-14 items-center gap-2 px-6 border-b border-white/[0.04]">
+        <div className="flex h-14 items-center gap-2 px-6 border-b border-white/[0.08]">
           <Image 
             src="/logo.png" 
             alt="MemoryRouter" 

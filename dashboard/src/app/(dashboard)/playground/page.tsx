@@ -357,7 +357,7 @@ export default function PlaygroundPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] lg:h-screen -mx-4 lg:-mx-8 -my-6 lg:-my-8">
       {/* Mobile Settings Toggle */}
-      <div className="lg:hidden border-b border-white/[0.04] bg-background/95 backdrop-blur-xl">
+      <div className="lg:hidden border-b border-white/[0.08] bg-background/95 backdrop-blur-xl">
         <button
           onClick={() => setSettingsOpen(!settingsOpen)}
           className="flex items-center justify-between w-full px-4 py-3 text-sm font-medium"
@@ -374,7 +374,7 @@ export default function PlaygroundPage() {
 
         {/* Mobile Settings Panel */}
         {settingsOpen && (
-          <div className="px-4 pb-4 space-y-4 border-t border-white/[0.04]">
+          <div className="px-4 pb-4 space-y-4 border-t border-white/[0.08]">
             <SettingsPanel
               environment={environment}
               setEnvironment={setEnvironment}
@@ -398,21 +398,21 @@ export default function PlaygroundPage() {
             <ChatList chats={sortedChats} activeChatId={activeChatId} onSelect={(id) => { setActiveChatId(id); setSettingsOpen(false); }} />
 
             {/* Actions - Mobile */}
-            <div className="space-y-2 pt-2 border-t border-white/[0.04]">
+            <div className="space-y-2 pt-2 border-t border-white/[0.08]">
               <button onClick={createChat} className="w-full btn-neon py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
                 <Plus className="h-4 w-4" />
                 New Conversation
               </button>
               <button
                 onClick={resetSession}
-                className="w-full py-2.5 rounded-lg text-sm font-medium border border-white/[0.04] text-muted-foreground hover:text-foreground hover:border-white/10 transition-colors flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-lg text-sm font-medium border border-white/[0.08] text-muted-foreground hover:text-foreground hover:border-white/10 transition-colors flex items-center justify-center gap-2"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 New Session ID
               </button>
               <button
                 onClick={clearMemory}
-                className="w-full py-2.5 rounded-lg text-sm font-medium border border-white/[0.04] text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-lg text-sm font-medium border border-white/[0.08] text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors flex items-center justify-center gap-2"
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 Clear Memory Vault
@@ -424,8 +424,8 @@ export default function PlaygroundPage() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Desktop Sidebar */}
-        <aside className="hidden lg:flex w-72 flex-col border-r border-white/[0.04] bg-background/50 overflow-hidden">
-          <div className="p-4 border-b border-white/[0.04]">
+        <aside className="hidden lg:flex w-72 flex-col border-r border-white/[0.08] bg-background/50 overflow-hidden">
+          <div className="p-4 border-b border-white/[0.08]">
             <h1 className="text-lg font-semibold">
               Playground <span className="text-xs text-muted-foreground ml-2">{environment === "staging" ? "🟡 Staging" : "🟢 Production"}</span>
             </h1>
@@ -453,27 +453,27 @@ export default function PlaygroundPage() {
             />
 
             {/* Chat List - Desktop */}
-            <div className="pt-4 border-t border-white/[0.04]">
+            <div className="pt-4 border-t border-white/[0.08]">
               <ChatList chats={sortedChats} activeChatId={activeChatId} onSelect={setActiveChatId} />
             </div>
           </div>
 
           {/* Actions - anchored to bottom */}
-          <div className="p-4 border-t border-white/[0.04] space-y-2">
+          <div className="p-4 border-t border-white/[0.08] space-y-2">
             <button onClick={createChat} className="w-full btn-neon py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
               <Plus className="h-4 w-4" />
               New Conversation
             </button>
             <button
               onClick={resetSession}
-              className="w-full py-2.5 rounded-lg text-sm font-medium border border-white/[0.04] text-muted-foreground hover:text-foreground hover:border-white/10 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-2.5 rounded-lg text-sm font-medium border border-white/[0.08] text-muted-foreground hover:text-foreground hover:border-white/10 transition-colors flex items-center justify-center gap-2"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               New Session ID
             </button>
             <button
               onClick={clearMemory}
-              className="w-full py-2.5 rounded-lg text-sm font-medium border border-white/[0.04] text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-2.5 rounded-lg text-sm font-medium border border-white/[0.08] text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors flex items-center justify-center gap-2"
             >
               <Trash2 className="h-3.5 w-3.5" />
               Clear Memory Vault
@@ -484,7 +484,7 @@ export default function PlaygroundPage() {
         {/* Main Chat Area */}
         <main className="flex-1 flex flex-col overflow-hidden">
           {/* Chat Header */}
-          <header className="px-4 py-3 border-b border-white/[0.04] bg-background/80 backdrop-blur-xl">
+          <header className="px-4 py-3 border-b border-white/[0.08] bg-background/80 backdrop-blur-xl">
             <h2 className="font-medium">{activeChat?.name || "New Chat"}</h2>
             <p className="text-xs text-muted-foreground font-mono">
               vault: {sessionId ? `session (${sessionId.slice(0, 8)}...)` : "core (main)"}
@@ -513,7 +513,7 @@ export default function PlaygroundPage() {
           </div>
 
           {/* Input Area */}
-          <div className="p-4 border-t border-white/[0.04] bg-background">
+          <div className="p-4 border-t border-white/[0.08] bg-background">
             <div className="flex gap-3 max-w-4xl mx-auto">
               <textarea
                 value={messageInput}
@@ -526,7 +526,7 @@ export default function PlaygroundPage() {
                 }}
                 placeholder="Type a message..."
                 rows={2}
-                className="flex-1 resize-none rounded-xl bg-card border border-white/[0.04] px-4 py-3 text-sm outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
+                className="flex-1 resize-none rounded-xl bg-card border border-white/[0.08] px-4 py-3 text-sm outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
               />
               <button
                 onClick={sendMessage}
@@ -587,7 +587,7 @@ function SettingsPanel({
         <select
           value={environment}
           onChange={(e) => setEnvironment(e.target.value as "production" | "staging")}
-          className="w-full bg-card border border-white/[0.04] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary/50 font-mono"
+          className="w-full bg-card border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary/50 font-mono"
         >
           <option value="production">🟢 Production</option>
           <option value="staging">🟡 Staging</option>
@@ -598,18 +598,18 @@ function SettingsPanel({
       <div className="space-y-1.5">
         <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Memory Key</label>
         {isLoadingKeys ? (
-          <div className="w-full bg-card border border-white/[0.04] rounded-lg px-3 py-2.5 text-sm text-muted-foreground">
+          <div className="w-full bg-card border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-muted-foreground">
             Loading keys...
           </div>
         ) : memoryKeys.length === 0 ? (
-          <div className="w-full bg-card border border-white/[0.04] rounded-lg px-3 py-2.5 text-sm text-muted-foreground">
+          <div className="w-full bg-card border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-muted-foreground">
             No keys found
           </div>
         ) : (
           <select
             value={selectedKeyId}
             onChange={(e) => setSelectedKeyId(e.target.value)}
-            className="w-full bg-card border border-white/[0.04] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary/50"
+            className="w-full bg-card border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary/50"
           >
             {memoryKeys.map((key) => (
               <option key={key.id} value={key.id}>
@@ -626,7 +626,7 @@ function SettingsPanel({
         <select
           value={model}
           onChange={(e) => setModel(e.target.value)}
-          className="w-full bg-card border border-white/[0.04] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary/50 font-mono"
+          className="w-full bg-card border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary/50 font-mono"
         >
           {models.length > 0 ? (
             models.map((provider) => (
@@ -663,7 +663,7 @@ function SettingsPanel({
           value={sessionId || ""}
           onChange={(e) => setSessionId(e.target.value.trim() || null)}
           placeholder="Leave empty for core vault"
-          className="w-full bg-card border border-white/[0.04] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary/50 font-mono"
+          className="w-full bg-card border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary/50 font-mono"
         />
         <p className="text-xs text-muted-foreground">Each session ID creates an isolated memory vault</p>
       </div>
@@ -678,7 +678,7 @@ function ToggleRow({ label, checked, onChange }: { label: string; checked: boole
       <div
         className={cn(
           "relative w-9 h-5 rounded-full transition-colors",
-          checked ? "bg-primary/20 border border-primary/50" : "bg-card border border-white/[0.04]"
+          checked ? "bg-primary/20 border border-primary/50" : "bg-card border border-white/[0.08]"
         )}
         onClick={() => onChange(!checked)}
       >
@@ -765,7 +765,7 @@ function MessageBubble({ message }: { message: Message }) {
           <p className="whitespace-pre-wrap">{message.content}</p>
         ) : (
           <div
-            className="prose prose-invert prose-sm max-w-none prose-pre:bg-[#0f0f13] prose-pre:border prose-pre:border-white/[0.04] prose-code:text-primary prose-code:before:content-none prose-code:after:content-none"
+            className="prose prose-invert prose-sm max-w-none prose-pre:bg-[#0f0f13] prose-pre:border prose-pre:border-white/[0.08] prose-code:text-primary prose-code:before:content-none prose-code:after:content-none"
             dangerouslySetInnerHTML={{ __html: marked.parse(message.content) as string }}
           />
         )}
@@ -785,7 +785,7 @@ function MessageBubble({ message }: { message: Message }) {
           {debugOpen && (
             <div className="mt-2 glass-card rounded-xl overflow-hidden">
               {/* Tabs */}
-              <div className="flex border-b border-white/[0.04] bg-card/50">
+              <div className="flex border-b border-white/[0.08] bg-card/50">
                 {(["stats", "prompt", "chunks"] as const).map((tab) => (
                   <button
                     key={tab}
@@ -806,7 +806,7 @@ function MessageBubble({ message }: { message: Message }) {
               <div className="p-4 max-h-96 overflow-y-auto">
                 {activeTab === "stats" && <MemoryStatsTab memory={message.debug.memory} latency={message.debug.latency} />}
                 {activeTab === "prompt" && (
-                  <pre className="text-xs font-mono whitespace-pre-wrap break-all p-4 rounded-lg bg-[#0f0f13] border border-white/[0.04]">
+                  <pre className="text-xs font-mono whitespace-pre-wrap break-all p-4 rounded-lg bg-[#0f0f13] border border-white/[0.08]">
                     {JSON.stringify(message.debug.augmented_messages || [], null, 2)}
                   </pre>
                 )}
@@ -852,7 +852,7 @@ function MemoryStatsTab({ memory, latency }: {
         <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-2">KRONOS Time Windows</p>
         {totalChunks > 0 ? (
           <>
-            <div className="flex h-7 rounded-md overflow-hidden border border-white/[0.04]">
+            <div className="flex h-7 rounded-md overflow-hidden border border-white/[0.08]">
               {hotPct > 0 && (
                 <div className="flex items-center justify-center text-xs font-semibold text-black bg-gradient-to-r from-[#ff006e] to-[#ff4d94]" style={{ width: `${hotPct}%` }}>
                   {windowBreakdown.hot}
@@ -929,7 +929,7 @@ function ChunksTab({ chunks }: { chunks?: Array<{ role: string; content: string;
   return (
     <div className="space-y-3">
       {chunks.map((chunk, i) => (
-        <div key={i} className="p-3 rounded-lg bg-[#0f0f13] border border-white/[0.04]">
+        <div key={i} className="p-3 rounded-lg bg-[#0f0f13] border border-white/[0.08]">
           <div className="flex items-center gap-2 mb-2 text-xs">
             <span className="font-semibold text-muted-foreground">[{i + 1}]</span>
             <span className={cn("uppercase font-medium", chunk.role === "user" ? "text-accent" : "text-primary")}>{chunk.role}</span>
