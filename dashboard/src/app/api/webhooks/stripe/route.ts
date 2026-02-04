@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { updateBilling } from "@/lib/api/workers-client";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -130,6 +131,87 @@ export async function POST(request: NextRequest) {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       console.log(`❌ Payment failed: ${paymentIntent.id}`);
       console.log(`   Error: ${paymentIntent.last_payment_error?.message}`);
+      break;
+    }
+
+    case "setup_intent.succeeded": {
+      // User saved a payment method via setup mode checkout
+      const setupIntent = event.data.object as Stripe.SetupIntent;
+      const customerId = typeof setupIntent.customer === "string"
+        ? setupIntent.customer
+        : setupIntent.customer?.id;
+      
+      console.log(`💳 Setup intent succeeded: ${setupIntent.id}`);
+      console.log(`   Customer: ${customerId}`);
+      console.log(`   Payment Method: ${setupIntent.payment_method}`);
+
+      if (customerId) {
+        // Get user ID from customer metadata
+        try {
+          const customer = await stripe.customers.retrieve(customerId);
+          if (customer && !customer.deleted && customer.metadata?.userId) {
+            const userId = customer.metadata.userId;
+            
+            // Set this payment method as default for the customer
+            if (setupIntent.payment_method) {
+              const paymentMethodId = typeof setupIntent.payment_method === "string"
+                ? setupIntent.payment_method
+                : setupIntent.payment_method.id;
+              
+              await stripe.customers.update(customerId, {
+                invoice_settings: {
+                  default_payment_method: paymentMethodId,
+                },
+              });
+            }
+            
+            // Update hasPaymentMethod in database
+            await updateBilling(userId, {
+              hasPaymentMethod: true,
+            });
+            console.log(`✅ Updated hasPaymentMethod=true for user ${userId}`);
+          }
+        } catch (error) {
+          console.error(`Failed to update payment method status:`, error);
+        }
+      }
+      break;
+    }
+
+    case "payment_method.attached": {
+      // Payment method attached to a customer (from checkout with setup_future_usage)
+      const paymentMethod = event.data.object as Stripe.PaymentMethod;
+      const customerId = typeof paymentMethod.customer === "string"
+        ? paymentMethod.customer
+        : paymentMethod.customer?.id;
+      
+      console.log(`💳 Payment method attached: ${paymentMethod.id}`);
+      console.log(`   Customer: ${customerId}`);
+      console.log(`   Type: ${paymentMethod.type}`);
+
+      if (customerId && paymentMethod.type === "card") {
+        try {
+          const customer = await stripe.customers.retrieve(customerId);
+          if (customer && !customer.deleted && customer.metadata?.userId) {
+            const userId = customer.metadata.userId;
+            
+            // Set as default payment method
+            await stripe.customers.update(customerId, {
+              invoice_settings: {
+                default_payment_method: paymentMethod.id,
+              },
+            });
+            
+            // Update hasPaymentMethod in database
+            await updateBilling(userId, {
+              hasPaymentMethod: true,
+            });
+            console.log(`✅ Updated hasPaymentMethod=true for user ${userId}`);
+          }
+        } catch (error) {
+          console.error(`Failed to update payment method status:`, error);
+        }
+      }
       break;
     }
 

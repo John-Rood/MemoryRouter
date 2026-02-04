@@ -58,60 +58,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
     
-    const { amount } = await request.json();
-    
-    // Validate amount
-    if (!amount || typeof amount !== "number" || amount < 5) {
-      return NextResponse.json({ error: "Minimum amount is $5" }, { status: 400 });
-    }
-    
-    if (amount > 10000) {
-      return NextResponse.json({ error: "Maximum amount is $10,000" }, { status: 400 });
-    }
-    
-    // Get or create Stripe customer (so we can save their card for auto-reup)
+    // Get or create Stripe customer
     const customerId = await getOrCreateStripeCustomer(
       payload.userId,
       payload.email || ""
     );
     
-    // Create Stripe Checkout session
+    // Create Stripe Checkout session in setup mode (saves card without charging)
     const session = await stripe.checkout.sessions.create({
-      mode: "payment",
+      mode: "setup",
       customer: customerId,
       payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: "MemoryRouter Credits",
-              description: `$${amount.toFixed(2)} in API credits`,
-            },
-            unit_amount: Math.round(amount * 100), // Convert to cents
-          },
-          quantity: 1,
-        },
-      ],
-      payment_intent_data: {
-        statement_descriptor: "MEMORYROUTER",
-        // Save the card for future use (auto-reup)
-        setup_future_usage: "off_session",
-      },
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/billing?success=true&amount=${amount}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/billing?canceled=true`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/billing?setup_success=true`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/billing?setup_canceled=true`,
       metadata: {
         userId: payload.userId,
         email: payload.email || "",
-        amount: amount.toString(),
       },
     });
     
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    console.error("Error creating checkout session:", error);
+    console.error("Error creating setup session:", error);
     return NextResponse.json(
-      { error: "Failed to create checkout session" },
+      { error: "Failed to create payment setup session" },
       { status: 500 }
     );
   }

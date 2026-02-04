@@ -55,6 +55,7 @@ export default function BillingPage() {
   const [selectedAmount, setSelectedAmount] = useState(20);
   const [customAmount, setCustomAmount] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isAddingPaymentMethod, setIsAddingPaymentMethod] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
   
@@ -111,6 +112,8 @@ export default function BillingPage() {
   useEffect(() => {
     const success = searchParams.get("success");
     const canceled = searchParams.get("canceled");
+    const setupSuccess = searchParams.get("setup_success");
+    const setupCanceled = searchParams.get("setup_canceled");
     const amount = searchParams.get("amount");
     
     if (success === "true") {
@@ -126,6 +129,20 @@ export default function BillingPage() {
       setNotification({
         type: "error",
         message: "Payment was canceled. No charges were made.",
+      });
+      router.replace("/billing", { scroll: false });
+    } else if (setupSuccess === "true") {
+      setNotification({
+        type: "success",
+        message: "Payment method added successfully! You can now use auto-reup.",
+      });
+      router.replace("/billing", { scroll: false });
+      // Wait a bit for webhook to process, then refresh
+      setTimeout(() => fetchBilling(), 2000);
+    } else if (setupCanceled === "true") {
+      setNotification({
+        type: "error",
+        message: "Payment method setup was canceled.",
       });
       router.replace("/billing", { scroll: false });
     }
@@ -181,6 +198,37 @@ export default function BillingPage() {
       });
       setIsLoading(false);
       setIsAddingFunds(false);
+    }
+  };
+  
+  const handleAddPaymentMethod = async () => {
+    setIsAddingPaymentMethod(true);
+    
+    try {
+      const response = await fetch("/api/billing/setup-payment-method", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to start payment setup");
+      }
+      
+      if (data.url) {
+        // Redirect to Stripe Checkout (setup mode)
+        window.location.href = data.url;
+      } else {
+        throw new Error("No setup URL returned");
+      }
+    } catch (error) {
+      console.error("Error setting up payment method:", error);
+      setNotification({
+        type: "error",
+        message: error instanceof Error ? error.message : "Failed to set up payment method. Please try again.",
+      });
+      setIsAddingPaymentMethod(false);
     }
   };
   
@@ -356,6 +404,23 @@ export default function BillingPage() {
             />
           </div>
           
+          {billing.autoReupEnabled && !billing.hasPaymentMethod && (
+            <Alert className="border-amber-500/50 bg-amber-500/10">
+              <CreditCard className="h-4 w-4 text-amber-500" />
+              <AlertTitle className="text-amber-500">Payment method required</AlertTitle>
+              <AlertDescription>
+                Auto-reup needs a saved payment method.{" "}
+                <button 
+                  onClick={handleAddPaymentMethod}
+                  className="underline hover:text-foreground font-medium"
+                  disabled={isAddingPaymentMethod}
+                >
+                  Add one now
+                </button>
+              </AlertDescription>
+            </Alert>
+          )}
+          
           {billing.autoReupEnabled && (
             <div className="grid gap-4 md:grid-cols-2 pt-4 border-t border-border/10">
               <div className="space-y-2">
@@ -386,27 +451,50 @@ export default function BillingPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {billing.hasPaymentMethod && billing.paymentMethod ? (
+          {billing.hasPaymentMethod ? (
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-8 bg-muted rounded flex items-center justify-center">
-                  <span className="text-xs font-bold uppercase">{billing.paymentMethod.brand}</span>
+                  <CreditCard className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="font-medium">•••• {billing.paymentMethod.last4}</p>
+                  <p className="font-medium">Card on file</p>
                   <p className="text-sm text-muted-foreground">
-                    Expires {billing.paymentMethod.expMonth}/{billing.paymentMethod.expYear}
+                    Ready for auto-reup
                   </p>
                 </div>
               </div>
-              <Button variant="outline">Update</Button>
+              <Button 
+                variant="outline" 
+                onClick={handleAddPaymentMethod}
+                disabled={isAddingPaymentMethod}
+              >
+                {isAddingPaymentMethod ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Update"
+                )}
+              </Button>
             </div>
           ) : (
             <div className="text-center py-4">
               <p className="text-muted-foreground mb-4">No payment method on file</p>
-              <Button className="btn-neon">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Payment Method
+              <Button 
+                className="btn-neon" 
+                onClick={handleAddPaymentMethod}
+                disabled={isAddingPaymentMethod}
+              >
+                {isAddingPaymentMethod ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Redirecting...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Payment Method
+                  </>
+                )}
               </Button>
             </div>
           )}
