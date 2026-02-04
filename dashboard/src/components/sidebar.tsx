@@ -36,21 +36,31 @@ export function Sidebar({ user, creditBalanceCents }: SidebarProps) {
   
   return (
     <>
-      {/* Mobile hamburger - fixed position, doesn't affect layout */}
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        onClick={() => setMobileOpen(!mobileOpen)}
-        className="fixed top-4 left-4 z-50 lg:hidden"
-      >
-        {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-      </Button>
-
+      {/* Mobile header */}
+      <div className="sticky top-0 z-40 flex h-14 w-full items-center gap-x-4 border-b border-border bg-background/80 backdrop-blur-xl px-4 lg:hidden">
+        <Button variant="ghost" size="icon" onClick={() => setMobileOpen(!mobileOpen)}>
+          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </Button>
+        <div className="flex items-center gap-2">
+          <Image 
+            src="/logo.png" 
+            alt="MemoryRouter" 
+            width={28} 
+            height={28} 
+            className="rounded-lg"
+          />
+          <span className="font-semibold">MemoryRouter</span>
+        </div>
+        <div className="ml-auto">
+          <span className="text-sm font-medium text-neon-green">${balanceDollars}</span>
+        </div>
+      </div>
+      
       {/* Mobile overlay */}
       {mobileOpen && (
         <div className="fixed inset-0 z-30 bg-background/80 backdrop-blur-sm lg:hidden" onClick={() => setMobileOpen(false)} />
       )}
-
+      
       {/* Sidebar */}
       <aside className={cn(
         "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-background/95 backdrop-blur-xl transition-transform duration-200 lg:translate-x-0 lg:static lg:z-auto",

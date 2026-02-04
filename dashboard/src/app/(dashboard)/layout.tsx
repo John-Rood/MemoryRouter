@@ -6,7 +6,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const billing = await getUserBilling(user.id);
   
   return (
-    <div className="flex min-h-screen">
+    <div className="flex flex-col lg:flex-row min-h-screen">
       {/* Ambient background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-0 left-1/4 w-[400px] h-[400px] bg-neon-green/3 rounded-full blur-[150px]"></div>
