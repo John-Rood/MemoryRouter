@@ -64,7 +64,7 @@ export function Sidebar({ user, creditBalanceCents }: SidebarProps) {
       
       {/* Sidebar */}
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-white/[0.08] bg-background/95 backdrop-blur-xl transition-transform duration-200 lg:translate-x-0 lg:static lg:z-auto",
+        "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-white/[0.08] bg-background/95 backdrop-blur-xl transition-transform duration-200 lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:z-auto",
         mobileOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Logo */}
