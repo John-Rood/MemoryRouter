@@ -354,9 +354,10 @@ users.get('/:userId/usage', async (c) => {
       ORDER BY date DESC
     `).bind(...keys, startDate).all();
 
-    // ALSO get today's events from usage_events (not yet rolled up)
-    const todayStart = new Date(todayStr + 'T00:00:00Z').getTime();
-    const { results: todayEvents } = await c.env.VECTORS_D1.prepare(`
+    // ALSO get events from usage_events (not yet rolled up into usage_daily)
+    // Query full 30 days since rollups may not have run yet
+    const thirtyDaysAgoTs = thirtyDaysAgo.getTime();
+    const { results: recentEvents } = await c.env.VECTORS_D1.prepare(`
       SELECT 
         date(timestamp / 1000, 'unixepoch') as date,
         COUNT(*) as requests,
@@ -366,7 +367,7 @@ users.get('/:userId/usage', async (c) => {
       WHERE memory_key IN (${placeholders})
         AND timestamp >= ?
       GROUP BY date(timestamp / 1000, 'unixepoch')
-    `).bind(...keys, todayStart).all();
+    `).bind(...keys, thirtyDaysAgoTs).all();
 
     // Merge today's events with daily rollups
     const usageByDate = new Map<string, { date: string; requests: number; tokens_in: number; tokens_out: number }>();
@@ -380,7 +381,7 @@ users.get('/:userId/usage', async (c) => {
       });
     }
 
-    for (const day of todayEvents as any[]) {
+    for (const day of recentEvents as any[]) {
       const existing = usageByDate.get(day.date);
       if (existing) {
         existing.requests += day.requests || 0;
