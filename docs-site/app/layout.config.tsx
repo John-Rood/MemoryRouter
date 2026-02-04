@@ -1,10 +1,12 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
+import Image from 'next/image';
 
 export const baseOptions: BaseLayoutProps = {
   nav: {
     title: (
-      <span className="font-bold text-lg">
-        🧠 MemoryRouter
+      <span className="flex items-center gap-2 font-bold text-lg">
+        <Image src="/logo.png" alt="MemoryRouter" width={28} height={28} />
+        MemoryRouter
       </span>
     ),
   },
