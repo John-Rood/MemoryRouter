@@ -2,8 +2,18 @@ import { requireUser, getUserBilling } from '@/lib/auth/server';
 import { Sidebar } from "@/components/sidebar";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const layoutStart = Date.now();
+  console.log(`[DashboardLayout] Starting render`);
+  
+  const userStart = Date.now();
   const user = await requireUser();
+  console.log(`[DashboardLayout] requireUser took ${Date.now() - userStart}ms`);
+  
+  const billingStart = Date.now();
   const billing = await getUserBilling(user.id);
+  console.log(`[DashboardLayout] getUserBilling took ${Date.now() - billingStart}ms`);
+  
+  console.log(`[DashboardLayout] Total server time: ${Date.now() - layoutStart}ms`);
   
   return (
     <div className="flex flex-col lg:flex-row min-h-screen">
