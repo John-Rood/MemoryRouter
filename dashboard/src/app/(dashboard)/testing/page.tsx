@@ -101,9 +101,11 @@ export default function PlaygroundPage() {
     if (model) localStorage.setItem("memoryrouter_model", model);
   }, [model]);
 
-  // Scroll to bottom
+  // Scroll to bottom only when there are messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, streamingContent]);
 
   const selectedKey = memoryKeys.find((k) => k.id === selectedKeyId);
