@@ -308,11 +308,11 @@ Include in request body—they're stripped before forwarding:
 
 ### Memory Modes Explained
 
-| Mode | Recall | Remember | Use Case |
-|------|--------|----------|----------|
+| Mode | Retrieve | Store | Use Case |
+|------|----------|-------|----------|
 | `on` | ✅ | ✅ | Normal operation (default) |
 | `read` | ✅ | ❌ | Use memory but don't add to it (testing, one-off queries) |
-| `write` | ❌ | ✅ | Remember without recalling (bulk import, backfill) |
+| `write` | ❌ | ✅ | Store without retrieval (bulk import, backfill) |
 | `off` | ❌ | ❌ | Stateless request (no memory at all) |
 
 ### Per-Message Memory Control
@@ -561,16 +561,16 @@ curl "https://api.memoryrouter.ai/v1/account/usage?start=2024-01-01&end=2024-02-
 
 ---
 
-## Temporal Memory
+## Semantic-Temporal Memory
 
-MemoryRouter understands that not all memories are equal. Recent conversations matter more than old ones, but important facts should persist.
+MemoryRouter uses a semantic-temporal architecture — memories are indexed by meaning *and* time. Recent context is weighted higher, but important facts persist.
 
-Our memory system automatically balances:
-- **Immediate context** — What just happened in this conversation
-- **Recent history** — Interactions from the past few days  
-- **Long-term knowledge** — Important facts that should persist
+The system automatically balances:
+- **Immediate context** — Current conversation
+- **Recent history** — Last few days of interactions  
+- **Long-term memory** — Persistent facts and preferences
 
-You don't need to configure this — it just works. Your AI will remember what matters, when it matters.
+No configuration required. The right memories surface at the right time.
 
 ---
 

@@ -90,11 +90,11 @@ response = client.chat.completions.create(
 ## How It Works
 
 MemoryRouter sits between your app and your AI provider:
-1. **Recalls** relevant context from past conversations
-2. **Enhances** your prompt with what the AI should remember
+1. **Queries** your semantic-temporal memory store
+2. **Injects** relevant context into your prompt
 3. **Forwards** to your chosen AI provider
-4. **Remembers** new conversations automatically
-5. **Returns** the response — your AI now has memory
+4. **Stores** new memories automatically
+5. **Returns** the response — standard format, zero changes to your code
 
 ---
 
