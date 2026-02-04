@@ -17,7 +17,7 @@ interface SidebarProps {
 
 const navigation = [
   { name: "Overview", href: "/", icon: BarChart3 },
-  { name: "Playground", href: "/playground", icon: Play },
+  { name: "Testing", href: "/testing", icon: Play },
   { name: "Keys", href: "/keys", icon: Key },
   { name: "Settings", href: "/settings", icon: Settings },
   { name: "Billing", href: "/billing", icon: CreditCard },
