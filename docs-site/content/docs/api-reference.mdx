@@ -1,17 +1,31 @@
 ---
 title: API Reference
-description: Complete endpoint documentation for the MemoryRouter API.
+description: Complete endpoint documentation for the MemoryRouter API with native support for OpenAI, Anthropic, and Google.
 ---
 
 Base URL: `https://api.memoryrouter.ai`
 
+MemoryRouter provides **native endpoints** for each major AI provider. Use your provider's SDK with zero code changes—just swap the base URL.
+
 ---
 
-## POST /v1/chat/completions
+## Provider Endpoints
 
-Main endpoint for chat with memory. Works with OpenAI SDK, Anthropic SDK, or any HTTP client.
+| Provider | Endpoint | SDK Compatibility |
+|----------|----------|-------------------|
+| OpenAI, xAI, DeepSeek, Mistral, Cerebras, OpenRouter | `POST /v1/chat/completions` | OpenAI SDK |
+| Anthropic | `POST /v1/messages` | Anthropic SDK |
+| Google Gemini | `POST /v1/models/:model:generateContent` | Google AI SDK |
 
-**Request:**
+---
+
+## OpenAI-Compatible Endpoint
+
+### POST /v1/chat/completions
+
+Works with **OpenAI SDK** and any OpenAI-compatible provider (xAI, DeepSeek, Mistral, Cerebras, OpenRouter).
+
+**curl:**
 ```bash
 curl -X POST https://api.memoryrouter.ai/v1/chat/completions \
   -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx" \
@@ -22,22 +36,50 @@ curl -X POST https://api.memoryrouter.ai/v1/chat/completions \
   }'
 ```
 
-**Parameters:**
+**Python (OpenAI SDK):**
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://api.memoryrouter.ai/v1",
+    api_key="mk_xxxxxxxxxxxxxxxx"
+)
+
+response = client.chat.completions.create(
+    model="openai/gpt-4o",
+    messages=[{"role": "user", "content": "My name is Alice"}]
+)
+print(response.choices[0].message.content)
+```
+
+**TypeScript:**
+```typescript
+import OpenAI from 'openai';
+
+const client = new OpenAI({
+  baseURL: 'https://api.memoryrouter.ai/v1',
+  apiKey: 'mk_xxxxxxxxxxxxxxxx'
+});
+
+const response = await client.chat.completions.create({
+  model: 'openai/gpt-4o',
+  messages: [{ role: 'user', content: 'My name is Alice' }]
+});
+```
+
+**Provider-Native Parameters:**
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `model` | string | Yes | Model (e.g., `openai/gpt-4o`, `anthropic/claude-3-5-sonnet`) |
+| `model` | string | Yes | Model identifier (e.g., `openai/gpt-4o`, `xai/grok-2`) |
 | `messages` | array | Yes | Array of message objects |
 | `stream` | boolean | No | Enable streaming |
 | `temperature` | number | No | Sampling temperature (0-2) |
 | `max_tokens` | number | No | Maximum tokens to generate |
-
-**Headers:**
-
-| Header | Description |
-|--------|-------------|
-| `X-Session-ID` | Session ID for conversation grouping |
-| `X-Memory-Mode` | `read`, `write`, or `off` |
+| `top_p` | number | No | Nucleus sampling |
+| `frequency_penalty` | number | No | Frequency penalty (-2 to 2) |
+| `presence_penalty` | number | No | Presence penalty (-2 to 2) |
+| `stop` | string/array | No | Stop sequences |
 
 **Response:**
 ```json
@@ -49,6 +91,192 @@ curl -X POST https://api.memoryrouter.ai/v1/chat/completions \
   }],
   "usage": {"prompt_tokens": 12, "completion_tokens": 15, "total_tokens": 27},
   "_memory": {
+    "key": "mk_xxxxxxxxxxxxxxxx",
+    "tokens_retrieved": 847,
+    "chunks_retrieved": 12,
+    "window_breakdown": {"hot": 4, "working": 4, "longterm": 4}
+  },
+  "_latency": {
+    "embedding_ms": 45,
+    "mr_processing_ms": 120,
+    "provider_ms": 890,
+    "total_ms": 1010
+  }
+}
+```
+
+---
+
+## Anthropic Native Endpoint
+
+### POST /v1/messages
+
+**Native Anthropic format.** Use the Anthropic SDK directly—MemoryRouter accepts Anthropic's request format and returns Anthropic's response format unchanged.
+
+**curl:**
+```bash
+curl -X POST https://api.memoryrouter.ai/v1/messages \
+  -H "x-api-key: mk_xxxxxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -H "anthropic-version: 2023-06-01" \
+  -d '{
+    "model": "claude-sonnet-4-20250514",
+    "max_tokens": 1024,
+    "messages": [{"role": "user", "content": "My name is Alice"}]
+  }'
+```
+
+**Python (Anthropic SDK):**
+```python
+from anthropic import Anthropic
+
+client = Anthropic(
+    base_url="https://api.memoryrouter.ai",
+    api_key="mk_xxxxxxxxxxxxxxxx"
+)
+
+response = client.messages.create(
+    model="claude-sonnet-4-20250514",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "My name is Alice"}]
+)
+print(response.content[0].text)
+```
+
+**TypeScript:**
+```typescript
+import Anthropic from '@anthropic-ai/sdk';
+
+const client = new Anthropic({
+  baseURL: 'https://api.memoryrouter.ai',
+  apiKey: 'mk_xxxxxxxxxxxxxxxx'
+});
+
+const response = await client.messages.create({
+  model: 'claude-sonnet-4-20250514',
+  max_tokens: 1024,
+  messages: [{ role: 'user', content: 'My name is Alice' }]
+});
+```
+
+**Provider-Native Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `model` | string | Yes | Anthropic model (e.g., `claude-sonnet-4-20250514`) |
+| `messages` | array | Yes | Array of message objects |
+| `max_tokens` | number | Yes | Maximum tokens to generate |
+| `system` | string | No | System prompt |
+| `temperature` | number | No | Sampling temperature (0-1) |
+| `top_p` | number | No | Nucleus sampling |
+| `top_k` | number | No | Top-k sampling |
+| `stop_sequences` | array | No | Stop sequences |
+| `stream` | boolean | No | Enable streaming |
+
+**Model Aliases:**
+MemoryRouter accepts simplified model names and maps them to Anthropic's full identifiers:
+
+| You can use | Maps to |
+|-------------|---------|
+| `claude-3.5-sonnet` | `claude-sonnet-4-20250514` |
+| `claude-sonnet-4` | `claude-sonnet-4-20250514` |
+| `claude-opus-4` | `claude-opus-4-20250514` |
+| `claude-haiku-4.5` | `claude-haiku-4-5-20251001` |
+
+**Response (Native Anthropic format):**
+```json
+{
+  "id": "msg_abc123",
+  "type": "message",
+  "role": "assistant",
+  "content": [{"type": "text", "text": "Nice to meet you, Alice!"}],
+  "model": "claude-sonnet-4-20250514",
+  "stop_reason": "end_turn",
+  "usage": {"input_tokens": 12, "output_tokens": 15},
+  "_memory": {
+    "key": "mk_xxxxxxxxxxxxxxxx",
+    "tokens_retrieved": 847,
+    "chunks_retrieved": 12
+  },
+  "_latency": {
+    "mr_processing_ms": 120,
+    "provider_ms": 890,
+    "total_ms": 1010
+  }
+}
+```
+
+---
+
+## Google Gemini Native Endpoint
+
+### POST /v1/models/:model:generateContent
+
+**Native Google format.** Use Google's AI SDK directly.
+
+**curl:**
+```bash
+curl -X POST "https://api.memoryrouter.ai/v1/models/gemini-1.5-pro:generateContent" \
+  -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contents": [{"role": "user", "parts": [{"text": "My name is Alice"}]}],
+    "generationConfig": {"maxOutputTokens": 1024}
+  }'
+```
+
+**Python (Google AI SDK):**
+```python
+import google.generativeai as genai
+
+# Configure with MemoryRouter endpoint
+genai.configure(
+    api_key="mk_xxxxxxxxxxxxxxxx",
+    transport="rest",
+    client_options={"api_endpoint": "api.memoryrouter.ai"}
+)
+
+model = genai.GenerativeModel("gemini-1.5-pro")
+response = model.generate_content("My name is Alice")
+print(response.text)
+```
+
+**Streaming:**
+```bash
+curl -X POST "https://api.memoryrouter.ai/v1/models/gemini-1.5-pro:streamGenerateContent" \
+  -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contents": [{"role": "user", "parts": [{"text": "Tell me a story"}]}]
+  }'
+```
+
+**Provider-Native Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `contents` | array | Yes | Array of content objects |
+| `systemInstruction` | object | No | System instruction |
+| `generationConfig.temperature` | number | No | Sampling temperature |
+| `generationConfig.topP` | number | No | Nucleus sampling |
+| `generationConfig.topK` | number | No | Top-k sampling |
+| `generationConfig.maxOutputTokens` | number | No | Max tokens |
+| `generationConfig.stopSequences` | array | No | Stop sequences |
+| `safetySettings` | array | No | Safety settings |
+
+**Response (Native Google format):**
+```json
+{
+  "candidates": [{
+    "content": {
+      "parts": [{"text": "Nice to meet you, Alice!"}],
+      "role": "model"
+    },
+    "finishReason": "STOP"
+  }],
+  "usageMetadata": {"promptTokenCount": 12, "candidatesTokenCount": 15},
+  "_memory": {
+    "key": "mk_xxxxxxxxxxxxxxxx",
     "tokens_retrieved": 847,
     "chunks_retrieved": 12
   }
@@ -57,26 +285,127 @@ curl -X POST https://api.memoryrouter.ai/v1/chat/completions \
 
 ---
 
-## POST /v1/messages
+## Memory Control
 
-Native Anthropic endpoint for Claude models.
+Control memory behavior per-request using headers, query parameters, or body parameters. All are stripped before forwarding to the provider.
 
-```bash
-curl -X POST https://api.memoryrouter.ai/v1/messages \
-  -H "x-api-key: mk_xxxxxxxxxxxxxxxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "claude-3-5-sonnet",
-    "max_tokens": 1024,
-    "messages": [{"role": "user", "content": "Hello"}]
-  }'
+### Headers
+
+| Header | Values | Default | Description |
+|--------|--------|---------|-------------|
+| `X-Memory-Mode` | `on`, `off`, `read`, `write` | `on` | Memory operation mode |
+| `X-Memory-Store` | `true`, `false` | `true` | Store user input |
+| `X-Memory-Store-Response` | `true`, `false` | `true` | Store assistant response |
+| `X-Session-ID` | string | — | Group conversations into sessions |
+| `X-Memory-Key` | `mk_xxx` | — | Alternative auth (use with `Authorization: Bearer <provider-key>`) |
+
+### Query Parameters (shortcuts)
+
+| Parameter | Example | Effect |
+|-----------|---------|--------|
+| `?memory=off` | `/v1/chat/completions?memory=off` | Disable memory entirely |
+| `?mode=read` | `/v1/chat/completions?mode=read` | Read-only (don't store this exchange) |
+| `?store=false` | `/v1/chat/completions?store=false` | Don't store user input |
+
+### Body Parameters
+
+Include in request body—they're stripped before forwarding:
+
+```json
+{
+  "model": "openai/gpt-4o",
+  "messages": [...],
+  "memory": false,
+  "memory_mode": "read",
+  "memory_store": false,
+  "memory_store_response": false,
+  "session_id": "user-123-chat-456"
+}
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `memory` | boolean | `false` disables memory |
+| `memory_mode` | string | `on`, `off`, `read`, `write` |
+| `memory_store` | boolean | Store user input |
+| `memory_store_response` | boolean | Store assistant response |
+| `session_id` | string | Session identifier |
+
+### Memory Modes Explained
+
+| Mode | Retrieve | Store | Use Case |
+|------|----------|-------|----------|
+| `on` | ✅ | ✅ | Normal operation (default) |
+| `read` | ✅ | ❌ | Use memory but don't pollute it (testing, one-off queries) |
+| `write` | ❌ | ✅ | Store without retrieval (bulk import, backfill) |
+| `off` | ❌ | ❌ | Stateless request (no memory at all) |
+
+### Per-Message Memory Control
+
+Exclude specific messages from storage:
+
+```json
+{
+  "messages": [
+    {"role": "user", "content": "Remember this", "memory": true},
+    {"role": "user", "content": "Don't remember this", "memory": false}
+  ]
+}
 ```
 
 ---
 
-## GET /v1/memory/stats
+## Session Management
 
-Get memory statistics.
+Sessions group related conversations. Memory is scoped to sessions when `X-Session-ID` is provided.
+
+**With header:**
+```bash
+curl -X POST https://api.memoryrouter.ai/v1/chat/completions \
+  -H "Authorization: Bearer mk_xxx" \
+  -H "X-Session-ID: user-123-project-456" \
+  -d '{"model": "openai/gpt-4o", "messages": [...]}'
+```
+
+**With body parameter:**
+```json
+{
+  "model": "openai/gpt-4o",
+  "messages": [...],
+  "session_id": "user-123-project-456"
+}
+```
+
+**How it works:**
+- Each session gets its own memory vault
+- Core vault (no session) stores cross-session memories
+- Session memories are retrieved in addition to core memories
+- Clear a session without affecting core: `DELETE /v1/memory` with `X-Session-ID`
+
+---
+
+## Response Headers
+
+MemoryRouter adds these headers to every response:
+
+| Header | Description |
+|--------|-------------|
+| `X-Memory-Tokens-Retrieved` | Total tokens of context injected |
+| `X-Memory-Chunks-Retrieved` | Number of memory chunks used |
+| `X-Embedding-Ms` | Time for embedding generation |
+| `X-MR-Processing-Ms` | Total MemoryRouter processing time |
+| `X-MR-Overhead-Ms` | MemoryRouter overhead (processing minus embedding) |
+| `X-Provider-Response-Ms` | Time waiting for AI provider |
+| `X-Total-Ms` | End-to-end request time |
+| `X-Session-ID` | Echo of session ID (if provided) |
+
+---
+
+## Memory Management
+
+### GET /v1/memory/stats
+
+Get memory statistics for your key.
 
 ```bash
 curl https://api.memoryrouter.ai/v1/memory/stats \
@@ -86,40 +415,76 @@ curl https://api.memoryrouter.ai/v1/memory/stats \
 **Response:**
 ```json
 {
+  "key": "mk_xxxxxxxxxxxxxxxx",
+  "storage": "durable-objects",
   "vectorCount": 1247,
   "totalTokens": 89432,
-  "oldestMemory": "2024-01-15T08:30:00Z",
-  "newestMemory": "2024-02-03T14:22:00Z"
+  "bufferTokens": 156,
+  "oldestTimestamp": 1705312200000,
+  "newestTimestamp": 1707058920000,
+  "kronos_config": {
+    "hot_window_hours": 4,
+    "working_window_days": 3,
+    "longterm_window_days": 90
+  }
 }
 ```
 
----
-
-## DELETE /v1/memory
+### DELETE /v1/memory
 
 Clear all memory for your key.
 
 ```bash
+# Clear all memory
 curl -X DELETE https://api.memoryrouter.ai/v1/memory \
+  -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx"
+
+# Clear only a specific session
+curl -X DELETE https://api.memoryrouter.ai/v1/memory \
+  -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx" \
+  -H "X-Session-ID: session-123"
+
+# Full reset (allows changing embedding dimensions)
+curl -X DELETE "https://api.memoryrouter.ai/v1/memory?reset=true" \
   -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx"
 ```
 
-**With session scope:**
+### POST /v1/memory/warmup
+
+Pre-load vectors into memory for faster first request. Useful after cold starts.
+
 ```bash
-curl -X DELETE https://api.memoryrouter.ai/v1/memory \
+curl -X POST https://api.memoryrouter.ai/v1/memory/warmup \
+  -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx"
+```
+
+**With session:**
+```bash
+curl -X POST https://api.memoryrouter.ai/v1/memory/warmup \
   -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx" \
   -H "X-Session-ID: session-123"
 ```
 
----
+**Response:**
+```json
+{
+  "status": "warm",
+  "key": "mk_xxxxxxxxxxxxxxxx",
+  "vaults": [
+    {"vault": "core", "vectors": 1247, "timeMs": 45},
+    {"vault": "session", "vectors": 89, "timeMs": 12}
+  ],
+  "totalVectors": 1336,
+  "warmupTimeMs": 45
+}
+```
 
-## POST /v1/memory/upload
+### POST /v1/memory/upload
 
-Bulk import memories from JSONL. Each line is one memory to store.
+Bulk import memories from JSONL format.
 
-**Requirements:** Card on file (payment method required)
+**Requirements:** Payment method on file
 
-**Request:**
 ```bash
 curl -X POST https://api.memoryrouter.ai/v1/memory/upload \
   -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx" \
@@ -127,7 +492,7 @@ curl -X POST https://api.memoryrouter.ai/v1/memory/upload \
   --data-binary @memories.jsonl
 ```
 
-**JSONL Format (each line):**
+**JSONL Format (one JSON object per line):**
 ```json
 {"content": "User prefers dark mode", "role": "user", "timestamp": 1706900000000}
 {"content": "The meeting is scheduled for Friday at 3pm"}
@@ -139,13 +504,6 @@ curl -X POST https://api.memoryrouter.ai/v1/memory/upload \
 | `content` | string | Yes | — | The memory text to store |
 | `role` | string | No | `user` | `user`, `assistant`, or `system` |
 | `timestamp` | number | No | now | Unix timestamp in milliseconds |
-
-**Headers:**
-
-| Header | Description |
-|--------|-------------|
-| `Authorization` | Your memory key (`Bearer mk_xxx`) |
-| `X-Session-ID` | Optional. Store to session vault instead of core vault |
 
 **Response:**
 ```json
@@ -166,79 +524,159 @@ curl -X POST https://api.memoryrouter.ai/v1/memory/upload \
 - Maximum 10,000 lines per upload
 - Split larger files into batches
 
-**Error Codes:**
-
-| Code | Error | Description |
-|------|-------|-------------|
-| 400 | Bad Request | Empty body, invalid JSON, or missing `content` field |
-| 402 | Payment Required | No card on file — add one at dashboard |
-| 413 | Batch too large | More than 10,000 lines |
-
 ---
 
-## POST /v1/memory/warmup
+## Pass-Through Endpoints
 
-Pre-load vectors for faster first request.
+These forward directly to providers without memory injection:
+
+| Endpoint | Provider | Description |
+|----------|----------|-------------|
+| `POST /v1/audio/transcriptions` | OpenAI | Whisper transcription |
+| `POST /v1/audio/speech` | OpenAI | Text-to-speech |
+| `POST /v1/images/generations` | OpenAI | DALL-E image generation |
+| `POST /v1/embeddings` | OpenAI | Text embeddings |
 
 ```bash
-curl -X POST https://api.memoryrouter.ai/v1/memory/warmup \
-  -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx"
+curl -X POST https://api.memoryrouter.ai/v1/audio/transcriptions \
+  -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx" \
+  -F "file=@audio.mp3" \
+  -F "model=whisper-1"
 ```
+
+> **Note:** MemoryRouter uses Cloudflare Workers AI for internal embeddings (BGE-M3, 1024 dimensions). The `/v1/embeddings` endpoint passes through to OpenAI for compatibility.
 
 ---
 
 ## GET /v1/models
 
-List available models based on configured provider keys.
+List available models based on your configured provider API keys.
 
 ```bash
 curl https://api.memoryrouter.ai/v1/models \
   -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx"
 ```
 
+**Response:**
+```json
+{
+  "providers": [
+    {"provider": "OpenAI", "models": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"]},
+    {"provider": "Anthropic", "models": ["claude-sonnet-4-20250514", "claude-opus-4-20250514"]}
+  ],
+  "models": ["gpt-4o", "gpt-4o-mini", "claude-sonnet-4-20250514"],
+  "default": "openai/gpt-4o-mini",
+  "catalog_updated": "2024-02-03T00:00:00Z"
+}
+```
+
 ---
 
-## Pass-Through Endpoints
+## Account Usage
 
-These forward to providers without memory injection:
+### GET /v1/account/usage
 
-- `POST /v1/audio/transcriptions` — Whisper transcription
-- `POST /v1/audio/speech` — Text-to-speech
-- `POST /v1/images/generations` — DALL-E images
-
-> **Note:** Embeddings are handled internally via Cloudflare Workers AI. All memory operations use our standardized BGE-M3 embedding (1024 dimensions).
-
----
-
-## GET /health
-
-Health check (no auth required).
+Get token usage for your memory key.
 
 ```bash
-curl https://api.memoryrouter.ai/health
+curl "https://api.memoryrouter.ai/v1/account/usage?start=2024-01-01&end=2024-02-01" \
+  -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx"
+```
+
+**Response:**
+```json
+{
+  "key": "mk_xxxxxxxxxxxxxxxx",
+  "period": {"start": "2024-01-01", "end": "2024-02-01"},
+  "total_requests": 1547,
+  "total_input_tokens": 234567,
+  "total_output_tokens": 189234,
+  "total_memory_tokens": 89432,
+  "by_model": {
+    "openai/gpt-4o": {"requests": 1200, "input_tokens": 180000},
+    "anthropic/claude-sonnet-4-20250514": {"requests": 347, "input_tokens": 54567}
+  }
+}
 ```
 
 ---
 
 ## KRONOS Time Windows
 
-Memory retrieval prioritizes recent context:
+Memory retrieval uses temporal weighting to prioritize recent context:
 
-| Window | Timeframe | Purpose |
-|--------|-----------|---------|
-| HOT | Last 4 hours | Current conversation |
-| WORKING | Last 3 days | Recent interactions |
-| LONG-TERM | Last 90 days | Important facts |
+| Window | Timeframe | Purpose | Default Allocation |
+|--------|-----------|---------|-------------------|
+| HOT | Last 4 hours | Current conversation | ~33% of results |
+| WORKING | Last 3 days | Recent interactions | ~33% of results |
+| LONG-TERM | Last 90 days | Important facts | ~33% of results |
+
+Results are allocated equally across windows (N/3 per window), ensuring a balance of immediate context and historical knowledge.
+
+---
+
+## Health Check
+
+### GET /health
+
+No authentication required.
+
+```bash
+curl https://api.memoryrouter.ai/health
+```
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "timestamp": "2024-02-03T14:22:00Z",
+  "environment": "production",
+  "storage": "durable-objects"
+}
+```
 
 ---
 
 ## Error Codes
 
-| Code | Meaning |
-|------|---------|
-| 400 | Bad request |
-| 401 | Authentication failed |
-| 402 | Insufficient balance |
-| 429 | Rate limited |
-| 500 | Internal error |
-| 502 | Provider error |
+| Code | Meaning | Common Causes |
+|------|---------|---------------|
+| 400 | Bad Request | Missing required fields, invalid JSON |
+| 401 | Unauthorized | Invalid memory key, missing provider API key |
+| 402 | Payment Required | No card on file (for upload endpoint) |
+| 413 | Payload Too Large | Upload exceeds 10,000 lines |
+| 429 | Rate Limited | Too many requests |
+| 500 | Internal Error | Server-side issue |
+| 502 | Provider Error | Upstream AI provider failed |
+
+**Error Response Format:**
+```json
+{
+  "error": "No API key configured for provider: anthropic",
+  "hint": "Add your anthropic API key in your account settings, or pass X-Provider-Key header"
+}
+```
+
+---
+
+## Pass-Through Authentication
+
+For advanced integrations, you can pass your provider API key directly instead of storing it:
+
+```bash
+curl -X POST https://api.memoryrouter.ai/v1/chat/completions \
+  -H "X-Memory-Key: mk_xxxxxxxxxxxxxxxx" \
+  -H "Authorization: Bearer sk-your-openai-key" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "openai/gpt-4o", "messages": [...]}'
+```
+
+Or use `X-Provider-Key`:
+```bash
+curl -X POST https://api.memoryrouter.ai/v1/chat/completions \
+  -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx" \
+  -H "X-Provider-Key: sk-your-openai-key" \
+  -d '...'
+```
+
+This enables zero-configuration integrations where your existing code already has provider keys.
