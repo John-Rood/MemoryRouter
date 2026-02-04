@@ -397,27 +397,27 @@ export default function BillingPage() {
                 </div>
               </div>
               
-              {/* Daily Usage Chart (simple bar chart) */}
+              {/* Daily Usage Chart */}
               {usage.dailyUsage.length > 0 ? (
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-3">Daily Requests</p>
-                  <div className="flex items-end gap-2 h-32">
-                    {usage.dailyUsage.slice(0, 14).reverse().map((day) => {
-                      const maxRequests = Math.max(...usage.dailyUsage.map(d => d.requests), 1);
-                      const height = (day.requests / maxRequests) * 100;
-                      // Parse date as YYYY-MM-DD without timezone shift
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-4">Daily Requests</p>
+                  <div className="space-y-2">
+                    {usage.dailyUsage.slice(0, 7).map((day) => {
+                      const maxRequests = Math.max(...usage.dailyUsage.slice(0, 7).map(d => d.requests), 1);
+                      const width = (day.requests / maxRequests) * 100;
                       const [, month, dayNum] = day.date.split('-');
                       return (
-                        <div key={day.date} className="flex-1 flex flex-col items-center gap-1 min-w-[32px]">
-                          <span className="text-[10px] text-muted-foreground mb-1">{day.requests}</span>
-                          <div 
-                            className="w-full bg-primary/60 rounded-t hover:bg-primary transition-colors cursor-default"
-                            style={{ height: `${Math.max(height, 4)}%` }}
-                            title={`${day.date}: ${day.requests} requests`}
-                          />
-                          <span className="text-[10px] text-muted-foreground">
+                        <div key={day.date} className="flex items-center gap-3">
+                          <span className="text-xs text-muted-foreground w-10 text-right">
                             {parseInt(month)}/{parseInt(dayNum)}
                           </span>
+                          <div className="flex-1 h-6 bg-muted/30 rounded overflow-hidden">
+                            <div 
+                              className="h-full bg-primary/60 rounded transition-all"
+                              style={{ width: `${Math.max(width, 2)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-medium w-12 text-right">{day.requests}</span>
                         </div>
                       );
                     })}
