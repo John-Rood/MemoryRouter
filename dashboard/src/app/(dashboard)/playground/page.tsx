@@ -366,7 +366,7 @@ export default function PlaygroundPage() {
             <Settings2 className="h-4 w-4 text-muted-foreground" />
             <span>Settings</span>
             <span className="text-xs text-muted-foreground">
-              {environment === "staging" ? "🟡 Staging" : "🟢 Production"}
+{/* Environment hidden */}
             </span>
           </div>
           {settingsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -427,7 +427,7 @@ export default function PlaygroundPage() {
         <aside className="hidden lg:flex w-72 flex-col border-r border-white/[0.08] bg-background/50 overflow-hidden">
           <div className="p-4 border-b border-white/[0.08]">
             <h1 className="text-lg font-semibold">
-              Playground <span className="text-xs text-muted-foreground ml-2">{environment === "staging" ? "🟡 Staging" : "🟢 Production"}</span>
+              Playground
             </h1>
             <p className="text-xs text-muted-foreground mt-1">Test your memory keys</p>
           </div>
@@ -581,7 +581,8 @@ function SettingsPanel({
 }) {
   return (
     <div className="space-y-4">
-      {/* Environment */}
+      {/* Environment - hidden for now, will be admin-only later */}
+      {/* 
       <div className="space-y-1.5">
         <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Environment</label>
         <select
@@ -593,6 +594,7 @@ function SettingsPanel({
           <option value="staging">🟡 Staging</option>
         </select>
       </div>
+      */}
 
       {/* Memory Key Dropdown */}
       <div className="space-y-1.5">
