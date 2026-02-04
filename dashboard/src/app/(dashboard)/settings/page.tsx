@@ -29,66 +29,66 @@ export default function SettingsPage() {
   };
   
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold gradient-text">Settings</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-2xl font-bold gradient-text">Settings</h1>
+        <p className="text-muted-foreground text-sm">
           Manage your account and preferences
         </p>
       </div>
       
       {/* Profile Settings */}
       <Card className="glass-card border-border/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
+        <CardHeader className="pb-3 pt-4 px-4">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <User className="h-4 w-4" />
             Profile
           </CardTitle>
-          <CardDescription>Your account information</CardDescription>
+          <CardDescription className="text-xs">Your account information</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Display Name</Label>
+        <CardContent className="space-y-3 px-4 pb-4">
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="name" className="text-sm">Display Name</Label>
               <Input 
                 id="name" 
                 value={name} 
                 onChange={(e) => setName(e.target.value)}
-                className="bg-muted/50"
+                className="bg-muted/50 h-9"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-sm">Email</Label>
               <Input 
                 id="email" 
                 type="email" 
                 value={email} 
                 onChange={(e) => setEmail(e.target.value)}
-                className="bg-muted/50"
+                className="bg-muted/50 h-9"
                 disabled
               />
               <p className="text-xs text-muted-foreground">Email cannot be changed</p>
             </div>
           </div>
-          <Button onClick={handleSaveProfile}>Save Changes</Button>
+          <Button onClick={handleSaveProfile} size="sm">Save Changes</Button>
         </CardContent>
       </Card>
       
       {/* Memory Settings */}
       <Card className="glass-card border-border/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
+        <CardHeader className="pb-3 pt-4 px-4">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Shield className="h-4 w-4" />
             Memory Settings
           </CardTitle>
-          <CardDescription>Configure default memory behavior</CardDescription>
+          <CardDescription className="text-xs">Configure default memory behavior</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="retention">Default Retention Period</Label>
+        <CardContent className="space-y-2 px-4 pb-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="retention" className="text-sm">Default Retention Period</Label>
             <Select value={retentionDays} onValueChange={setRetentionDays}>
-              <SelectTrigger className="w-[200px] bg-muted/50">
+              <SelectTrigger className="w-[180px] bg-muted/50 h-9">
                 <SelectValue placeholder="Select retention" />
               </SelectTrigger>
               <SelectContent>
@@ -99,7 +99,7 @@ export default function SettingsPage() {
                 <SelectItem value="365">365 days</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               How long to retain memories before automatic cleanup
             </p>
           </div>
@@ -108,18 +108,18 @@ export default function SettingsPage() {
       
       {/* Notification Settings */}
       <Card className="glass-card border-border/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
+        <CardHeader className="pb-3 pt-4 px-4">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Bell className="h-4 w-4" />
             Notifications
           </CardTitle>
-          <CardDescription>Choose what alerts you receive</CardDescription>
+          <CardDescription className="text-xs">Choose what alerts you receive</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-3 px-4 pb-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Email Notifications</Label>
-              <p className="text-sm text-muted-foreground">
+              <Label className="text-sm">Email Notifications</Label>
+              <p className="text-xs text-muted-foreground">
                 Receive important account updates via email
               </p>
             </div>
@@ -131,8 +131,8 @@ export default function SettingsPage() {
           
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Low Balance Alerts</Label>
-              <p className="text-sm text-muted-foreground">
+              <Label className="text-sm">Low Balance Alerts</Label>
+              <p className="text-xs text-muted-foreground">
                 Get notified when your credit balance is low
               </p>
             </div>
@@ -144,8 +144,8 @@ export default function SettingsPage() {
           
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Weekly Usage Reports</Label>
-              <p className="text-sm text-muted-foreground">
+              <Label className="text-sm">Weekly Usage Reports</Label>
+              <p className="text-xs text-muted-foreground">
                 Receive a summary of your usage each week
               </p>
             </div>
@@ -159,24 +159,25 @@ export default function SettingsPage() {
       
       {/* Danger Zone */}
       <Card className="glass-card border-destructive/30">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-destructive">
-            <Trash2 className="h-5 w-5" />
+        <CardHeader className="pb-3 pt-4 px-4">
+          <CardTitle className="flex items-center gap-2 text-base text-destructive">
+            <Trash2 className="h-4 w-4" />
             Danger Zone
           </CardTitle>
-          <CardDescription>Irreversible actions</CardDescription>
+          <CardDescription className="text-xs">Irreversible actions</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 pb-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <p className="font-medium">Delete Account</p>
-              <p className="text-sm text-muted-foreground">
+              <p className="font-medium text-sm">Delete Account</p>
+              <p className="text-xs text-muted-foreground">
                 Permanently delete your account and all associated data
               </p>
             </div>
             <Button 
               variant="destructive" 
               onClick={handleDeleteAccount}
+              size="sm"
             >
               Delete Account
             </Button>
