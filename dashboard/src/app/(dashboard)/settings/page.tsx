@@ -39,7 +39,7 @@ export default function SettingsPage() {
       </div>
       
       {/* Profile Settings */}
-      <Card className="glass-card border-border/50">
+      <Card className="glass-card border-border/10">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
@@ -76,7 +76,7 @@ export default function SettingsPage() {
       </Card>
       
       {/* Memory Settings */}
-      <Card className="glass-card border-border/50">
+      <Card className="glass-card border-border/10">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
@@ -107,7 +107,7 @@ export default function SettingsPage() {
       </Card>
       
       {/* Notification Settings */}
-      <Card className="glass-card border-border/50">
+      <Card className="glass-card border-border/10">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />

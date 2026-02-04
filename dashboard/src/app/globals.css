@@ -79,14 +79,14 @@
   
   /* Glass card effect */
   .glass-card {
-    @apply bg-card border border-border backdrop-blur-xl;
+    @apply bg-card backdrop-blur-xl;
     background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.03) !important;
   }
   
   .glass-card:hover {
-    border-color: rgba(57, 255, 20, 0.2);
-    box-shadow: 0 0 30px rgba(57, 255, 20, 0.05);
+    border-color: rgba(57, 255, 20, 0.1) !important;
+    box-shadow: 0 0 30px rgba(57, 255, 20, 0.03);
   }
   
   /* Neon glow button */

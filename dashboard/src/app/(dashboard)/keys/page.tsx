@@ -255,7 +255,7 @@ export default function KeysPage() {
           ) : (
             <div className="grid gap-4">
               {memoryKeys.map((key) => (
-                <Card key={key.id} className="glass-card border-border/50 hover:border-primary/20 transition-colors">
+                <Card key={key.id} className="glass-card border-border/10 hover:border-primary/20 transition-colors">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
@@ -302,7 +302,7 @@ export default function KeysPage() {
               ))}
 
               {memoryKeys.length === 0 && (
-                <Card className="glass-card border-border/50">
+                <Card className="glass-card border-border/10">
                   <CardContent className="p-8 text-center">
                     <Key className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
                     <h3 className="font-medium mb-2">No memory keys yet</h3>
@@ -415,7 +415,7 @@ export default function KeysPage() {
           ) : (
             <div className="grid gap-4">
               {providerKeys.map((key) => (
-                <Card key={key.id} className="glass-card border-border/50 hover:border-primary/20 transition-colors">
+                <Card key={key.id} className="glass-card border-border/10 hover:border-primary/20 transition-colors">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
@@ -442,7 +442,7 @@ export default function KeysPage() {
               ))}
 
               {providerKeys.length === 0 && (
-                <Card className="glass-card border-border/50">
+                <Card className="glass-card border-border/10">
                   <CardContent className="p-8 text-center">
                     <Key className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
                     <h3 className="font-medium mb-2">No provider keys yet</h3>

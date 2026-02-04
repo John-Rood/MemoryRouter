@@ -300,7 +300,7 @@ export default function PrivacyPage() {
         </div>
         
         {/* Footer */}
-        <div className="mt-12 pt-8 border-t border-border/30 text-center text-sm text-muted-foreground">
+        <div className="mt-12 pt-8 border-t border-border/10 text-center text-sm text-muted-foreground">
           <p>
             <Link href="/terms" className="hover:text-foreground underline">Terms of Service</Link>
             {" · "}

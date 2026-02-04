@@ -414,7 +414,7 @@ export default function PlaygroundPage() {
       </div>
 
       {/* Latency Metrics */}
-      <Card className="glass-card border-border/50">
+      <Card className="glass-card border-border/10">
         <CardContent className="p-5">
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
@@ -516,7 +516,7 @@ export default function PlaygroundPage() {
             </div>
           </div>
 
-          <div className="flex gap-6 mt-4 pt-4 border-t border-border/50 text-sm">
+          <div className="flex gap-6 mt-4 pt-4 border-t border-border/10 text-sm">
             <div>
               <span className="text-muted-foreground">Requests:</span>{" "}
               <span className="font-semibold">
@@ -538,7 +538,7 @@ export default function PlaygroundPage() {
       </Card>
 
       {/* Chat Area */}
-      <Card className="glass-card border-border/50">
+      <Card className="glass-card border-border/10">
         <CardContent className="p-0">
           {/* Messages */}
           <div className="h-[400px] overflow-y-auto p-6 flex flex-col gap-4">
@@ -597,7 +597,7 @@ export default function PlaygroundPage() {
                       ? "bg-primary/20 rounded-br-sm"
                       : msg.isError
                       ? "bg-red-500/10 border border-red-500 text-red-400 rounded-bl-sm"
-                      : "bg-muted border border-border/50 rounded-bl-sm"
+                      : "bg-muted border border-border/10 rounded-bl-sm"
                   }`}
                 >
                   {msg.content}
@@ -618,7 +618,7 @@ export default function PlaygroundPage() {
                     </span>
                   )}
                 </div>
-                <div className="bg-muted border border-border/50 rounded-xl rounded-bl-sm px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap">
+                <div className="bg-muted border border-border/10 rounded-xl rounded-bl-sm px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap">
                   {streamingContent || ""}
                   <span className="inline-block w-2 h-4 bg-primary ml-0.5 animate-pulse" />
                 </div>
@@ -630,7 +630,7 @@ export default function PlaygroundPage() {
 
           {/* Context info */}
           {messages.length > 0 && (
-            <div className="text-xs text-muted-foreground text-center py-2 border-t border-border/50">
+            <div className="text-xs text-muted-foreground text-center py-2 border-t border-border/10">
               Sending{" "}
               <span className="text-primary">
                 {Math.min(messages.length, 3)}
@@ -640,7 +640,7 @@ export default function PlaygroundPage() {
           )}
 
           {/* Input */}
-          <div className="flex gap-3 p-4 border-t border-border/50">
+          <div className="flex gap-3 p-4 border-t border-border/10">
             <textarea
               ref={inputRef}
               value={inputValue}
@@ -654,7 +654,7 @@ export default function PlaygroundPage() {
               placeholder={selectedKey ? "Type a message..." : "Select a memory key to start"}
               disabled={!selectedKey}
               rows={1}
-              className="flex-1 bg-muted/50 border border-border/50 rounded-lg px-4 py-3 text-[15px] focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none min-h-[48px] max-h-[150px] disabled:opacity-50"
+              className="flex-1 bg-muted/50 border border-border/10 rounded-lg px-4 py-3 text-[15px] focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none min-h-[48px] max-h-[150px] disabled:opacity-50"
             />
             <Button
               onClick={() => sendMessage()}

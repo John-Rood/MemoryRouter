@@ -270,7 +270,7 @@ export default function TermsPage() {
         </div>
         
         {/* Footer */}
-        <div className="mt-12 pt-8 border-t border-border/30 text-center text-sm text-muted-foreground">
+        <div className="mt-12 pt-8 border-t border-border/10 text-center text-sm text-muted-foreground">
           <p>
             <Link href="/privacy" className="hover:text-foreground underline">Privacy Policy</Link>
             {" · "}

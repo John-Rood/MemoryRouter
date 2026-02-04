@@ -303,7 +303,7 @@ export default function BillingPage() {
         </Card>
         
         {/* Free Tier */}
-        <Card className="glass-card border-border/50">
+        <Card className="glass-card border-border/10">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-neon-purple" />
@@ -332,7 +332,7 @@ export default function BillingPage() {
       </div>
       
       {/* Auto-Reup Settings */}
-      <Card className="glass-card border-border/50">
+      <Card className="glass-card border-border/10">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
@@ -357,7 +357,7 @@ export default function BillingPage() {
           </div>
           
           {billing.autoReupEnabled && (
-            <div className="grid gap-4 md:grid-cols-2 pt-4 border-t border-border/30">
+            <div className="grid gap-4 md:grid-cols-2 pt-4 border-t border-border/10">
               <div className="space-y-2">
                 <Label>Reup Amount</Label>
                 <div className="flex items-center gap-2">
@@ -378,7 +378,7 @@ export default function BillingPage() {
       </Card>
       
       {/* Payment Method */}
-      <Card className="glass-card border-border/50">
+      <Card className="glass-card border-border/10">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CreditCard className="h-5 w-5" />
@@ -414,7 +414,7 @@ export default function BillingPage() {
       </Card>
       
       {/* Transaction History */}
-      <Card className="glass-card border-border/50">
+      <Card className="glass-card border-border/10">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
@@ -439,7 +439,7 @@ export default function BillingPage() {
           ) : (
             <div className="space-y-3">
               {transactions.map((tx) => (
-                <div key={tx.id} className="flex items-center justify-between py-3 border-b border-border/30 last:border-0">
+                <div key={tx.id} className="flex items-center justify-between py-3 border-b border-border/10 last:border-0">
                   <div>
                     <p className="font-medium">{tx.description}</p>
                     <p className="text-sm text-muted-foreground">{tx.createdAt}</p>

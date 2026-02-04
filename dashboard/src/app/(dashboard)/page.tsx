@@ -67,7 +67,7 @@ export default function DashboardPage() {
         {/* Stats cards skeleton */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[...Array(4)].map((_, i) => (
-            <Card key={i} className="glass-card border-border/50">
+            <Card key={i} className="glass-card border-border/10">
               <CardHeader className="pb-2">
                 <div className="h-4 w-24 bg-muted/50 rounded" />
               </CardHeader>
@@ -80,7 +80,7 @@ export default function DashboardPage() {
         </div>
         
         {/* Chart skeleton */}
-        <Card className="glass-card border-border/50">
+        <Card className="glass-card border-border/10">
           <CardHeader>
             <div className="h-6 w-40 bg-muted/50 rounded" />
             <div className="h-4 w-32 bg-muted/30 rounded mt-1" />
@@ -114,7 +114,7 @@ export default function DashboardPage() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="glass-card border-border/50 hover:border-primary/20 transition-colors">
+        <Card className="glass-card border-border/10 hover:border-primary/20 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Memory Keys
@@ -129,7 +129,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="glass-card border-border/50 hover:border-primary/20 transition-colors">
+        <Card className="glass-card border-border/10 hover:border-primary/20 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Tokens Stored
@@ -144,7 +144,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="glass-card border-border/50 hover:border-primary/20 transition-colors">
+        <Card className="glass-card border-border/10 hover:border-primary/20 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               API Requests
@@ -159,7 +159,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="glass-card border-border/50 hover:border-primary/20 transition-colors">
+        <Card className="glass-card border-border/10 hover:border-primary/20 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Est. Savings
@@ -176,7 +176,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Usage Chart */}
-      <Card className="glass-card border-border/50">
+      <Card className="glass-card border-border/10">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -226,7 +226,7 @@ export default function DashboardPage() {
 
       {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card className="glass-card border-border/50 hover:border-primary/20 transition-colors group cursor-pointer"
+        <Card className="glass-card border-border/10 hover:border-primary/20 transition-colors group cursor-pointer"
               onClick={() => window.location.href = '/keys'}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -244,7 +244,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="glass-card border-border/50 hover:border-primary/20 transition-colors group cursor-pointer"
+        <Card className="glass-card border-border/10 hover:border-primary/20 transition-colors group cursor-pointer"
               onClick={() => window.location.href = '/billing'}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">

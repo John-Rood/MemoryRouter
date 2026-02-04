@@ -199,7 +199,7 @@ export default function OnboardingPage() {
         
         {/* Step 1: Provider Key */}
         {currentStep === 1 && (
-          <Card className="glass-card border-border/50">
+          <Card className="glass-card border-border/10">
             <CardHeader className="text-center">
               <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                 <Zap className="h-8 w-8 text-primary" />
@@ -336,7 +336,7 @@ export default function OnboardingPage() {
                   <div className="space-y-2">
                     <Label>Quick Start</Label>
                     <div className="code-window rounded-xl overflow-hidden">
-                      <div className="flex items-center gap-2 px-4 py-2 border-b border-border/30 bg-white/5">
+                      <div className="flex items-center gap-2 px-4 py-2 border-b border-border/10 bg-white/5">
                         <div className="flex gap-1.5">
                           <div className="w-2.5 h-2.5 rounded-full bg-red-500/70"></div>
                           <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/70"></div>
