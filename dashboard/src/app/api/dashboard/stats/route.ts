@@ -3,7 +3,12 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getUsage, getMemoryKeys } from "@/lib/api/workers-client";
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  console.log(`[dashboard/stats] Request started`);
+  
+  const authStart = Date.now();
   const user = await getCurrentUser(request);
+  console.log(`[dashboard/stats] Auth took ${Date.now() - authStart}ms`);
   
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -11,10 +16,12 @@ export async function GET(request: NextRequest) {
   
   try {
     // Fetch usage stats and memory keys in parallel
+    const fetchStart = Date.now();
     const [usageData, keysData] = await Promise.all([
       getUsage(user.userId),
       getMemoryKeys(user.userId),
     ]);
+    console.log(`[dashboard/stats] API calls took ${Date.now() - fetchStart}ms`);
     
     // Calculate stats
     const totalRequests = usageData.totalRequests || 0;
