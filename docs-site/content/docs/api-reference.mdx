@@ -1,4 +1,7 @@
-# API Reference
+---
+title: API Reference
+description: Complete endpoint documentation for the MemoryRouter API.
+---
 
 Base URL: `https://api.memoryrouter.ai`
 
@@ -157,14 +160,6 @@ curl -X POST https://api.memoryrouter.ai/v1/memory/upload \
   },
   "message": "Successfully stored 150 memories"
 }
-```
-
-**With session vault:**
-```bash
-curl -X POST https://api.memoryrouter.ai/v1/memory/upload \
-  -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx" \
-  -H "X-Session-ID: session-123" \
-  --data-binary @memories.jsonl
 ```
 
 **Limits:**

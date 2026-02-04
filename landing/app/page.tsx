@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Calculator } from '@/components/Calculator'
 import { CodeSwitcher } from '@/components/CodeSwitcher'
 import { FooterNewsletter } from '@/components/FooterNewsletter'
+import { Header } from '@/components/Header'
 
 export default function Home() {
   return (
@@ -14,45 +15,7 @@ export default function Home() {
       </div>
 
       {/* Nav */}
-      <nav className="fixed w-full z-50 bg-[#09090b]/80 backdrop-blur-xl border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center">
-          {/* Logo - fixed width, never shrinks */}
-          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition shrink-0">
-            <Image src="/logo.png" alt="MemoryRouter" width={32} height={32} className="rounded-lg" />
-            <span className="text-xl font-bold whitespace-nowrap">MemoryRouter</span>
-          </Link>
-          
-          {/* Nav links - centered, hidden on mobile */}
-          <div className="hidden lg:flex items-center justify-center gap-6 flex-1 mx-8">
-            <a href="#calculator" className="text-gray-400 hover:text-white transition text-sm whitespace-nowrap">
-              Calculator
-            </a>
-            <a href="#use-cases" className="text-gray-400 hover:text-white transition text-sm whitespace-nowrap">
-              Use Cases
-            </a>
-            <a href="#how-it-works" className="text-gray-400 hover:text-white transition text-sm whitespace-nowrap">
-              How It Works
-            </a>
-            <a href="/models" className="text-gray-400 hover:text-white transition text-sm whitespace-nowrap">
-              Models
-            </a>
-            <a href="#pricing" className="text-gray-400 hover:text-white transition text-sm whitespace-nowrap">
-              Pricing
-            </a>
-            <a href="#faq" className="text-gray-400 hover:text-white transition text-sm whitespace-nowrap">
-              FAQ
-            </a>
-          </div>
-          
-          {/* CTA - fixed width, never shrinks */}
-          <a
-            href="https://app.memoryrouter.ai"
-            className="btn-primary px-5 py-2.5 rounded-lg text-sm transition shrink-0 whitespace-nowrap ml-auto lg:ml-0"
-          >
-            Get Started Free
-          </a>
-        </div>
-      </nav>
+      <Header />
 
       {/* Hero */}
       <section className="pt-32 pb-16 px-6 relative grid-bg">

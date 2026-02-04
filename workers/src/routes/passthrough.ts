@@ -3,10 +3,12 @@
  * Forward requests to providers without memory injection
  * 
  * Endpoints:
- * - POST /v1/embeddings        → Forward to provider's embeddings endpoint
  * - POST /v1/audio/*           → Forward to OpenAI Whisper/TTS
  * - POST /v1/images/*          → Forward to OpenAI DALL-E
  * - POST /v1/completions       → Forward to provider (legacy completions)
+ * 
+ * NOTE: Embeddings are NOT exposed externally.
+ * All memory uses Cloudflare Workers AI (BGE-M3, 1024 dims) internally.
  */
 
 import { Hono } from 'hono';
@@ -19,17 +21,8 @@ interface PassthroughEnv {
   OPENAI_API_KEY?: string;
 }
 
-// Provider configs with embeddings/completions endpoints
-const EMBEDDINGS_ENDPOINTS: Partial<Record<Provider, string>> = {
-  openai: 'https://api.openai.com/v1/embeddings',
-  // Anthropic doesn't have a public embeddings API
-  // OpenRouter proxies to OpenAI embeddings
-  openrouter: 'https://openrouter.ai/api/v1/embeddings',
-  // Google uses different endpoint format
-  google: 'https://generativelanguage.googleapis.com/v1beta/models/{model}:embedContent',
-  // xAI uses OpenAI-compatible format
-  xai: 'https://api.x.ai/v1/embeddings',
-};
+// Embeddings are handled internally via Cloudflare Workers AI (BGE-M3)
+// No external embeddings pass-through — all memory uses our standardized embedding
 
 const COMPLETIONS_ENDPOINTS: Partial<Record<Provider, string>> = {
   openai: 'https://api.openai.com/v1/completions',
@@ -105,93 +98,7 @@ function buildAuthHeaders(provider: Provider, apiKey: string): Record<string, st
 export function createPassthroughRouter() {
   const router = new Hono<{ Bindings: PassthroughEnv }>();
 
-  // ==================== EMBEDDINGS ====================
-  /**
-   * POST /embeddings
-   * Forward to provider's embeddings endpoint
-   */
-  router.post('/embeddings', async (c) => {
-    const userContext = getUserContext(c);
-
-    // Parse request body
-    let body: { model?: string; input?: string | string[]; [key: string]: unknown };
-    try {
-      body = await c.req.json();
-    } catch {
-      return c.json({ error: 'Invalid JSON body' }, 400);
-    }
-
-    // Validate required fields
-    if (!body.model) {
-      return c.json({ error: 'Missing required field: model' }, 400);
-    }
-    if (!body.input) {
-      return c.json({ error: 'Missing required field: input' }, 400);
-    }
-
-    // Detect provider from model
-    const provider = detectProvider(body.model);
-
-    // Check if provider supports embeddings
-    const embeddingsEndpoint = EMBEDDINGS_ENDPOINTS[provider];
-    if (!embeddingsEndpoint) {
-      return c.json({
-        error: `Provider ${provider} does not support embeddings`,
-        hint: 'Use an OpenAI model like text-embedding-3-small',
-      }, 400);
-    }
-
-    // Get API key
-    const apiKey = getProviderKey(userContext.providerKeys, provider, c.env);
-    if (!apiKey) {
-      return c.json({
-        error: `No API key configured for provider: ${provider}`,
-        hint: `Add your ${provider} API key in your account settings`,
-      }, 400);
-    }
-
-    // Build request
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...buildAuthHeaders(provider, apiKey),
-    };
-
-    // Handle Google's different format
-    let endpoint = embeddingsEndpoint;
-    let requestBody: Record<string, unknown> = { ...body, model: getModelName(body.model) };
-
-    if (provider === 'google') {
-      endpoint = embeddingsEndpoint.replace('{model}', getModelName(body.model));
-      // Transform to Google format
-      const inputText = Array.isArray(body.input) ? body.input[0] : body.input;
-      requestBody = {
-        content: { parts: [{ text: inputText }] },
-      };
-    }
-
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(requestBody),
-      });
-
-      // Forward response
-      const responseBody = await response.text();
-      return new Response(responseBody, {
-        status: response.status,
-        headers: {
-          'Content-Type': response.headers.get('Content-Type') || 'application/json',
-        },
-      });
-    } catch (error) {
-      console.error('Embeddings proxy error:', error);
-      return c.json({
-        error: 'Failed to proxy embeddings request',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      }, 502);
-    }
-  });
+  // Embeddings handled internally via Cloudflare Workers AI — no external pass-through
 
   // ==================== AUDIO ====================
   /**

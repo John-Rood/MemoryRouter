@@ -12,6 +12,7 @@ import { createChatRouter, ChatEnv } from './routes/chat';
 import { createPassthroughRouter } from './routes/passthrough';
 import { createAnthropicRouter } from './routes/anthropic';
 import { createGoogleRouter } from './routes/google';
+import { createUploadRouter } from './routes/upload';
 import { StorageManager } from './services/storage';
 import { 
   handleReembed, 
@@ -132,6 +133,10 @@ v1.route('/', googleRouter);  // Mounts at /v1/models/:modelAction
 // Mount pass-through routes (embeddings, audio, images, legacy completions)
 const passthroughRouter = createPassthroughRouter();
 v1.route('/', passthroughRouter);  // Mounts at /v1/embeddings, /v1/audio/*, /v1/images/*, /v1/completions
+
+// Mount upload route (bulk memory import from JSONL)
+const uploadRouter = createUploadRouter();
+v1.route('/memory', uploadRouter);  // Mounts at /v1/memory/upload
 
 // Memory management routes
 v1.get('/memory/stats', async (c) => {

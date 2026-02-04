@@ -26,6 +26,7 @@ import type { VaultState } from '../types/do';
 interface VaultEnv {
   MAX_IN_MEMORY_VECTORS?: string;
   DEFAULT_EMBEDDING_DIMS?: string;
+  AI?: Ai; // Cloudflare Workers AI binding
   [key: string]: unknown;
 }
 
@@ -209,6 +210,8 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
           return this.handleExportRaw();
         case '/warmth':
           return this.handleWarmth();
+        case '/bulk-store':
+          return this.handleBulkStore(request);
         default:
           return new Response('Not Found', { status: 404 });
       }
@@ -410,6 +413,173 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
       tokenCount,
       totalVectors: this.vaultState!.vectorCount,
     });
+  }
+
+  // ==================== Bulk Storage (for uploads) ====================
+
+  /**
+   * Bulk store multiple items with embeddings.
+   * Used by /v1/memory/upload endpoint.
+   * 
+   * REQUEST:  { items: Array<{content, role?, timestamp?}> }
+   * RESPONSE: { stored: number, failed: number, errors?: string[] }
+   */
+  private async handleBulkStore(request: Request): Promise<Response> {
+    this.loadVectorsIntoMemory();
+
+    const body = await request.json() as {
+      items: Array<{
+        content: string;
+        role?: string;
+        timestamp?: number;
+      }>;
+    };
+
+    if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
+      return Response.json({ error: 'No items provided' }, { status: 400 });
+    }
+
+    const results = {
+      stored: 0,
+      failed: 0,
+      errors: [] as string[],
+    };
+
+    // Batch size for Cloudflare AI embedding calls
+    const EMBED_BATCH_SIZE = 100;
+    const items = body.items;
+
+    // Process in batches
+    for (let batchStart = 0; batchStart < items.length; batchStart += EMBED_BATCH_SIZE) {
+      const batch = items.slice(batchStart, batchStart + EMBED_BATCH_SIZE);
+      const texts = batch.map(item => {
+        const role = item.role || 'user';
+        return `[${role.toUpperCase()}] ${item.content}`;
+      });
+
+      try {
+        // Get embeddings from Cloudflare Workers AI (BGE-M3, 1024 dims)
+        const embeddings = await this.getEmbeddings(texts);
+
+        if (embeddings.length !== batch.length) {
+          results.failed += batch.length;
+          results.errors.push(`Embedding count mismatch: expected ${batch.length}, got ${embeddings.length}`);
+          continue;
+        }
+
+        // Store each item
+        for (let i = 0; i < batch.length; i++) {
+          const item = batch[i];
+          const embedding = embeddings[i];
+          const timestamp = item.timestamp || Date.now();
+          const role = item.role || 'user';
+
+          try {
+            // Update dims if first vector
+            if (this.vaultState!.vectorCount === 0 && 
+                (this.vaultState!.dims === 0 || embedding.length !== this.vaultState!.dims)) {
+              this.vaultState!.dims = embedding.length;
+              this.index = new WorkersVectorIndex(
+                this.vaultState!.dims,
+                this.vaultState!.maxInMemory
+              );
+            }
+
+            // Generate content hash
+            const encoder = new TextEncoder();
+            const hashBuffer = await crypto.subtle.digest(
+              'SHA-256',
+              encoder.encode(item.content)
+            );
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const contentHash = hashArray
+              .map(b => b.toString(16).padStart(2, '0'))
+              .join('')
+              .substring(0, 16);
+
+            // Skip duplicates
+            const existingRows = this.ctx.storage.sql.exec(
+              `SELECT id FROM items WHERE content_hash = ?`,
+              contentHash
+            ).toArray();
+
+            if (existingRows.length > 0) {
+              // Already exists, count as stored (not failed)
+              results.stored++;
+              continue;
+            }
+
+            // Get next ID
+            const maxIdRows = this.ctx.storage.sql.exec(
+              `SELECT MAX(id) as max_id FROM vectors`
+            ).toArray();
+            const nextId = ((maxIdRows[0]?.max_id as number) ?? 0) + 1;
+
+            const tokenCount = Math.ceil(item.content.length / 4);
+            const embeddingArray = new Float32Array(embedding);
+
+            // Store in SQLite
+            this.ctx.storage.sql.exec(
+              `INSERT INTO vectors (id, embedding, timestamp, dims) VALUES (?, ?, ?, ?)`,
+              nextId,
+              embeddingArray.buffer as ArrayBuffer,
+              timestamp,
+              embeddingArray.length
+            );
+
+            this.ctx.storage.sql.exec(
+              `INSERT INTO items (id, content, role, content_hash, timestamp, token_count) 
+               VALUES (?, ?, ?, ?, ?, ?)`,
+              nextId,
+              item.content,
+              role,
+              contentHash,
+              timestamp,
+              tokenCount
+            );
+
+            // Add to in-memory index
+            if (this.index!.size < this.vaultState!.maxInMemory) {
+              this.index!.add(nextId, embeddingArray, timestamp);
+            }
+
+            this.vaultState!.vectorCount++;
+            results.stored++;
+
+          } catch (itemError) {
+            results.failed++;
+            results.errors.push(`Item ${batchStart + i}: ${(itemError as Error).message}`);
+          }
+        }
+
+        // Save vault state after each batch
+        this.vaultState!.lastAccess = Date.now();
+        this.saveVaultState();
+
+      } catch (batchError) {
+        results.failed += batch.length;
+        results.errors.push(`Batch ${batchStart}: ${(batchError as Error).message}`);
+      }
+    }
+
+    return Response.json(results);
+  }
+
+  /**
+   * Get embeddings from Cloudflare Workers AI (BGE-M3)
+   * 1024 dimensions, ~18ms edge latency
+   */
+  private async getEmbeddings(texts: string[]): Promise<number[][]> {
+    if (!this.env.AI) {
+      throw new Error('Cloudflare AI binding not available');
+    }
+
+    // BGE-M3 supports batch embedding
+    const response = await this.env.AI.run('@cf/baai/bge-m3', {
+      text: texts,
+    }) as { data: number[][] };
+
+    return response.data;
   }
 
   // ==================== Chunked Storage ====================

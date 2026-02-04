@@ -82,13 +82,12 @@ import type { MemoryRetrievalResult as DOMemoryRetrievalResult } from '../types/
 // D1 imports (intermediate state for cold start fallback)
 import { searchD1, mirrorToD1, mirrorBufferToD1, getBufferFromD1 } from '../services/d1-search';
 
-// Storage job type for queue
+// Storage job type for queue (embeddings use Cloudflare AI, no external key needed)
 export interface StorageJob {
   type: 'store-conversation';
   memoryKey: string;
   sessionId?: string;
   model: string;
-  embeddingKey: string;  // Unused but kept for compatibility
   content: Array<{
     role: 'user' | 'assistant';
     content: string;
@@ -234,14 +233,7 @@ export function createChatRouter() {
       }, 400);
     }
     
-    // Get embedding API key (use OpenAI for embeddings)
-    const embeddingKey = userContext.providerKeys.openai || env.OPENAI_API_KEY;
-    if (!embeddingKey && memoryOptions.mode !== 'off') {
-      return c.json({
-        error: 'OpenAI API key required for memory features',
-        hint: 'Set your OpenAI API key or use X-Memory-Mode: off',
-      }, 400);
-    }
+    // Embeddings use Cloudflare Workers AI (no external API key needed)
 
     // Choose storage backend
     const usesDO = useDurableObjects(env);
@@ -253,15 +245,15 @@ export function createChatRouter() {
     let memoryInjection: InjectionResult | null = null;
     let memoryTokensUsed = 0;
     
-    if (memoryOptions.mode !== 'off' && memoryOptions.mode !== 'write' && embeddingKey) {
+    if (memoryOptions.mode !== 'off' && memoryOptions.mode !== 'write') {
       const query = extractQuery(augmentedMessages);
       
       if (query) {
         try {
-          // Generate query embedding
+          // Generate query embedding via Cloudflare AI
           const embeddingConfig = getEmbeddingConfig(env);
           const embedStart = Date.now();
-          const queryEmbedding = await generateEmbedding(query, embeddingKey, undefined, embeddingConfig);
+          const queryEmbedding = await generateEmbedding(query, undefined, undefined, embeddingConfig);
           embeddingMs = Date.now() - embedStart;
           console.log(`[EMBEDDING] Query: ${embeddingMs}ms (cloudflare)`);
           
@@ -565,7 +557,7 @@ export function createChatRouter() {
         }
         
         // Queue storage job (completely decoupled from inference)
-        if (memoryOptions.mode !== 'off' && memoryOptions.mode !== 'read' && embeddingKey) {
+        if (memoryOptions.mode !== 'off' && memoryOptions.mode !== 'read') {
           const storageContent: Array<{ role: 'user' | 'assistant'; content: string }> = [];
           
           // Get last user message
@@ -595,7 +587,6 @@ export function createChatRouter() {
                 fullResponse,
                 body.model,
                 memoryOptions,
-                embeddingKey,
                 getEmbeddingConfig(env),
                 env.VECTORS_D1,
                 ctx
@@ -647,7 +638,7 @@ export function createChatRouter() {
     const assistantResponse = extractResponseContent(provider, responseBody);
     
     // Queue storage job (completely decoupled from inference)
-    if (memoryOptions.mode !== 'off' && memoryOptions.mode !== 'read' && embeddingKey) {
+    if (memoryOptions.mode !== 'off' && memoryOptions.mode !== 'read') {
       const storageContent: Array<{ role: 'user' | 'assistant'; content: string }> = [];
       
       // Get last user message
@@ -676,7 +667,6 @@ export function createChatRouter() {
             assistantResponse,
             body.model,
             memoryOptions,
-            embeddingKey,
             getEmbeddingConfig(env),
             env.VECTORS_D1,
             ctx
@@ -818,7 +808,6 @@ async function storeConversationDO(
   assistantResponse: string,
   model: string,
   options: { storeInput: boolean; storeResponse: boolean },
-  embeddingKey: string,
   embeddingConfig?: EmbeddingConfig,
   d1?: D1Database,
   ctx?: ExecutionContext
@@ -863,9 +852,9 @@ async function storeConversationDO(
         bufferTokens: number;
       };
       
-      // Embed and store each complete chunk
+      // Embed and store each complete chunk via Cloudflare AI
       for (const chunkContent of chunkResult.chunksToEmbed) {
-        const embedding = await generateEmbedding(chunkContent, embeddingKey, undefined, embeddingConfig);
+        const embedding = await generateEmbedding(chunkContent, undefined, undefined, embeddingConfig);
         const storeResult = await storeToVault(stub, embedding, chunkContent, 'chunk', model, requestId);
         
         // Mirror to D1 for cold start fallback (fire-and-forget)
@@ -918,6 +907,7 @@ async function storeConversationDO(
 
 /**
  * Store conversation via legacy KV+R2
+ * @deprecated Use storeConversationDO instead
  */
 async function storeConversationKV(
   memoryKey: string,
@@ -926,7 +916,7 @@ async function storeConversationKV(
   model: string,
   options: { storeInput: boolean; storeResponse: boolean },
   kronos: KronosMemoryManager,
-  embeddingKey: string
+  embeddingConfig?: EmbeddingConfig
 ): Promise<void> {
   const requestId = crypto.randomUUID();
   
@@ -938,7 +928,7 @@ async function storeConversationKV(
         .find(m => m.role === 'user' && m.memory !== false);
       
       if (lastUserMsg) {
-        const embedding = await generateEmbedding(lastUserMsg.content, embeddingKey);
+        const embedding = await generateEmbedding(lastUserMsg.content, undefined, undefined, embeddingConfig);
         await kronos.store(
           memoryKey,
           embedding,
@@ -951,7 +941,7 @@ async function storeConversationKV(
     }
     
     if (options.storeResponse && assistantResponse) {
-      const embedding = await generateEmbedding(assistantResponse, embeddingKey);
+      const embedding = await generateEmbedding(assistantResponse, undefined, undefined, embeddingConfig);
       await kronos.store(
         memoryKey,
         embedding,
