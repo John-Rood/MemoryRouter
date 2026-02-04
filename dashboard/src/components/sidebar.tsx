@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { BarChart3, Key, Settings, CreditCard, BookOpen, LogOut, ChevronDown, Play, Menu, X } from "lucide-react";
+import { BarChart3, Key, Settings, CreditCard, BookOpen, LogOut, ChevronDown, Play, Menu, X, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -18,6 +18,7 @@ interface SidebarProps {
 const navigation = [
   { name: "Overview", href: "/", icon: BarChart3 },
   { name: "Testing", href: "/testing", icon: Play },
+  { name: "Playground", href: "/playground", icon: FlaskConical },
   { name: "Keys", href: "/keys", icon: Key },
   { name: "Settings", href: "/settings", icon: Settings },
   { name: "Billing", href: "/billing", icon: CreditCard },
