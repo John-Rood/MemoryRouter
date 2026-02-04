@@ -401,22 +401,23 @@ export default function BillingPage() {
               {usage.dailyUsage.length > 0 ? (
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-3">Daily Requests</p>
-                  <div className="flex items-end gap-1 h-24">
-                    {usage.dailyUsage.slice(0, 14).reverse().map((day, i) => {
+                  <div className="flex items-end gap-2 h-32">
+                    {usage.dailyUsage.slice(0, 14).reverse().map((day) => {
                       const maxRequests = Math.max(...usage.dailyUsage.map(d => d.requests), 1);
                       const height = (day.requests / maxRequests) * 100;
+                      // Parse date as YYYY-MM-DD without timezone shift
+                      const [, month, dayNum] = day.date.split('-');
                       return (
-                        <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
+                        <div key={day.date} className="flex-1 flex flex-col items-center gap-1 min-w-[32px]">
+                          <span className="text-[10px] text-muted-foreground mb-1">{day.requests}</span>
                           <div 
-                            className="w-full bg-primary/60 rounded-t hover:bg-primary transition-colors"
-                            style={{ height: `${Math.max(height, 2)}%` }}
+                            className="w-full bg-primary/60 rounded-t hover:bg-primary transition-colors cursor-default"
+                            style={{ height: `${Math.max(height, 4)}%` }}
                             title={`${day.date}: ${day.requests} requests`}
                           />
-                          {i % 2 === 0 && (
-                            <span className="text-[10px] text-muted-foreground">
-                              {new Date(day.date).getDate()}
-                            </span>
-                          )}
+                          <span className="text-[10px] text-muted-foreground">
+                            {parseInt(month)}/{parseInt(dayNum)}
+                          </span>
                         </div>
                       );
                     })}
