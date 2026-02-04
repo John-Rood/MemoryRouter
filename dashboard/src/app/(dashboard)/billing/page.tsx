@@ -9,11 +9,23 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CreditCard, Plus, TrendingUp, Wallet, History, Sparkles, CheckCircle2, XCircle, Loader2, RefreshCw } from "lucide-react";
+import { CreditCard, Plus, TrendingUp, Wallet, History, Sparkles, CheckCircle2, XCircle, Loader2, RefreshCw, Activity, Zap } from "lucide-react";
 import { useBilling } from "@/contexts/billing-context";
 
 const FREE_TIER_LIMIT = 50000000;
 const presetAmounts = [5, 10, 20, 50, 100];
+
+interface UsageStats {
+  totalRequests: number;
+  totalTokensIn: number;
+  totalTokensOut: number;
+  dailyUsage: Array<{
+    date: string;
+    requests: number;
+    tokens_in: number;
+    tokens_out: number;
+  }>;
+}
 
 export default function BillingPage() {
   const searchParams = useSearchParams();
@@ -27,6 +39,8 @@ export default function BillingPage() {
   const [isAddingPaymentMethod, setIsAddingPaymentMethod] = useState(false);
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [localAutoReup, setLocalAutoReup] = useState<boolean | null>(null);
+  const [usage, setUsage] = useState<UsageStats | null>(null);
+  const [isLoadingUsage, setIsLoadingUsage] = useState(true);
   
   // Use context billing data (already fetched by layout - no double fetch!)
   const billing = {
@@ -51,6 +65,24 @@ export default function BillingPage() {
   const balanceDollars = (billing.creditBalanceCents / 100).toFixed(2);
   const freeTierPercent = Math.min(100, (billing.freeTierTokensUsed / billing.freeTierLimit) * 100);
   const freeTierRemaining = billing.freeTierLimit - billing.freeTierTokensUsed;
+  
+  // Fetch usage data
+  useEffect(() => {
+    async function fetchUsage() {
+      try {
+        const response = await fetch("/api/billing/usage");
+        if (response.ok) {
+          const data = await response.json();
+          setUsage(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch usage:", error);
+      } finally {
+        setIsLoadingUsage(false);
+      }
+    }
+    fetchUsage();
+  }, []);
   
   // Handle success/canceled URL params
   useEffect(() => {
@@ -322,6 +354,87 @@ export default function BillingPage() {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Usage Stats */}
+      <Card className="glass-card border-border/10">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-primary" />
+              API Usage (Last 30 Days)
+            </CardTitle>
+            <Button variant="ghost" size="icon" onClick={() => {
+              setIsLoadingUsage(true);
+              fetch("/api/billing/usage")
+                .then(r => r.json())
+                .then(setUsage)
+                .finally(() => setIsLoadingUsage(false));
+            }} disabled={isLoadingUsage}>
+              <RefreshCw className={`h-4 w-4 ${isLoadingUsage ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoadingUsage ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : usage ? (
+            <div className="space-y-6">
+              {/* Summary Stats */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="stat-card rounded-lg px-4 py-3">
+                  <p className="text-xs text-muted-foreground mb-1">Total Requests</p>
+                  <p className="text-2xl font-bold text-primary">{usage.totalRequests.toLocaleString()}</p>
+                </div>
+                <div className="stat-card rounded-lg px-4 py-3">
+                  <p className="text-xs text-muted-foreground mb-1">Tokens In</p>
+                  <p className="text-2xl font-bold">{(usage.totalTokensIn / 1000).toFixed(1)}K</p>
+                </div>
+                <div className="stat-card rounded-lg px-4 py-3">
+                  <p className="text-xs text-muted-foreground mb-1">Tokens Out</p>
+                  <p className="text-2xl font-bold">{(usage.totalTokensOut / 1000).toFixed(1)}K</p>
+                </div>
+              </div>
+              
+              {/* Daily Usage Chart (simple bar chart) */}
+              {usage.dailyUsage.length > 0 ? (
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-3">Daily Requests</p>
+                  <div className="flex items-end gap-1 h-24">
+                    {usage.dailyUsage.slice(0, 14).reverse().map((day, i) => {
+                      const maxRequests = Math.max(...usage.dailyUsage.map(d => d.requests), 1);
+                      const height = (day.requests / maxRequests) * 100;
+                      return (
+                        <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
+                          <div 
+                            className="w-full bg-primary/60 rounded-t hover:bg-primary transition-colors"
+                            style={{ height: `${Math.max(height, 2)}%` }}
+                            title={`${day.date}: ${day.requests} requests`}
+                          />
+                          {i % 2 === 0 && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {new Date(day.date).getDate()}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No usage data yet. Start making API calls to see your usage.
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No usage data available
+            </p>
+          )}
+        </CardContent>
+      </Card>
       
       {/* Auto-Reup Settings */}
       <Card className="glass-card border-border/10">
