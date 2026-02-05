@@ -25,5 +25,5 @@ export const baseOptions: BaseLayoutProps = {
       url: 'https://memoryrouter.ai',
     },
   ],
-  githubUrl: 'https://github.com/John-Rood/memoryrouter',
+  githubUrl: 'https://github.com/John-Rood/memoryrouter-sdk',
 };
