@@ -8,6 +8,7 @@
 import { Hono } from 'hono';
 // CORS removed - API is server-side only
 import { authMiddleware, createMemoryKey, UserContext } from './middleware/auth';
+import { rateLimitMiddleware, RateLimitEnv } from './middleware/rate-limit';
 import { createChatRouter, ChatEnv } from './routes/chat';
 import { createPassthroughRouter } from './routes/passthrough';
 import { createAnthropicRouter } from './routes/anthropic';
@@ -39,7 +40,7 @@ export { VaultDurableObject } from './durable-objects/vault';
 import { handleStorageQueue, StorageJob, QueueEnv } from './queues/storage-consumer';
 
 // Environment bindings
-interface Env extends ChatEnv {
+interface Env extends ChatEnv, RateLimitEnv {
   ENVIRONMENT: string;
   DEFAULT_EMBEDDING_MODEL: string;
   DEFAULT_EMBEDDING_DIMS: string;
@@ -65,6 +66,11 @@ type Variables = {
 
 // Create main app
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+// Rate limiting (first middleware - before auth)
+// Authenticated: 100 req/10s burst, 1000 req/min sustained (per API key)
+// Unauthenticated: 60 req/min (per IP)
+app.use('*', rateLimitMiddleware());
 
 // No CORS - API should be called server-side only
 
