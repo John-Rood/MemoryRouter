@@ -36,7 +36,7 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="openai/gpt-4o",
+    model="openai/gpt-5.1",
     messages=[{"role": "user", "content": "My name is Alice"}]
 )
 print(response.choices[0].message.content)
@@ -52,7 +52,7 @@ const client = new OpenAI({
 });
 
 const response = await client.chat.completions.create({
-    model: 'openai/gpt-4o',
+    model: 'openai/gpt-5.1',
     messages: [{ role: 'user', content: 'My name is Alice' }]
 });
 ```
@@ -63,7 +63,7 @@ curl -X POST https://api.memoryrouter.ai/v1/chat/completions \
   -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "openai/gpt-4o",
+    "model": "openai/gpt-5.1",
     "messages": [{"role": "user", "content": "My name is Alice"}]
   }'
 ```
@@ -73,13 +73,13 @@ curl -X POST https://api.memoryrouter.ai/v1/chat/completions \
 ```python
 # First request - introduce yourself
 client.chat.completions.create(
-    model="openai/gpt-4o",
+    model="openai/gpt-5.1",
     messages=[{"role": "user", "content": "My name is Alice and I love hiking"}]
 )
 
 # Later (even days later) - the AI remembers
 response = client.chat.completions.create(
-    model="openai/gpt-4o",
+    model="openai/gpt-5.1",
     messages=[{"role": "user", "content": "What are my hobbies?"}]
 )
 # Response: "Based on our previous conversation, you mentioned you love hiking!"
@@ -104,18 +104,18 @@ Use any model from these providers — just prefix the model name:
 
 | Provider | Example Models | Prefix |
 |----------|---------------|--------|
-| OpenAI | gpt-4o, gpt-4o-mini, gpt-4.1, gpt-5, o3, o3-mini, o4-mini | `openai/` |
-| Anthropic | claude-sonnet-4, claude-sonnet-4.5, claude-opus-4, claude-opus-4.5 | `anthropic/` |
-| Google | gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview | `google/` |
+| OpenAI | gpt-5.2, gpt-5.1, gpt-4.5, o3, o1-pro, o1 | `openai/` |
+| Anthropic | claude-opus-4.5, claude-sonnet-4.5, claude-haiku-4.5 | `anthropic/` |
+| Google | gemini-3-pro, gemini-3-flash, gemini-2.5-pro, gemini-2.5-flash | `google/` |
+| Meta | llama-4-maverick, llama-4-scout, llama-3.3-70b | `meta/` |
+| Mistral | mistral-large-3, ministral-3-14b, mistral-small-3.2 | `mistral/` |
 | xAI | grok-4, grok-4-fast, grok-3, grok-3-mini | `x-ai/` |
-| OpenRouter | any model on openrouter.ai | `openrouter/` |
+| OpenRouter | any model on openrouter.ai (200+) | `openrouter/` |
 | DeepSeek | deepseek-chat, deepseek-reasoner | `deepseek/` |
-| Mistral | mistral-large, mistral-small | `mistral/` |
-| Cerebras | llama-3.1-70b, llama-3.1-8b | `cerebras/` |
 | Azure OpenAI | your deployed models | `azure/` |
 | Ollama | local models | `ollama/` |
 
-**90+ models** available out of the box. **OpenRouter** gives you access to 200+ additional models through a single API key.
+**100+ models** available out of the box. **OpenRouter** gives you access to 200+ additional models (Cohere, Perplexity, Together, etc.) through a single API key.
 
 ---
 
