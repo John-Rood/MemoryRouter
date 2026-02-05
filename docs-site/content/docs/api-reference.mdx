@@ -71,7 +71,7 @@ const response = await client.chat.completions.create({
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `model` | string | Yes | Model identifier (e.g., `openai/gpt-5.1`, `anthropic/claude-sonnet-4.5`) |
+| `model` | string | Yes | Model identifier (e.g., `openai/gpt-5.1`, `anthropic/claude-sonnet-5`) |
 | `messages` | array | Yes | Array of message objects |
 | `stream` | boolean | No | Enable streaming |
 | `temperature` | number | No | Sampling temperature (0-2) |
@@ -108,7 +108,7 @@ curl -X POST https://api.memoryrouter.ai/v1/messages \
   -H "Content-Type: application/json" \
   -H "anthropic-version: 2023-06-01" \
   -d '{
-    "model": "claude-sonnet-4-20250514",
+    "model": "claude-sonnet-5",
     "max_tokens": 1024,
     "messages": [{"role": "user", "content": "My name is Alice"}]
   }'
@@ -124,7 +124,7 @@ client = Anthropic(
 )
 
 response = client.messages.create(
-    model="claude-sonnet-4-20250514",
+    model="claude-sonnet-5",
     max_tokens=1024,
     messages=[{"role": "user", "content": "My name is Alice"}]
 )
@@ -141,7 +141,7 @@ const client = new Anthropic({
 });
 
 const response = await client.messages.create({
-  model: 'claude-sonnet-4-20250514',
+  model: 'claude-sonnet-5',
   max_tokens: 1024,
   messages: [{ role: 'user', content: 'My name is Alice' }]
 });
@@ -151,7 +151,7 @@ const response = await client.messages.create({
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `model` | string | Yes | Anthropic model (e.g., `claude-sonnet-4-20250514`) |
+| `model` | string | Yes | Anthropic model (e.g., `claude-sonnet-5`) |
 | `messages` | array | Yes | Array of message objects |
 | `max_tokens` | number | Yes | Maximum tokens to generate |
 | `system` | string | No | System prompt |
@@ -167,9 +167,9 @@ MemoryRouter accepts simplified model names and maps them to Anthropic's full id
 | You can use | Maps to |
 |-------------|---------|
 | `claude-opus-4.5` | `claude-opus-4-5-20250115` |
-| `claude-sonnet-4.5` | `claude-sonnet-4-5-20250115` |
+| `claude-sonnet-5` | `claude-sonnet-5` |
 | `claude-haiku-4.5` | `claude-haiku-4-5-20250115` |
-| `claude-sonnet-4` | `claude-sonnet-4-20250514` |
+| `claude-sonnet-5` | `claude-sonnet-5` |
 | `claude-opus-4` | `claude-opus-4-20250514` |
 
 **Response (Native Anthropic format):**
@@ -179,7 +179,7 @@ MemoryRouter accepts simplified model names and maps them to Anthropic's full id
   "type": "message",
   "role": "assistant",
   "content": [{"type": "text", "text": "Nice to meet you, Alice!"}],
-  "model": "claude-sonnet-4-20250514",
+  "model": "claude-sonnet-5",
   "stop_reason": "end_turn",
   "usage": {"input_tokens": 12, "output_tokens": 15}
 }
@@ -526,7 +526,7 @@ curl https://api.memoryrouter.ai/v1/models \
     },
     {
       "provider": "Anthropic",
-      "models": ["anthropic/claude-opus-4.5", "anthropic/claude-sonnet-4.5", "anthropic/claude-haiku-4.5", "..."]
+      "models": ["anthropic/claude-opus-4.5", "anthropic/claude-sonnet-5", "anthropic/claude-haiku-4.5", "..."]
     },
     {
       "provider": "Google",
@@ -545,7 +545,7 @@ curl https://api.memoryrouter.ai/v1/models \
       "models": ["x-ai/grok-4", "x-ai/grok-4-fast", "x-ai/grok-3", "x-ai/grok-3-mini", "..."]
     }
   ],
-  "models": ["openai/gpt-5.1", "anthropic/claude-sonnet-4.5", "google/gemini-3-flash", "meta/llama-4-maverick", "..."],
+  "models": ["openai/gpt-5.1", "anthropic/claude-sonnet-5", "google/gemini-3-flash", "meta/llama-4-maverick", "..."],
   "default": "openai/gpt-5.1",
   "catalog_updated": "2026-02-04T19:28:00Z"
 }
@@ -556,13 +556,13 @@ curl https://api.memoryrouter.ai/v1/models \
 | Provider | Popular Models |
 |----------|---------------|
 | **OpenAI** | `gpt-5.2`, `gpt-5.1`, `gpt-4.5`, `o3`, `o1-pro`, `o1` |
-| **Anthropic** | `claude-opus-4.5`, `claude-sonnet-4.5`, `claude-haiku-4.5` |
+| **Anthropic** | `claude-opus-4.5`, `claude-sonnet-5`, `claude-haiku-4.5` |
 | **Google** | `gemini-3-pro`, `gemini-3-flash`, `gemini-2.5-pro`, `gemini-2.5-flash` |
 | **Meta** | `llama-4-maverick`, `llama-4-scout`, `llama-3.3-70b` |
 | **Mistral** | `mistral-large-3`, `ministral-3-14b`, `mistral-small-3.2` |
 | **xAI** | `grok-4`, `grok-4-fast`, `grok-3`, `grok-3-mini` |
 
-Use the full model name with provider prefix (e.g., `openai/gpt-5.1`, `anthropic/claude-sonnet-4.5`).
+Use the full model name with provider prefix (e.g., `openai/gpt-5.1`, `anthropic/claude-sonnet-5`).
 
 ---
 
@@ -588,7 +588,7 @@ curl "https://api.memoryrouter.ai/v1/account/usage?start=2024-01-01&end=2024-02-
   "total_memory_tokens": 89432,
   "by_model": {
     "openai/gpt-5.1": {"requests": 1200, "input_tokens": 180000},
-    "anthropic/claude-sonnet-4.5": {"requests": 347, "input_tokens": 54567}
+    "anthropic/claude-sonnet-5": {"requests": 347, "input_tokens": 54567}
   }
 }
 ```
