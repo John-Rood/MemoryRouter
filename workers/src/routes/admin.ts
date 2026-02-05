@@ -47,8 +47,8 @@ function verifyAdmin(request: Request, env: Env): boolean {
   if (!authHeader) return false;
   
   const token = authHeader.replace('Bearer ', '');
-  // Accept either ADMIN_SECRET or a valid memory key starting with mk_admin
-  return token === env.ADMIN_SECRET || token.startsWith('mk_admin');
+  // Require exact match with ADMIN_SECRET only
+  return !!env.ADMIN_SECRET && token === env.ADMIN_SECRET;
 }
 
 /**

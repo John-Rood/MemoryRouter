@@ -6,7 +6,7 @@
  */
 
 import { Hono } from 'hono';
-import { cors } from 'hono/cors';
+// CORS removed - API is server-side only
 import { authMiddleware, createMemoryKey, UserContext } from './middleware/auth';
 import { createChatRouter, ChatEnv } from './routes/chat';
 import { createPassthroughRouter } from './routes/passthrough';
@@ -66,21 +66,7 @@ type Variables = {
 // Create main app
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-// Global middleware - expose latency headers
-app.use('*', cors({
-  origin: '*',
-  allowHeaders: ['Content-Type', 'Authorization', 'X-Session-ID', 'X-Memory-Mode', 'X-Memory-Store', 'X-Memory-Store-Response'],
-  exposeHeaders: [
-    'X-Embedding-Ms',
-    'X-MR-Processing-Ms',
-    'X-MR-Overhead-Ms',
-    'X-Provider-Response-Ms', 
-    'X-Total-Ms',
-    'X-Memory-Tokens-Retrieved',
-    'X-Memory-Chunks-Retrieved',
-    'X-Session-ID'
-  ],
-}));
+// No CORS - API should be called server-side only
 
 // Health check (no auth)
 app.get('/', (c) => {
