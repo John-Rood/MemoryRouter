@@ -71,7 +71,7 @@ const response = await client.chat.completions.create({
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `model` | string | Yes | Model identifier (e.g., `openai/gpt-4o`, `xai/grok-2`) |
+| `model` | string | Yes | Model identifier (e.g., `openai/gpt-4o`, `x-ai/grok-2`) |
 | `messages` | array | Yes | Array of message objects |
 | `stream` | boolean | No | Enable streaming |
 | `temperature` | number | No | Sampling temperature (0-2) |
@@ -194,7 +194,7 @@ MemoryRouter accepts simplified model names and maps them to Anthropic's full id
 
 **curl:**
 ```bash
-curl -X POST "https://api.memoryrouter.ai/v1/models/gemini-1.5-pro:generateContent" \
+curl -X POST "https://api.memoryrouter.ai/v1/models/gemini-2.5-pro:generateContent" \
   -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -214,14 +214,14 @@ genai.configure(
     client_options={"api_endpoint": "api.memoryrouter.ai"}
 )
 
-model = genai.GenerativeModel("gemini-1.5-pro")
+model = genai.GenerativeModel("gemini-2.5-pro")
 response = model.generate_content("My name is Alice")
 print(response.text)
 ```
 
 **Streaming:**
 ```bash
-curl -X POST "https://api.memoryrouter.ai/v1/models/gemini-1.5-pro:streamGenerateContent" \
+curl -X POST "https://api.memoryrouter.ai/v1/models/gemini-2.5-pro:streamGenerateContent" \
   -H "Authorization: Bearer mk_xxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
