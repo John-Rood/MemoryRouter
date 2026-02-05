@@ -161,16 +161,10 @@ const response = await client.messages.create({
 | `stop_sequences` | array | No | Stop sequences |
 | `stream` | boolean | No | Enable streaming |
 
-**Model Aliases:**
-MemoryRouter accepts simplified model names and maps them to Anthropic's full identifiers:
-
-| You can use | Maps to |
-|-------------|---------|
-| `claude-opus-4.5` | `claude-opus-4-5-20250115` |
-| `claude-sonnet-5` | `claude-sonnet-5` |
-| `claude-haiku-4.5` | `claude-haiku-4-5-20250115` |
-| `claude-sonnet-5` | `claude-sonnet-5` |
-| `claude-opus-4` | `claude-opus-4-20250514` |
+**Supported Models:**
+- `claude-opus-4.5`
+- `claude-sonnet-5`
+- `claude-haiku-4.5`
 
 **Response (Native Anthropic format):**
 ```json
