@@ -134,13 +134,13 @@ export function createUploadRouter() {
         }, 400);
       }
 
-      // Limit batch size to prevent abuse
-      const MAX_LINES = 10000;
-      if (lines.length > MAX_LINES) {
+      // Soft limit with warning (we'll chunk internally)
+      const SOFT_LIMIT = 100000; // 100k lines absolute max
+      if (lines.length > SOFT_LIMIT) {
         return c.json({
-          error: 'Batch too large',
-          message: `Maximum ${MAX_LINES} memories per upload. You provided ${lines.length}.`,
-          hint: 'Split your file into smaller batches.',
+          error: 'File too large',
+          message: `Maximum ${SOFT_LIMIT} memories per upload. You provided ${lines.length}.`,
+          hint: 'Split your file into multiple uploads.',
         }, 413);
       }
     } catch (error) {
@@ -164,7 +164,7 @@ export function createUploadRouter() {
     };
 
     if (c.env.USE_DURABLE_OBJECTS === 'true' && c.env.VAULT_DO) {
-      // Durable Objects path — batch store
+      // Durable Objects path — chunked batch store
       try {
         const vaultName = sessionId 
           ? `${userContext.memoryKey.key}:session:${sessionId}`
@@ -173,30 +173,53 @@ export function createUploadRouter() {
         const doId = c.env.VAULT_DO.idFromName(vaultName);
         const stub = c.env.VAULT_DO.get(doId);
 
-        // Send batch to DO for processing (embeddings via Cloudflare AI)
-        const response = await stub.fetch(new Request('https://do/bulk-store', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            items: lines,
-          }),
-        }));
+        // ====================================================================
+        // Chunk processing: Process in batches of 500 lines to bound memory
+        // ====================================================================
+        const CHUNK_SIZE = 500;
+        const totalChunks = Math.ceil(lines.length / CHUNK_SIZE);
+        
+        console.log(`[Upload] Processing ${lines.length} memories in ${totalChunks} chunks of ${CHUNK_SIZE}`);
 
-        if (!response.ok) {
-          const errText = await response.text();
-          console.error('[Upload] DO bulk-store failed:', errText);
-          return c.json({
-            error: 'Storage failed',
-            details: errText,
-          }, 500);
+        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+          const start = chunkIndex * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, lines.length);
+          const chunk = lines.slice(start, end);
+
+          // Send chunk to DO for processing (embeddings via Cloudflare AI)
+          const response = await stub.fetch(new Request('https://do/bulk-store', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              items: chunk,
+            }),
+          }));
+
+          if (!response.ok) {
+            const errText = await response.text();
+            console.error(`[Upload] DO bulk-store failed on chunk ${chunkIndex + 1}/${totalChunks}:`, errText);
+            // Continue processing other chunks, track failure
+            result.failed += chunk.length;
+            result.errors.push(`Chunk ${chunkIndex + 1} failed: ${errText.slice(0, 100)}`);
+            continue;
+          }
+
+          const doResult = await response.json() as { stored: number; failed: number; errors?: string[] };
+          result.processed += doResult.stored;
+          result.failed += doResult.failed;
+          if (doResult.errors) {
+            result.errors.push(...doResult.errors);
+          }
+
+          // Log progress for large uploads
+          if (totalChunks > 5 && (chunkIndex + 1) % 5 === 0) {
+            console.log(`[Upload] Progress: ${chunkIndex + 1}/${totalChunks} chunks (${result.processed} stored)`);
+          }
         }
 
-        const doResult = await response.json() as { stored: number; failed: number; errors?: string[] };
-        result.processed = doResult.stored;
-        result.failed = doResult.failed;
-        result.errors = doResult.errors || [];
+        console.log(`[Upload] Complete: ${result.processed} stored, ${result.failed} failed`);
 
       } catch (error) {
         console.error('[Upload] DO error:', error);
