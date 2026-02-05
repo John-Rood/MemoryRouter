@@ -28,6 +28,125 @@ interface MemoryLine {
   timestamp?: number;
 }
 
+// ============================================================================
+// Chunking Constants — Match vault.ts for consistent vector sizes
+// ============================================================================
+const TARGET_TOKENS = 300;
+const OVERLAP_TOKENS = 30;
+const CHARS_PER_TOKEN = 4;
+const TARGET_CHARS = TARGET_TOKENS * CHARS_PER_TOKEN; // ~1200 chars
+
+const estimateTokens = (text: string) => Math.ceil(text.length / CHARS_PER_TOKEN);
+
+/**
+ * Normalize memories to consistent ~300 token chunks.
+ * - Small memories: combine until ~300 tokens
+ * - Large memories: split at sentence boundaries with overlap
+ */
+function normalizeMemories(lines: MemoryLine[]): MemoryLine[] {
+  const normalized: MemoryLine[] = [];
+  let buffer: MemoryLine[] = [];
+  let bufferTokens = 0;
+
+  const flushBuffer = () => {
+    if (buffer.length === 0) return;
+    
+    // Combine all buffered memories into one
+    const combined: MemoryLine = {
+      content: buffer.map(m => `[${(m.role || 'user').toUpperCase()}] ${m.content}`).join('\n\n'),
+      role: buffer[buffer.length - 1].role || 'user',
+      timestamp: buffer[buffer.length - 1].timestamp || Date.now(),
+    };
+    normalized.push(combined);
+    buffer = [];
+    bufferTokens = 0;
+  };
+
+  const splitLargeMemory = (memory: MemoryLine): MemoryLine[] => {
+    const chunks: MemoryLine[] = [];
+    let remaining = `[${(memory.role || 'user').toUpperCase()}] ${memory.content}`;
+    let overlap = '';
+
+    while (remaining.length > 0) {
+      const combined = overlap ? `${overlap} ${remaining}` : remaining;
+      
+      if (estimateTokens(combined) <= TARGET_TOKENS * 1.2) {
+        // Small enough, use as final chunk
+        chunks.push({
+          content: combined,
+          role: memory.role,
+          timestamp: memory.timestamp,
+        });
+        break;
+      }
+
+      // Find split point at sentence boundary
+      let splitPoint = TARGET_CHARS;
+      const searchStart = Math.floor(TARGET_CHARS * 0.8);
+      const searchEnd = Math.min(Math.ceil(TARGET_CHARS * 1.1), combined.length);
+      const searchRegion = combined.slice(searchStart, searchEnd);
+      
+      const sentenceMatch = searchRegion.match(/[.!?]\s/);
+      if (sentenceMatch && sentenceMatch.index !== undefined) {
+        splitPoint = searchStart + sentenceMatch.index + 1;
+      } else {
+        const spaceIndex = combined.lastIndexOf(' ', TARGET_CHARS);
+        if (spaceIndex > TARGET_CHARS * 0.7) {
+          splitPoint = spaceIndex;
+        }
+      }
+
+      const chunk = combined.slice(0, splitPoint).trim();
+      remaining = combined.slice(splitPoint).trim();
+
+      if (chunk) {
+        chunks.push({
+          content: chunk,
+          role: memory.role,
+          timestamp: memory.timestamp,
+        });
+      }
+
+      // Keep overlap for continuity
+      const overlapChars = OVERLAP_TOKENS * CHARS_PER_TOKEN;
+      overlap = chunk.slice(-overlapChars);
+    }
+
+    return chunks;
+  };
+
+  for (const memory of lines) {
+    const memoryTokens = estimateTokens(memory.content);
+
+    // Large memory: split it
+    if (memoryTokens > TARGET_TOKENS * 1.5) {
+      flushBuffer(); // Flush any pending small memories first
+      const splitChunks = splitLargeMemory(memory);
+      normalized.push(...splitChunks);
+      continue;
+    }
+
+    // Would exceed target: flush buffer first
+    if (bufferTokens + memoryTokens > TARGET_TOKENS * 1.2) {
+      flushBuffer();
+    }
+
+    // Add to buffer
+    buffer.push(memory);
+    bufferTokens += memoryTokens;
+
+    // Buffer is full enough: flush
+    if (bufferTokens >= TARGET_TOKENS) {
+      flushBuffer();
+    }
+  }
+
+  // Flush remaining buffer
+  flushBuffer();
+
+  return normalized;
+}
+
 interface UploadResult {
   success: boolean;
   processed: number;
@@ -35,6 +154,7 @@ interface UploadResult {
   errors: string[];
   vault: 'core' | 'session';
   sessionId?: string;
+  normalizedCount?: number; // Track normalized chunk count
 }
 
 // Create router
@@ -164,7 +284,7 @@ export function createUploadRouter() {
     };
 
     if (c.env.USE_DURABLE_OBJECTS === 'true' && c.env.VAULT_DO) {
-      // Durable Objects path — chunked batch store
+      // Durable Objects path — normalized chunked batch store
       try {
         const vaultName = sessionId 
           ? `${userContext.memoryKey.key}:session:${sessionId}`
@@ -174,35 +294,43 @@ export function createUploadRouter() {
         const stub = c.env.VAULT_DO.get(doId);
 
         // ====================================================================
-        // Chunk processing: Process in batches of 500 lines to bound memory
+        // Step 1: Normalize memories to consistent ~300 token chunks
+        // - Small memories get combined
+        // - Large memories get split at sentence boundaries
         // ====================================================================
-        const CHUNK_SIZE = 500;
-        const totalChunks = Math.ceil(lines.length / CHUNK_SIZE);
+        const normalizedMemories = normalizeMemories(lines);
+        result.normalizedCount = normalizedMemories.length;
         
-        console.log(`[Upload] Processing ${lines.length} memories in ${totalChunks} chunks of ${CHUNK_SIZE}`);
+        console.log(`[Upload] Normalized ${lines.length} raw lines → ${normalizedMemories.length} chunks (~${TARGET_TOKENS} tokens each)`);
 
-        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-          const start = chunkIndex * CHUNK_SIZE;
-          const end = Math.min(start + CHUNK_SIZE, lines.length);
-          const chunk = lines.slice(start, end);
+        // ====================================================================
+        // Step 2: Process in batches of 100 normalized chunks
+        // ====================================================================
+        const BATCH_SIZE = 100;
+        const totalBatches = Math.ceil(normalizedMemories.length / BATCH_SIZE);
 
-          // Send chunk to DO for processing (embeddings via Cloudflare AI)
+        for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+          const start = batchIndex * BATCH_SIZE;
+          const end = Math.min(start + BATCH_SIZE, normalizedMemories.length);
+          const batch = normalizedMemories.slice(start, end);
+
+          // Send batch to DO for processing (embeddings via Cloudflare AI)
           const response = await stub.fetch(new Request('https://do/bulk-store', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              items: chunk,
+              items: batch,
             }),
           }));
 
           if (!response.ok) {
             const errText = await response.text();
-            console.error(`[Upload] DO bulk-store failed on chunk ${chunkIndex + 1}/${totalChunks}:`, errText);
-            // Continue processing other chunks, track failure
-            result.failed += chunk.length;
-            result.errors.push(`Chunk ${chunkIndex + 1} failed: ${errText.slice(0, 100)}`);
+            console.error(`[Upload] DO bulk-store failed on batch ${batchIndex + 1}/${totalBatches}:`, errText);
+            // Continue processing other batches, track failure
+            result.failed += batch.length;
+            result.errors.push(`Batch ${batchIndex + 1} failed: ${errText.slice(0, 100)}`);
             continue;
           }
 
@@ -214,12 +342,12 @@ export function createUploadRouter() {
           }
 
           // Log progress for large uploads
-          if (totalChunks > 5 && (chunkIndex + 1) % 5 === 0) {
-            console.log(`[Upload] Progress: ${chunkIndex + 1}/${totalChunks} chunks (${result.processed} stored)`);
+          if (totalBatches > 5 && (batchIndex + 1) % 5 === 0) {
+            console.log(`[Upload] Progress: ${batchIndex + 1}/${totalBatches} batches (${result.processed} stored)`);
           }
         }
 
-        console.log(`[Upload] Complete: ${result.processed} stored, ${result.failed} failed`);
+        console.log(`[Upload] Complete: ${result.processed} stored, ${result.failed} failed (from ${lines.length} raw → ${normalizedMemories.length} normalized)`);
 
       } catch (error) {
         console.error('[Upload] DO error:', error);
@@ -239,19 +367,23 @@ export function createUploadRouter() {
 
     result.success = result.failed === 0;
 
+    const normalizedCount = result.normalizedCount || lines.length;
+
     return c.json({
       status: result.success ? 'complete' : 'partial',
       memoryKey: userContext.memoryKey.key,
       vault: result.vault,
       sessionId: result.sessionId,
       stats: {
-        total: lines.length,
+        rawLines: lines.length,
+        normalizedChunks: normalizedCount,
         processed: result.processed,
         failed: result.failed,
+        targetTokens: TARGET_TOKENS,
       },
-      errors: result.errors.length > 0 ? result.errors.slice(0, 10) : undefined, // Limit error output
+      errors: result.errors.length > 0 ? result.errors.slice(0, 10) : undefined,
       message: result.success 
-        ? `Successfully stored ${result.processed} memories`
+        ? `Successfully stored ${result.processed} memories (${lines.length} raw → ${normalizedCount} normalized chunks)`
         : `Stored ${result.processed} memories, ${result.failed} failed`,
     });
   });
