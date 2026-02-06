@@ -177,7 +177,7 @@ export default function TestingPage() {
       let fullResponse = "";
 
       try {
-        const response = await fetch(`${API_BASE}/v1/chat/completions`, {
+        const response = await fetch(`${API_BASE}/v1/chat/completions?debug=true`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

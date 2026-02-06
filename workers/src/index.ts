@@ -6,7 +6,7 @@
  */
 
 import { Hono } from 'hono';
-// CORS removed - API is server-side only
+import { cors } from 'hono/cors';
 import { authMiddleware, createMemoryKey, UserContext } from './middleware/auth';
 import { rateLimitMiddleware, RateLimitEnv } from './middleware/rate-limit';
 import { createChatRouter, ChatEnv } from './routes/chat';
@@ -67,12 +67,20 @@ type Variables = {
 // Create main app
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-// Rate limiting (first middleware - before auth)
+// CORS - allow dashboard and localhost for testing
+app.use('*', cors({
+  origin: ['https://app.memoryrouter.ai', 'http://localhost:3000', 'http://localhost:5173'],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'X-Debug'],
+  exposeHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset', 'X-MR-Processing-Ms', 'X-MR-Overhead-Ms', 'X-Provider-Response-Ms'],
+  maxAge: 86400,
+  credentials: true,
+}));
+
+// Rate limiting (after CORS so preflight works)
 // Authenticated: 100 req/10s burst, 1000 req/min sustained (per API key)
 // Unauthenticated: 60 req/min (per IP)
 app.use('*', rateLimitMiddleware());
-
-// No CORS - API should be called server-side only
 
 // Health check (no auth)
 app.get('/', (c) => {
