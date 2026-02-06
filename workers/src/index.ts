@@ -8,7 +8,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { authMiddleware, createMemoryKey, UserContext } from './middleware/auth';
-import { rateLimitMiddleware, RateLimitEnv } from './middleware/rate-limit';
 import { createChatRouter, ChatEnv } from './routes/chat';
 import { createPassthroughRouter } from './routes/passthrough';
 import { createAnthropicRouter } from './routes/anthropic';
@@ -40,7 +39,7 @@ export { VaultDurableObject } from './durable-objects/vault';
 import { handleStorageQueue, StorageJob, QueueEnv } from './queues/storage-consumer';
 
 // Environment bindings
-interface Env extends ChatEnv, RateLimitEnv {
+interface Env extends ChatEnv {
   ENVIRONMENT: string;
   DEFAULT_EMBEDDING_MODEL: string;
   DEFAULT_EMBEDDING_DIMS: string;
@@ -67,20 +66,13 @@ type Variables = {
 // Create main app
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-// CORS - allow dashboard and localhost for testing
+// CORS - allow dashboard and API consumers
 app.use('*', cors({
-  origin: ['https://app.memoryrouter.ai', 'http://localhost:3000', 'http://localhost:5173'],
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'X-Debug'],
-  exposeHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset', 'X-MR-Processing-Ms', 'X-MR-Overhead-Ms', 'X-Provider-Response-Ms'],
-  maxAge: 86400,
-  credentials: true,
+  origin: '*',
+  allowHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'X-Debug', 'X-Session-ID', 'X-Memory-Mode'],
+  exposeHeaders: ['X-MR-Processing-Ms', 'X-MR-Overhead-Ms', 'X-Provider-Response-Ms', 'X-Embedding-Ms', 'X-Total-Ms'],
+  maxAge: 86400,  // Cache preflight 24h
 }));
-
-// Rate limiting (after CORS so preflight works)
-// Authenticated: 100 req/10s burst, 1000 req/min sustained (per API key)
-// Unauthenticated: 60 req/min (per IP)
-app.use('*', rateLimitMiddleware());
 
 // Health check (no auth)
 app.get('/', (c) => {
