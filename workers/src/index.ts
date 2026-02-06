@@ -8,6 +8,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { authMiddleware, createMemoryKey, UserContext } from './middleware/auth';
+import { rateLimitMiddleware, RateLimitEnv } from './middleware/rate-limit';
 import { createChatRouter, ChatEnv } from './routes/chat';
 import { createPassthroughRouter } from './routes/passthrough';
 import { createAnthropicRouter } from './routes/anthropic';
@@ -39,7 +40,7 @@ export { VaultDurableObject } from './durable-objects/vault';
 import { handleStorageQueue, StorageJob, QueueEnv } from './queues/storage-consumer';
 
 // Environment bindings
-interface Env extends ChatEnv {
+interface Env extends ChatEnv, RateLimitEnv {
   ENVIRONMENT: string;
   DEFAULT_EMBEDDING_MODEL: string;
   DEFAULT_EMBEDDING_DIMS: string;
@@ -73,6 +74,9 @@ app.use('*', cors({
   exposeHeaders: ['X-MR-Processing-Ms', 'X-MR-Overhead-Ms', 'X-Provider-Response-Ms', 'X-Embedding-Ms', 'X-Total-Ms'],
   maxAge: 86400,  // Cache preflight 24h
 }));
+
+// Non-blocking rate limiting (checks blocklist, logs async)
+app.use('*', rateLimitMiddleware());
 
 // Health check (no auth)
 app.get('/', (c) => {
