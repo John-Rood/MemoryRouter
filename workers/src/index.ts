@@ -67,11 +67,38 @@ type Variables = {
 // Create main app
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-// CORS - allow dashboard and API consumers
+// CORS - only allow MemoryRouter dashboard (server-to-server API calls bypass CORS)
+// All custom X-* headers the API accepts are listed here
 app.use('*', cors({
-  origin: '*',
-  allowHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'X-Debug', 'X-Session-ID', 'X-Memory-Mode'],
-  exposeHeaders: ['X-MR-Processing-Ms', 'X-MR-Overhead-Ms', 'X-Provider-Response-Ms', 'X-Embedding-Ms', 'X-Total-Ms'],
+  origin: ['https://app.memoryrouter.ai', 'https://memoryrouter.ai'],
+  allowHeaders: [
+    // Standard
+    'Content-Type',
+    'Authorization',
+    'x-api-key',
+    // Memory control
+    'X-Memory-Mode',
+    'X-Memory-Store',
+    'X-Memory-Store-Response',
+    'X-Memory-Context-Limit',
+    'X-Memory-Key',
+    // Session & debug
+    'X-Session-ID',
+    'X-Debug',
+    // Provider override (BYOK)
+    'X-Provider-Key',
+    // Admin/internal
+    'X-Admin-Key',
+    'X-Dashboard-Key',
+    'X-Internal-Request',
+  ],
+  exposeHeaders: [
+    'X-MR-Processing-Ms',
+    'X-MR-Overhead-Ms',
+    'X-Provider-Response-Ms',
+    'X-Embedding-Ms',
+    'X-Total-Ms',
+  ],
   maxAge: 86400,  // Cache preflight 24h
 }));
 

@@ -23,8 +23,8 @@ interface Message {
   debug?: {
     memory?: {
       tokens_retrieved?: number;
-      chunks_retrieved?: number;
-      chunks?: Array<{
+      memories_retrieved?: number;
+      memories?: Array<{
         role: string;
         content: string;
         timestamp: number;
@@ -756,7 +756,7 @@ function ChatList({
 // Message Bubble Component
 function MessageBubble({ message }: { message: Message }) {
   const [debugOpen, setDebugOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"stats" | "prompt" | "chunks">("stats");
+  const [activeTab, setActiveTab] = useState<"stats" | "prompt" | "memories">("stats");
 
   const isUser = message.role === "user";
 
@@ -811,7 +811,7 @@ function MessageBubble({ message }: { message: Message }) {
             <div className="mt-2 glass-card rounded-xl overflow-hidden">
               {/* Tabs */}
               <div className="flex border-b border-white/[0.08] bg-card/50">
-                {(["stats", "prompt", "chunks"] as const).map((tab) => (
+                {(["stats", "prompt", "memories"] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
@@ -822,7 +822,7 @@ function MessageBubble({ message }: { message: Message }) {
                         : "text-muted-foreground border-transparent hover:text-foreground"
                     )}
                   >
-                    {tab === "stats" ? "Memory Stats" : tab === "prompt" ? "Full Prompt" : "Retrieved Chunks"}
+                    {tab === "stats" ? "Memory Stats" : tab === "prompt" ? "Full Prompt" : "Recalled Memories"}
                   </button>
                 ))}
               </div>
@@ -835,7 +835,7 @@ function MessageBubble({ message }: { message: Message }) {
                     {JSON.stringify(message.debug.augmented_messages || [], null, 2)}
                   </pre>
                 )}
-                {activeTab === "chunks" && <ChunksTab chunks={message.debug.memory?.chunks} />}
+                {activeTab === "memories" && <MemoriesTab memories={message.debug.memory?.memories} />}
               </div>
             </div>
           )}
@@ -849,25 +849,25 @@ function MessageBubble({ message }: { message: Message }) {
 function MemoryStatsTab({ memory, latency }: { 
   memory?: {
     tokens_retrieved?: number;
-    chunks_retrieved?: number;
-    chunks?: Array<{ role: string; content: string; timestamp: number }>;
+    memories_retrieved?: number;
+    memories?: Array<{ role: string; content: string; timestamp: number }>;
     window_breakdown?: { hot: number; working: number; longterm: number };
   }; 
   latency?: { mr_processing_ms?: number; provider_ms?: number } 
 }) {
   const windowBreakdown = memory?.window_breakdown || { hot: 0, working: 0, longterm: 0 };
-  const totalChunks = windowBreakdown.hot + windowBreakdown.working + windowBreakdown.longterm;
+  const totalMemories = windowBreakdown.hot + windowBreakdown.working + windowBreakdown.longterm;
 
-  const hotPct = totalChunks ? (windowBreakdown.hot / totalChunks) * 100 : 0;
-  const workingPct = totalChunks ? (windowBreakdown.working / totalChunks) * 100 : 0;
-  const longtermPct = totalChunks ? (windowBreakdown.longterm / totalChunks) * 100 : 0;
+  const hotPct = totalMemories ? (windowBreakdown.hot / totalMemories) * 100 : 0;
+  const workingPct = totalMemories ? (windowBreakdown.working / totalMemories) * 100 : 0;
+  const longtermPct = totalMemories ? (windowBreakdown.longterm / totalMemories) * 100 : 0;
 
   return (
     <div className="space-y-4">
       {/* Stats Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard label="Tokens Retrieved" value={memory?.tokens_retrieved || 0} />
-        <StatCard label="Chunks" value={memory?.chunks_retrieved || 0} />
+        <StatCard label="Memories Recalled" value={memory?.memories_retrieved || 0} />
         <StatCard label="MR Latency" value={latency?.mr_processing_ms || 0} unit="ms" />
         <StatCard label="Provider" value={latency?.provider_ms || 0} unit="ms" />
       </div>
@@ -875,7 +875,7 @@ function MemoryStatsTab({ memory, latency }: {
       {/* KRONOS Bar */}
       <div>
         <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-2">KRONOS Time Windows</p>
-        {totalChunks > 0 ? (
+        {totalMemories > 0 ? (
           <>
             <div className="flex h-7 rounded-md overflow-hidden border border-white/[0.08]">
               {hotPct > 0 && (
@@ -929,10 +929,10 @@ function StatCard({ label, value, unit }: { label: string; value: number; unit?:
   );
 }
 
-// Chunks Tab
-function ChunksTab({ chunks }: { chunks?: Array<{ role: string; content: string; timestamp: number }> }) {
-  if (!chunks || chunks.length === 0) {
-    return <p className="text-xs text-muted-foreground">No chunks retrieved</p>;
+// Memories Tab (recalled context)
+function MemoriesTab({ memories }: { memories?: Array<{ role: string; content: string; timestamp: number }> }) {
+  if (!memories || memories.length === 0) {
+    return <p className="text-xs text-muted-foreground">No memories recalled</p>;
   }
 
   const formatRelativeTime = (timestamp: number) => {
@@ -953,14 +953,14 @@ function ChunksTab({ chunks }: { chunks?: Array<{ role: string; content: string;
 
   return (
     <div className="space-y-3">
-      {chunks.map((chunk, i) => (
+      {memories.map((memory, i) => (
         <div key={i} className="p-3 rounded-lg bg-[#0f0f13] border border-white/[0.08]">
           <div className="flex items-center gap-2 mb-2 text-xs">
             <span className="font-semibold text-muted-foreground">[{i + 1}]</span>
-            <span className={cn("uppercase font-medium", chunk.role === "user" ? "text-accent" : "text-primary")}>{chunk.role}</span>
-            <span className="text-muted-foreground">— {formatRelativeTime(chunk.timestamp)}</span>
+            <span className={cn("uppercase font-medium", memory.role === "user" ? "text-accent" : "text-primary")}>{memory.role}</span>
+            <span className="text-muted-foreground">— {formatRelativeTime(memory.timestamp)}</span>
           </div>
-          <p className="text-xs font-mono whitespace-pre-wrap text-foreground/80">&quot;{chunk.content}&quot;</p>
+          <p className="text-xs font-mono whitespace-pre-wrap text-foreground/80">&quot;{memory.content}&quot;</p>
         </div>
       ))}
     </div>

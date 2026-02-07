@@ -118,7 +118,7 @@ export default function PrivacyPage() {
                 <h3 className="text-foreground font-medium mb-2">Memory Data</h3>
                 <ul className="list-disc list-inside space-y-1 ml-2">
                   <li>Conversation context and memory content you store through our API</li>
-                  <li>Vector embeddings generated from your memory content</li>
+                  <li>Memory encodings generated from your stored content</li>
                   <li>Metadata including timestamps and session identifiers</li>
                 </ul>
               </div>
