@@ -257,7 +257,7 @@ export function createAnthropicRouter() {
       responseData._memory = {
         key: userContext.memoryKey.key,
         tokens_retrieved: memoryTokensUsed,
-        chunks_retrieved: chunksRetrieved,
+        memories_retrieved: chunksRetrieved,
       };
       responseData._latency = {
         mr_processing_ms: mrProcessingTime,

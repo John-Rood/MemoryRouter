@@ -729,11 +729,11 @@ export function createChatRouter() {
         session_id: sessionId ?? null,
         storage: usesDO ? 'durable-objects' : 'kv-r2',
         tokens_retrieved: retrieval?.tokenCount ?? 0,
-        chunks_retrieved: retrieval?.chunks.length ?? 0,
+        memories_retrieved: retrieval?.chunks.length ?? 0,
         tokens_injected: memoryTokensUsed,
         injection_format: memoryInjection?.formatUsed ?? null,
         window_breakdown: retrieval?.windowBreakdown ?? { hot: 0, working: 0, longterm: 0 },
-        chunks: retrieval?.chunks ?? [],
+        memories: retrieval?.chunks ?? [],
         latency_ms: totalTime,
       } : undefined,
       // Latency breakdown (debug only)
