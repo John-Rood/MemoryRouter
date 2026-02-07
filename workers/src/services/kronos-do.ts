@@ -131,7 +131,7 @@ export async function executeSearchPlan(
           type: vault.type,
           window: window.name,
           results: data.results ?? [],
-          buffer: vault.type === 'core' ? data.buffer : undefined, // Only capture buffer from core vault
+          buffer: data.buffer, // Capture buffer from any vault (session or core)
         }))
         .catch(err => {
           // Don't fail the whole search if one vault/window errors
@@ -150,8 +150,10 @@ export async function executeSearchPlan(
 
   const allWindows = await Promise.all(windowPromises);
   
-  // Extract buffer from core vault (first one that has it)
-  const bufferData = allWindows.find(w => w.buffer)?.buffer;
+  // Extract buffer - prefer session vault (active conversation), fall back to core
+  const sessionBuffer = allWindows.find(w => w.type === 'session' && w.buffer)?.buffer;
+  const coreBuffer = allWindows.find(w => w.type === 'core' && w.buffer)?.buffer;
+  const bufferData = sessionBuffer || coreBuffer;
 
   // Merge results across all vaults and windows
   const chunks: MemoryChunk[] = [];
