@@ -16,6 +16,9 @@ interface Message {
   content: string;
   latency?: {
     embedding_ms: number;
+    race_ms?: number;
+    race_winner?: string;
+    post_process_ms?: number;
     mr_processing_ms: number;
     mr_overhead_ms: number;
     provider_ms: number;
@@ -36,7 +39,12 @@ interface Message {
       };
     };
     latency?: {
+      embedding_ms?: number;
+      race_ms?: number;
+      race_winner?: string;
+      post_process_ms?: number;
       mr_processing_ms?: number;
+      mr_overhead_ms?: number;
       provider_ms?: number;
     };
     augmented_messages?: unknown[];
@@ -774,7 +782,7 @@ function MessageBubble({ message }: { message: Message }) {
         </span>
         {message.latency && (
           <span className="text-xs text-muted-foreground font-mono">
-            Embed: {message.latency.embedding_ms}ms · MR: {message.latency.mr_processing_ms}ms · Provider: {message.latency.provider_ms}ms
+            Embed: {message.latency.embedding_ms}ms · Race: {message.latency.race_ms ?? 0}ms · Post: {message.latency.post_process_ms ?? 0}ms · MR: {message.latency.mr_processing_ms}ms
           </span>
         )}
       </div>
@@ -853,7 +861,15 @@ function MemoryStatsTab({ memory, latency }: {
     memories?: Array<{ role: string; content: string; timestamp: number }>;
     window_breakdown?: { hot: number; working: number; longterm: number };
   }; 
-  latency?: { mr_processing_ms?: number; provider_ms?: number } 
+  latency?: { 
+    embedding_ms?: number;
+    race_ms?: number;
+    race_winner?: string;
+    post_process_ms?: number;
+    mr_processing_ms?: number;
+    mr_overhead_ms?: number;
+    provider_ms?: number;
+  } 
 }) {
   const windowBreakdown = memory?.window_breakdown || { hot: 0, working: 0, longterm: 0 };
   const totalMemories = windowBreakdown.hot + windowBreakdown.working + windowBreakdown.longterm;
@@ -864,11 +880,19 @@ function MemoryStatsTab({ memory, latency }: {
 
   return (
     <div className="space-y-4">
-      {/* Stats Grid */}
+      {/* Latency Breakdown */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard label="Embed" value={latency?.embedding_ms || 0} unit="ms" />
+        <StatCard label="Race" value={latency?.race_ms || 0} unit="ms" subtitle={latency?.race_winner ? `(${latency.race_winner})` : undefined} />
+        <StatCard label="Post-Process" value={latency?.post_process_ms || 0} unit="ms" />
+        <StatCard label="MR Total" value={latency?.mr_processing_ms || 0} unit="ms" />
+      </div>
+
+      {/* Memory Stats Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard label="Tokens Retrieved" value={memory?.tokens_retrieved || 0} />
         <StatCard label="Memories Recalled" value={memory?.memories_retrieved || 0} />
-        <StatCard label="MR Latency" value={latency?.mr_processing_ms || 0} unit="ms" />
+        <StatCard label="Overhead" value={latency?.mr_overhead_ms || 0} unit="ms" />
         <StatCard label="Provider" value={latency?.provider_ms || 0} unit="ms" />
       </div>
 
@@ -917,13 +941,14 @@ function MemoryStatsTab({ memory, latency }: {
   );
 }
 
-function StatCard({ label, value, unit }: { label: string; value: number; unit?: string }) {
+function StatCard({ label, value, unit, subtitle }: { label: string; value: number; unit?: string; subtitle?: string }) {
   return (
     <div className="stat-card rounded-lg px-3 py-3">
       <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1">{label}</p>
       <p className="text-xl font-semibold text-primary font-mono">
         {value}
         {unit && <span className="text-xs text-muted-foreground font-normal ml-0.5">{unit}</span>}
+        {subtitle && <span className="text-xs text-muted-foreground font-normal ml-1">{subtitle}</span>}
       </p>
     </div>
   );
