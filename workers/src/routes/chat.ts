@@ -858,7 +858,7 @@ async function storeConversationDO(
       // Embed and store each complete chunk via Cloudflare AI
       for (const chunkContent of chunkResult.chunksToEmbed) {
         const embedding = await generateEmbedding(chunkContent, undefined, undefined, embeddingConfig);
-        const storeResult = await storeToVault(stub, embedding, chunkContent, 'chunk', model, requestId);
+        const storeResult = await storeToVault(stub, embedding, chunkContent, item.role, model, requestId);
         
         // Mirror to D1 for cold start fallback (fire-and-forget)
         if (d1 && storeResult.stored && ctx) {
@@ -871,7 +871,7 @@ async function storeConversationDO(
               sessionId ? 'session' : 'core',
               sessionId,
               chunkContent,
-              'chunk',
+              item.role,
               embedding,
               timestamp,
               tokenCount,
