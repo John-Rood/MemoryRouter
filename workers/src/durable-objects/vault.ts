@@ -190,6 +190,8 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
       switch (path) {
         case '/search':
           return await this.handleSearch(request);
+        case '/search-all':
+          return await this.handleSearchAll(request);
         case '/store':
           return await this.handleStore(request);
         case '/store-chunked':
@@ -297,6 +299,82 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
       hotVectors: this.index.size,
       totalVectors: this.vaultState!.vectorCount,
       buffer, // Include buffer in search response
+    });
+  }
+
+  /**
+   * Search all KRONOS windows in a single request.
+   * 
+   * REQUEST:  { query: number[], windows: [{ name, k, minTimestamp, maxTimestamp }] }
+   * RESPONSE: { windows: { hot: [...], working: [...], longterm: [...] }, buffer, searchTimeMs }
+   */
+  private async handleSearchAll(request: Request): Promise<Response> {
+    this.loadVectorsIntoMemory();
+
+    const body = await request.json() as {
+      query: number[];
+      windows: Array<{
+        name: 'hot' | 'working' | 'longterm';
+        k: number;
+        minTimestamp: number;
+        maxTimestamp: number;
+      }>;
+    };
+
+    const startTime = performance.now();
+    const queryVec = new Float32Array(body.query);
+
+    // Handle empty vault
+    if (!this.index) {
+      const emptyWindows: Record<string, Array<unknown>> = {};
+      for (const w of body.windows) {
+        emptyWindows[w.name] = [];
+      }
+      return Response.json({
+        windows: emptyWindows,
+        buffer: null,
+        searchTimeMs: performance.now() - startTime,
+      });
+    }
+
+    // Search each window
+    const windowResults: Record<string, Array<{
+      id: number;
+      score: number;
+      content: string;
+      role: string;
+      timestamp: number;
+    }>> = {};
+
+    for (const window of body.windows) {
+      let results = this.index.searchFast(
+        queryVec,
+        window.k,
+        window.minTimestamp
+      );
+
+      // Filter by maxTimestamp and enrich
+      const enriched = this.enrichResults(results)
+        .filter(r => r.timestamp <= window.maxTimestamp);
+
+      windowResults[window.name] = enriched.slice(0, window.k);
+    }
+
+    // Get buffer
+    const bufferRows = this.ctx.storage.sql.exec(
+      `SELECT content, token_count, last_updated FROM pending_buffer WHERE id = 1`
+    ).toArray();
+    
+    const buffer = bufferRows.length > 0 ? {
+      content: bufferRows[0].content as string,
+      tokenCount: bufferRows[0].token_count as number,
+      lastUpdated: bufferRows[0].last_updated as number,
+    } : null;
+
+    return Response.json({
+      windows: windowResults,
+      buffer,
+      searchTimeMs: performance.now() - startTime,
     });
   }
 

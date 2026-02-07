@@ -99,86 +99,79 @@ export async function executeSearchPlan(
 ): Promise<MemoryRetrievalResult> {
   const queryArray = Array.from(queryEmbedding);
 
-  // Fan out parallel requests to all vaults × all windows
-  const windowPromises: Array<Promise<{
-    type: string;
-    window: string;
-    results: Array<{
-      id: number;
-      score: number;
-      content: string;
-      role: string;
-      timestamp: number;
-    }>;
-    buffer?: { content: string; tokenCount: number; lastUpdated: number } | null;
-  }>> = [];
-
-  for (const vault of plan.vaults) {
-    for (const window of vault.windows) {
-      const promise = vault.stub
-        .fetch(new Request('https://do/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: queryArray,
-            k: window.allocation,
-            minTimestamp: window.minTimestamp,
-            maxTimestamp: window.maxTimestamp,
-          }),
-        }))
-        .then(res => res.json() as Promise<DOSearchResponse>)
-        .then(data => ({
+  // Single request per vault with all windows bundled
+  const vaultPromises = plan.vaults.map(vault => 
+    vault.stub
+      .fetch(new Request('https://do/search-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: queryArray,
+          windows: vault.windows.map(w => ({
+            name: w.name,
+            k: w.allocation,
+            minTimestamp: w.minTimestamp,
+            maxTimestamp: w.maxTimestamp,
+          })),
+        }),
+      }))
+      .then(res => res.json() as Promise<{
+        windows: Record<string, Array<{
+          id: number;
+          score: number;
+          content: string;
+          role: string;
+          timestamp: number;
+        }>>;
+        buffer?: { content: string; tokenCount: number; lastUpdated: number } | null;
+        searchTimeMs: number;
+      }>)
+      .then(data => ({
+        type: vault.type,
+        windows: data.windows,
+        buffer: data.buffer,
+      }))
+      .catch(err => {
+        console.error(`[KRONOS] Search failed for ${vault.type}:`, err);
+        return {
           type: vault.type,
-          window: window.name,
-          results: data.results ?? [],
-          buffer: data.buffer, // Capture buffer from any vault (session or core)
-        }))
-        .catch(err => {
-          // Don't fail the whole search if one vault/window errors
-          console.error(`[KRONOS] Search failed for ${vault.type}/${window.name}:`, err);
-          return {
-            type: vault.type,
-            window: window.name,
-            results: [],
-            buffer: undefined,
-          };
-        });
+          windows: { hot: [], working: [], longterm: [] },
+          buffer: undefined,
+        };
+      })
+  );
 
-      windowPromises.push(promise);
-    }
-  }
-
-  const allWindows = await Promise.all(windowPromises);
+  const vaultResults = await Promise.all(vaultPromises);
   
-  // Extract buffer - prefer session vault (active conversation), fall back to core
-  const sessionBuffer = allWindows.find(w => w.type === 'session' && w.buffer)?.buffer;
-  const coreBuffer = allWindows.find(w => w.type === 'core' && w.buffer)?.buffer;
-  const bufferData = sessionBuffer || coreBuffer;
+  // Extract buffer from the vault (session or core)
+  const bufferData = vaultResults.find(v => v.buffer)?.buffer;
 
   // Merge results across all vaults and windows
   const chunks: MemoryChunk[] = [];
   const windowBreakdown = { hot: 0, working: 0, longterm: 0 };
   const seenContent = new Set<string>();
 
-  for (const windowResult of allWindows) {
-    const windowName = windowResult.window as 'hot' | 'working' | 'longterm';
+  for (const vaultResult of vaultResults) {
+    for (const [windowName, results] of Object.entries(vaultResult.windows)) {
+      const window = windowName as 'hot' | 'working' | 'longterm';
+      
+      for (const result of results) {
+        // Dedup by content
+        const contentKey = result.content.substring(0, 100);
+        if (seenContent.has(contentKey)) continue;
+        seenContent.add(contentKey);
 
-    for (const result of windowResult.results) {
-      // Dedup by content (same memory might exist in core + session)
-      const contentKey = result.content.substring(0, 100);
-      if (seenContent.has(contentKey)) continue;
-      seenContent.add(contentKey);
-
-      chunks.push({
-        id: result.id,
-        role: result.role as 'user' | 'assistant' | 'system',
-        content: result.content,
-        timestamp: result.timestamp,
-        score: result.score,
-        window: windowName,
-        source: windowResult.type,
-      });
-      windowBreakdown[windowName]++;
+        chunks.push({
+          id: result.id,
+          role: result.role as 'user' | 'assistant' | 'system',
+          content: result.content,
+          timestamp: result.timestamp,
+          score: result.score,
+          window,
+          source: vaultResult.type,
+        });
+        windowBreakdown[window]++;
+      }
     }
   }
 
@@ -194,7 +187,7 @@ export async function executeSearchPlan(
     chunks: topChunks,
     tokenCount,
     windowBreakdown,
-    buffer: bufferData, // Include buffer from core vault
+    buffer: bufferData,
   };
 }
 

@@ -60,27 +60,22 @@ export function resolveVaultsForQuery(
   sessionId?: string,
   _conversationId?: string
 ): VaultReference[] {
-  const vaults: VaultReference[] = [];
-
-  // Always include core vault
-  const coreId = getVaultDOId(namespace, memoryKey, 'core');
-  vaults.push({
-    stub: namespace.get(coreId),
-    type: 'core',
-    allocation: sessionId ? 0.5 : 1.0,
-  });
-
-  // Include session vault if session_id provided
+  // Single vault per request — session OR core, not both
   if (sessionId) {
     const sessionDoId = getVaultDOId(namespace, memoryKey, 'session', sessionId);
-    vaults.push({
+    return [{
       stub: namespace.get(sessionDoId),
       type: 'session',
-      allocation: 0.5,
-    });
+      allocation: 1.0,
+    }];
   }
 
-  return vaults;
+  const coreId = getVaultDOId(namespace, memoryKey, 'core');
+  return [{
+    stub: namespace.get(coreId),
+    type: 'core',
+    allocation: 1.0,
+  }];
 }
 
 /**
