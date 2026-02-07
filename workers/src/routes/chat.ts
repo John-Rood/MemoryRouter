@@ -134,6 +134,9 @@ export function createChatRouter() {
     let mrProcessingTime = 0;  // Time for MR to process (auth + vectors + context injection)
     let embeddingMs = 0;       // Time for embedding API call
     let providerStartTime = 0; // When we send to AI provider
+    let raceMs = 0;            // Time for DO/D1 race
+    let raceWinner = '';       // Which won the race
+    let postProcessMs = 0;     // Time for truncation + injection
     const ctx = c.executionCtx;
     const env = c.env;
     
@@ -304,7 +307,9 @@ export function createChatRouter() {
               winner = null;
             }
             
-            console.log(`[PERF] Race complete: winner=${winner?.source}, time=${winner?.time}ms, totalRace=${Date.now() - raceStart}ms`);
+            raceMs = Date.now() - raceStart;
+            raceWinner = winner?.source || 'none';
+            console.log(`[PERF] Race complete: winner=${raceWinner}, time=${winner?.time}ms, totalRace=${raceMs}ms`);
             
             if (winner?.result) {
               retrieval = winner.result;
@@ -412,7 +417,8 @@ export function createChatRouter() {
               hasMostRecent: contextText.includes('[MOST RECENT]'),
             });
             console.log(`[PERF] injectContext: ${injectTime}ms`);
-            console.log(`[PERF] Total post-processing: ${Date.now() - postProcessStart}ms`);
+            postProcessMs = Date.now() - postProcessStart;
+            console.log(`[PERF] Total post-processing: ${postProcessMs}ms`);
           }
         } catch (error) {
           console.error('Memory retrieval error:', error);
@@ -746,6 +752,9 @@ export function createChatRouter() {
       // Latency breakdown (debug only)
       _latency: debugMode ? {
         embedding_ms: embeddingMs,
+        race_ms: raceMs,
+        race_winner: raceWinner,
+        post_process_ms: postProcessMs,
         mr_processing_ms: mrProcessingTime,
         mr_overhead_ms: mrProcessingTime - embeddingMs,
         provider_ms: providerTime,
