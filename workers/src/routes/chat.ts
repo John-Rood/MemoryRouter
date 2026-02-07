@@ -274,15 +274,16 @@ export function createChatRouter() {
             
             // ===== RACE: DO vs D1 — fastest wins =====
             const plan = buildSearchPlan(vaults, memoryOptions.contextLimit, kronosConfig);
+            const raceStart = Date.now();
             
             // Start ALL promises at once
             const doPromise = executeSearchPlan(plan, queryEmbedding)
-              .then(r => ({ source: 'do' as const, result: r }))
+              .then(r => ({ source: 'do' as const, result: r, time: Date.now() - raceStart }))
               .catch(() => null);
             
             const d1Promise = env.VECTORS_D1
               ? searchD1(env.VECTORS_D1, queryEmbedding, userContext.memoryKey.key, sessionId, memoryOptions.contextLimit, kronosConfig)
-                  .then(r => ({ source: 'd1' as const, result: r }))
+                  .then(r => ({ source: 'd1' as const, result: r, time: Date.now() - raceStart }))
                   .catch(() => null)
               : Promise.resolve(null);
             
@@ -295,13 +296,15 @@ export function createChatRouter() {
             const doRace = doPromise.then(r => r?.result ? r : Promise.reject('no result'));
             const d1Race = d1Promise.then(r => r?.result ? r : Promise.reject('no result'));
             
-            let winner: { source: 'do' | 'd1'; result: typeof retrieval } | null = null;
+            let winner: { source: 'do' | 'd1'; result: typeof retrieval; time?: number } | null = null;
             try {
               winner = await Promise.any([doRace, d1Race]);
             } catch {
               // Both failed - empty result
               winner = null;
             }
+            
+            console.log(`[PERF] Race complete: winner=${winner?.source}, time=${winner?.time}ms, totalRace=${Date.now() - raceStart}ms`);
             
             if (winner?.result) {
               retrieval = winner.result;
@@ -350,6 +353,7 @@ export function createChatRouter() {
           // Inject context if we found relevant memory
           if (retrieval && retrieval.chunks.length > 0) {
             // ===== CALCULATE MEMORY TOKENS FOR TRUNCATION BUDGET =====
+            const postProcessStart = Date.now();
             const format = detectFormat(provider, body.model);
             const preInjectionTokens = calculateMemoryTokens(
               retrieval.chunks as TransformMemoryChunk[],
@@ -360,12 +364,14 @@ export function createChatRouter() {
             
             // ===== TRUNCATION: Ensure we fit within context window =====
             // Now includes memory token budget awareness
+            const truncateStart = Date.now();
             truncationResult = truncateToFit(
               augmentedMessages,
               retrieval as MemoryRetrievalResult,
               body.model,
               preInjectionTokens  // Pass memory tokens for budget calculation
             );
+            console.log(`[PERF] truncateToFit: ${Date.now() - truncateStart}ms`);
             
             if (truncationResult.truncated) {
               console.log('[TRUNCATION] Applied:', {
@@ -406,6 +412,7 @@ export function createChatRouter() {
               hasMostRecent: contextText.includes('[MOST RECENT]'),
             });
             console.log(`[PERF] injectContext: ${injectTime}ms`);
+            console.log(`[PERF] Total post-processing: ${Date.now() - postProcessStart}ms`);
           }
         } catch (error) {
           console.error('Memory retrieval error:', error);
