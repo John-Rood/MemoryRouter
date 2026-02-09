@@ -388,6 +388,13 @@ export async function forwardToProvider(
       throw new Error(`Unknown provider: ${provider}`);
   }
   
+  // Debug logging for OAuth troubleshooting
+  if (provider === 'anthropic' && apiKey.startsWith('sk-ant-oat01-')) {
+    console.log('[ANTHROPIC OAuth DEBUG] Endpoint:', endpoint);
+    console.log('[ANTHROPIC OAuth DEBUG] Headers:', JSON.stringify(headers, null, 2));
+    console.log('[ANTHROPIC OAuth DEBUG] Body keys:', Object.keys(transformedBody));
+  }
+  
   const response = await fetch(endpoint, {
     method: 'POST',
     headers,

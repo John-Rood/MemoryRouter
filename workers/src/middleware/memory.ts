@@ -412,12 +412,26 @@ export function injectContext(
   const systemIndex = messages.findIndex(m => m.role === 'system');
   
   if (systemIndex >= 0) {
-    // Prepend memory context to existing system message
+    const existingContent = updated[systemIndex].content as string;
     const updated = [...messages];
-    updated[systemIndex] = {
-      ...updated[systemIndex],
-      content: `${formattedContext}\n\n${updated[systemIndex].content}`,
-    };
+    
+    // For Claude Code OAuth: system prompt MUST start with "You are Claude Code"
+    // Anthropic validates this, so we APPEND memory context instead of prepending
+    const isClaudeCodePrompt = existingContent.includes('You are Claude Code');
+    
+    if (isClaudeCodePrompt) {
+      // APPEND memory context to preserve Claude Code identity at start
+      updated[systemIndex] = {
+        ...updated[systemIndex],
+        content: `${existingContent}\n\n${formattedContext}`,
+      };
+    } else {
+      // Default: prepend memory context to existing system message
+      updated[systemIndex] = {
+        ...updated[systemIndex],
+        content: `${formattedContext}\n\n${existingContent}`,
+      };
+    }
     return updated;
   }
   
