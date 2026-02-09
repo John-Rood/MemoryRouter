@@ -145,6 +145,8 @@ MAX_IN_MEMORY_VECTORS = "5000"
 HOT_WINDOW_HOURS = "4"
 WORKING_WINDOW_DAYS = "3"
 LONGTERM_WINDOW_DAYS = "90"
+# Modal GPU embeddings (~20ms vs ~80ms Cloudflare)
+MODAL_EMBEDDING_URL = "https://john-32116--memoryrouter-embeddings-web.modal.run"
 
 # ========== PRODUCTION ENVIRONMENT ==========
 # Deploy: npx wrangler deploy --env production
@@ -201,3 +203,5 @@ MAX_IN_MEMORY_VECTORS = "5000"
 HOT_WINDOW_HOURS = "4"
 WORKING_WINDOW_DAYS = "3"
 LONGTERM_WINDOW_DAYS = "90"
+# Modal GPU embeddings (~20ms vs ~80ms Cloudflare)
+MODAL_EMBEDDING_URL = "https://john-32116--memoryrouter-embeddings-web.modal.run"

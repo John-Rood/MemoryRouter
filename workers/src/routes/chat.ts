@@ -63,14 +63,27 @@ const BILLING_ENABLED = true;  // Billing is now enabled
 
 /**
  * Build embedding config from environment
- * Cloudflare Workers AI only — no fallbacks
+ * Priority: Modal GPU (~20ms) > Cloudflare Workers AI (~80ms)
  */
 function getEmbeddingConfig(env: ChatEnv): EmbeddingConfig | undefined {
-  if (!env.AI) {
-    console.error('[chat] Cloudflare AI binding not available');
+  const config: EmbeddingConfig = {};
+  
+  // Modal GPU (primary — fastest)
+  if (env.MODAL_EMBEDDING_URL) {
+    config.modalUrl = env.MODAL_EMBEDDING_URL;
+  }
+  
+  // Cloudflare Workers AI (fallback)
+  if (env.AI) {
+    config.ai = env.AI;
+  }
+  
+  if (!config.modalUrl && !config.ai) {
+    console.error('[chat] No embedding provider available');
     return undefined;
   }
-  return { ai: env.AI };
+  
+  return config;
 }
 import { StorageManager, StorageBindings } from '../services/storage';
 
@@ -108,8 +121,9 @@ export interface ChatEnv extends StorageBindings {
   LONGTERM_WINDOW_DAYS?: string;
   // Storage queue (decoupled from inference)
   STORAGE_QUEUE?: Queue<StorageJob>;
-  // Cloudflare Workers AI binding (embeddings)
-  AI: Ai;
+  // Embeddings
+  AI: Ai;                        // Cloudflare Workers AI (fallback)
+  MODAL_EMBEDDING_URL?: string;  // Modal GPU service (primary, ~20ms)
 }
 
 /**

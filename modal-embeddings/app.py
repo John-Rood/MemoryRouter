@@ -1,10 +1,11 @@
 """
 MemoryRouter Embedding Service on Modal
 ========================================
-Self-hosted BGE-large-en-v1.5 embeddings at ~1/100th the cost of OpenAI.
+Self-hosted BGE-large-en-v1.5 embeddings on T4 GPU.
+~20ms latency, ~100x cheaper than OpenAI.
 
 Deploy: modal deploy app.py
-Test: curl https://memoryrouter-embeddings--embed.modal.run/embed -X POST -H "Content-Type: application/json" -d '{"texts": ["hello world"]}'
+Test: curl https://memoryrouter-embeddings--web.modal.run/embed -X POST -H "Content-Type: application/json" -d '{"texts": ["hello world"]}'
 """
 
 import modal
@@ -24,17 +25,11 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
 @app.cls(
     image=image,
     gpu="T4",  # Cheapest GPU, plenty for embeddings
-    scaledown_window=300,  # Keep warm for 5 min after last request
+    container_idle_timeout=300,  # Keep warm for 5 min after last request
+    allow_concurrent_inputs=100,  # Handle many requests per container
 )
-@modal.concurrent(max_inputs=100)  # Handle many requests per container
 class EmbeddingService:
-    """BGE-large-en-v1.5 embedding service — proven retrieval model for RAG.
-    
-    BGE-large is battle-tested and reliable:
-    - MTEB Overall: 64.23
-    - No custom code required
-    - MIT licensed, 335M params, fits easily on T4
-    """
+    """BGE-large-en-v1.5 embedding service with batching."""
     
     model_name: str = "BAAI/bge-large-en-v1.5"
     
@@ -91,14 +86,12 @@ class EmbeddingService:
 
 
 # FastAPI web endpoint
-@app.function(image=image)
-@modal.concurrent(max_inputs=100)
+@app.function(image=image, allow_concurrent_inputs=100)
 @modal.asgi_app()
 def web():
     """FastAPI web server for HTTP access."""
     from fastapi import FastAPI, HTTPException
     from pydantic import BaseModel
-    import os
     
     fastapi_app = FastAPI(title="MemoryRouter Embeddings")
     service = EmbeddingService()
@@ -119,36 +112,6 @@ def web():
             raise HTTPException(400, "max 100 texts per request")
         
         return service.embed.remote(req.texts, req.normalize)
-    
-    @fastapi_app.post("/v1/embeddings")
-    async def openai_compatible(req: dict):
-        """OpenAI-compatible endpoint for drop-in replacement."""
-        input_text = req.get("input", [])
-        if isinstance(input_text, str):
-            input_text = [input_text]
-        
-        if not input_text:
-            raise HTTPException(400, "input required")
-        
-        result = service.embed.remote(input_text, normalize=True)
-        
-        # Return OpenAI-compatible format
-        return {
-            "object": "list",
-            "model": result["model"],
-            "data": [
-                {
-                    "object": "embedding",
-                    "index": i,
-                    "embedding": emb,
-                }
-                for i, emb in enumerate(result["embeddings"])
-            ],
-            "usage": {
-                "prompt_tokens": sum(len(t.split()) for t in input_text),
-                "total_tokens": sum(len(t.split()) for t in input_text),
-            },
-        }
     
     return fastapi_app
 
