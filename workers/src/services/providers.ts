@@ -445,24 +445,24 @@ export async function forwardToProvider(
 }
 
 /**
- * Embedding configuration
+ * Embedding configuration — Cloudflare Workers AI only
  * 
- * Primary: Modal GPU (BGE-large-en-v1.5, ~20ms)
- * Fallback: Cloudflare Workers AI (BGE-M3, ~80ms)
- * 
- * Both output 1024 dimensions.
+ * Model: @cf/baai/bge-m3
+ * Dims: 1024
+ * Latency: ~18ms (edge)
+ * Cost: $0.012 per 1M tokens
  */
 export interface EmbeddingConfig {
-  modalUrl?: string;  // Modal embedding service URL
-  ai?: Ai;            // Cloudflare Workers AI binding (fallback)
+  ai: Ai;  // Cloudflare Workers AI binding (required)
 }
 
 /**
- * Generate embeddings
+ * Generate embeddings using Cloudflare Workers AI BGE-M3
  * 
- * Priority:
- * 1. Modal GPU (if MODAL_EMBEDDING_URL configured) — ~20ms, cheapest
- * 2. Cloudflare Workers AI — ~80ms, edge-local
+ * This is the ONLY embedding provider — no fallbacks.
+ * - 1024 dimensions
+ * - ~18ms edge latency
+ * - $0.012 per 1M tokens
  */
 export async function generateEmbedding(
   text: string,
@@ -470,56 +470,11 @@ export async function generateEmbedding(
   _model?: string,   // Unused, kept for API compatibility
   config?: EmbeddingConfig
 ): Promise<Float32Array> {
-  // Try Modal first (fastest)
-  if (config?.modalUrl) {
-    try {
-      return await generateEmbeddingModal(text, config.modalUrl);
-    } catch (error) {
-      console.error('[Embedding] Modal failed, falling back to Cloudflare:', error);
-      // Fall through to Cloudflare
-    }
+  if (!config?.ai) {
+    throw new Error('Cloudflare AI binding required for embeddings');
   }
   
-  // Fallback to Cloudflare Workers AI
-  if (config?.ai) {
-    return await generateEmbeddingCloudflare(text, config.ai);
-  }
-  
-  throw new Error('No embedding provider configured (need MODAL_EMBEDDING_URL or AI binding)');
-}
-
-/**
- * Generate embeddings using Modal GPU service
- * BGE-large-en-v1.5, 1024 dims, ~20ms
- */
-async function generateEmbeddingModal(
-  text: string,
-  modalUrl: string
-): Promise<Float32Array> {
-  const response = await fetch(`${modalUrl}/embed`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ texts: [text], normalize: true }),
-  });
-  
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Modal embedding failed: ${error}`);
-  }
-  
-  const data = await response.json() as { embeddings: number[][] };
-  return new Float32Array(data.embeddings[0]);
-}
-
-/**
- * Generate embeddings using Cloudflare Workers AI
- * BGE-M3, 1024 dims, ~80ms
- */
-async function generateEmbeddingCloudflare(
-  text: string,
-  ai: Ai
-): Promise<Float32Array> {
-  const response = await ai.run('@cf/baai/bge-m3', {
+  const response = await config.ai.run('@cf/baai/bge-m3', {
     text: [text],
   }) as { data: number[][] };
   
