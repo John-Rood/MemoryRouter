@@ -283,8 +283,15 @@ export async function forwardToProvider(
     case 'anthropic':
       transformedBody = transformForAnthropic(body);
       endpoint = `${config.baseUrl}/messages`;
-      headers[config.authHeader] = apiKey;
       headers['anthropic-version'] = '2023-06-01';
+      // OAuth tokens (sk-ant-oat01-*) need Bearer auth + beta header
+      // API keys (sk-ant-api*) use x-api-key
+      if (apiKey.startsWith('sk-ant-oat01-')) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+        headers['anthropic-beta'] = 'oauth-2025-04-20';
+      } else {
+        headers[config.authHeader] = apiKey;
+      }
       break;
     
     case 'xai':

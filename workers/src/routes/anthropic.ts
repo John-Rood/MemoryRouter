@@ -151,15 +151,21 @@ export function createAnthropicRouter() {
       }, 400);
     }
 
-    // Get Anthropic API key from user's provider keys
-    const anthropicKey = userContext.providerKeys.anthropic;
+    // Get Anthropic API key
+    // Priority: X-Provider-Key header > stored provider keys
+    const xProviderKey = c.req.header('X-Provider-Key');
+    const anthropicKey = xProviderKey || userContext.providerKeys.anthropic;
     if (!anthropicKey) {
       return c.json({ 
         error: { 
           type: 'authentication_error', 
-          message: 'No Anthropic API key configured for this memory key' 
+          message: 'No Anthropic API key configured. Add key in dashboard or pass X-Provider-Key header.' 
         } 
       }, 401);
+    }
+    const usingPassthrough = !!xProviderKey;
+    if (usingPassthrough) {
+      console.log('[ANTHROPIC] Using pass-through provider key');
     }
 
     let memoryTokensUsed = 0;
@@ -236,14 +242,24 @@ export function createAnthropicRouter() {
     };
 
     // Forward to Anthropic
+    // OAuth tokens (sk-ant-oat01-*) need Bearer auth + beta header
+    // API keys (sk-ant-api*) use x-api-key
+    const isOAuthToken = anthropicKey.startsWith('sk-ant-oat01-');
+    const authHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'anthropic-version': '2023-06-01',
+    };
+    if (isOAuthToken) {
+      authHeaders['Authorization'] = `Bearer ${anthropicKey}`;
+      authHeaders['anthropic-beta'] = 'oauth-2025-04-20';
+    } else {
+      authHeaders['x-api-key'] = anthropicKey;
+    }
+    
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': anthropicKey,
-          'anthropic-version': '2023-06-01',
-        },
+        headers: authHeaders,
         body: JSON.stringify(anthropicBody),
       });
 
