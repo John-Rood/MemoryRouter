@@ -215,6 +215,66 @@ export async function POST(request: NextRequest) {
       break;
     }
 
+    case "payment_method.detached": {
+      // Payment method removed from a customer
+      const paymentMethod = event.data.object as Stripe.PaymentMethod;
+      // Note: customer field is null after detachment, we get it from previous_attributes
+      const previousCustomerId = (event.data as { previous_attributes?: { customer?: string } }).previous_attributes?.customer;
+      
+      console.log(`💳 Payment method detached: ${paymentMethod.id}`);
+      console.log(`   Previous customer: ${previousCustomerId}`);
+
+      if (previousCustomerId) {
+        try {
+          // Check if customer has any remaining payment methods
+          const paymentMethods = await stripe.paymentMethods.list({
+            customer: previousCustomerId,
+            type: "card",
+            limit: 1,
+          });
+
+          const customer = await stripe.customers.retrieve(previousCustomerId);
+          if (customer && !customer.deleted && customer.metadata?.userId) {
+            const userId = customer.metadata.userId;
+            const hasRemainingMethods = paymentMethods.data.length > 0;
+
+            if (!hasRemainingMethods) {
+              // No payment methods left — update database
+              await updateBilling(userId, {
+                hasPaymentMethod: false,
+              });
+              console.log(`⚠️ Updated hasPaymentMethod=false for user ${userId} (no cards remaining)`);
+            } else {
+              console.log(`✅ User ${userId} still has ${paymentMethods.data.length} payment methods`);
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to check remaining payment methods:`, error);
+        }
+      }
+      break;
+    }
+
+    case "customer.deleted": {
+      // Customer was deleted in Stripe
+      const customer = event.data.object as Stripe.Customer;
+      const userId = customer.metadata?.userId;
+      
+      console.log(`🗑️ Customer deleted: ${customer.id}`);
+
+      if (userId) {
+        try {
+          await updateBilling(userId, {
+            hasPaymentMethod: false,
+          });
+          console.log(`⚠️ Updated hasPaymentMethod=false for user ${userId} (customer deleted)`);
+        } catch (error) {
+          console.error(`Failed to update billing for deleted customer:`, error);
+        }
+      }
+      break;
+    }
+
     default:
       console.log(`Unhandled event type: ${event.type}`);
   }
