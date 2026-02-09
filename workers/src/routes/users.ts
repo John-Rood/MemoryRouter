@@ -644,4 +644,90 @@ users.post('/:userId/onboarding/complete', async (c) => {
   }
 });
 
+// ============================================================================
+// ARCHIVAL STORAGE ENDPOINTS
+// ============================================================================
+
+// GET /api/users/:userId/archival - Get archival storage info
+users.get('/:userId/archival', async (c) => {
+  const userId = c.req.param('userId');
+
+  try {
+    // Get billing record with archival settings
+    const billing = await c.env.VECTORS_D1.prepare(
+      `SELECT archival_enabled, archival_bytes_total, archival_cost_cents, archival_last_calculated
+       FROM billing WHERE user_id = ?`
+    ).bind(userId).first();
+
+    if (!billing) {
+      return c.json({ error: 'Billing record not found' }, 404);
+    }
+
+    // Get per-key archival breakdown
+    const { results: keys } = await c.env.VECTORS_D1.prepare(
+      `SELECT memory_key, vectors_total, vectors_archived, bytes_archived, 
+              calculated_at, oldest_vector_at, newest_vector_at
+       FROM archival_storage WHERE user_id = ? ORDER BY bytes_archived DESC`
+    ).bind(userId).all();
+
+    // Get recent billing history
+    const { results: history } = await c.env.VECTORS_D1.prepare(
+      `SELECT billing_month, bytes_archived, gb_archived, cost_cents, reported_to_stripe
+       FROM archival_billing_records WHERE user_id = ? 
+       ORDER BY billing_month DESC LIMIT 12`
+    ).bind(userId).all();
+
+    const bytesTotal = (billing.archival_bytes_total as number) || 0;
+    const GB = 1024 * 1024 * 1024;
+
+    return c.json({
+      enabled: Boolean(billing.archival_enabled),
+      storage: {
+        bytesTotal,
+        gbTotal: bytesTotal / GB,
+        estimatedMonthlyCostCents: billing.archival_cost_cents || 0,
+        lastCalculated: billing.archival_last_calculated,
+      },
+      keys: keys || [],
+      billingHistory: history || [],
+      pricing: {
+        centsPerGbMonth: 10,
+        dollarsPerGbMonth: 0.10,
+      },
+    });
+  } catch (error) {
+    console.error('Get archival info failed:', error);
+    return c.json({ error: 'Failed to get archival info' }, 500);
+  }
+});
+
+// POST /api/users/:userId/archival - Enable/disable archival storage
+users.post('/:userId/archival', async (c) => {
+  const userId = c.req.param('userId');
+  const body = await c.req.json() as { enabled: boolean };
+
+  if (typeof body.enabled !== 'boolean') {
+    return c.json({ error: 'Missing required field: enabled' }, 400);
+  }
+
+  const now = new Date().toISOString();
+
+  try {
+    await c.env.VECTORS_D1.prepare(`
+      UPDATE billing SET archival_enabled = ?, updated_at = ? WHERE user_id = ?
+    `).bind(body.enabled ? 1 : 0, now, userId).run();
+
+    return c.json({ 
+      success: true, 
+      archivalEnabled: body.enabled,
+      message: body.enabled 
+        ? 'Archival storage enabled. Data older than 90 days will be retained and billed at $0.10/GB/month.'
+        : 'Archival storage disabled. Data older than 90 days will be automatically purged.',
+    });
+  } catch (error) {
+    console.error('Update archival settings failed:', error);
+    return c.json({ error: 'Failed to update archival settings' }, 500);
+  }
+});
+
 export { users };

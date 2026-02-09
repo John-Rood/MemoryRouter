@@ -57,6 +57,8 @@ interface Env extends ChatEnv, RateLimitEnv {
   ADMIN_KEY?: string;
   // Dashboard API
   DASHBOARD_API_KEY?: string;
+  // Stripe
+  STRIPE_SECRET_KEY?: string;
 }
 
 // Variables available in context
@@ -659,6 +661,9 @@ app.onError((err, c) => {
   }, 500);
 });
 
+// Import archival service for scheduled jobs
+import { createArchivalService } from './services/archival';
+
 // Export for Cloudflare Workers
 export default {
   fetch: app.fetch,
@@ -666,5 +671,72 @@ export default {
   // Queue consumer for decoupled storage
   async queue(batch: MessageBatch<StorageJob>, env: QueueEnv): Promise<void> {
     await handleStorageQueue(batch, env);
+  },
+  
+  // Scheduled handler for cron jobs
+  async scheduled(
+    event: ScheduledEvent,
+    env: Env,
+    ctx: ExecutionContext
+  ): Promise<void> {
+    if (!env.VECTORS_D1 || !env.VAULT_DO) {
+      console.error('[Scheduled] Missing required bindings (VECTORS_D1 or VAULT_DO)');
+      return;
+    }
+    
+    const archivalService = createArchivalService(env.VECTORS_D1, env.VAULT_DO);
+    
+    // Check which cron triggered this
+    switch (event.cron) {
+      // Daily at 3 AM UTC: Calculate archival storage + purge old data
+      case '0 3 * * *': {
+        console.log('[Scheduled] Running daily archival check...');
+        const result = await archivalService.runDailyArchivalCheck();
+        console.log('[Scheduled] Daily archival complete:', JSON.stringify(result));
+        break;
+      }
+      
+      // Monthly on 1st at 4 AM UTC: Bill archival storage to Stripe
+      case '0 4 1 * *': {
+        console.log('[Scheduled] Running monthly archival billing...');
+        
+        // Stripe Billing Meter callback
+        const stripeReportCallback = env.STRIPE_SECRET_KEY 
+          ? async (stripeCustomerId: string, quantityCentiGb: number, _timestamp: number): Promise<string> => {
+              // Convert centi-GB to GB for the meter (0.01 GB units → GB)
+              const gbValue = quantityCentiGb / 100;
+              
+              const response = await fetch('https://api.stripe.com/v1/billing/meter_events', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}`,
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                  'event_name': 'archival_storage',
+                  'payload[value]': String(gbValue),
+                  'payload[stripe_customer_id]': stripeCustomerId,
+                }).toString(),
+              });
+              
+              if (!response.ok) {
+                const error = await response.text();
+                throw new Error(`Stripe meter event failed: ${error}`);
+              }
+              
+              const data = await response.json() as { identifier?: string };
+              console.log(`[Stripe] Reported ${gbValue} GB archival for ${stripeCustomerId}`);
+              return data.identifier || 'ok';
+            }
+          : undefined;
+        
+        const result = await archivalService.runMonthlyArchivalBilling(stripeReportCallback);
+        console.log('[Scheduled] Monthly billing complete:', JSON.stringify(result));
+        break;
+      }
+      
+      default:
+        console.log(`[Scheduled] Unknown cron: ${event.cron}`);
+    }
   },
 };

@@ -71,6 +71,12 @@ queue = "memoryrouter-storage"
 max_batch_size = 10
 max_batch_timeout = 5
 
+# ========== Cron Triggers ==========
+# Daily: Calculate archival storage + purge old data (3 AM UTC)
+# Monthly: Bill archival storage to Stripe (1st of month, 4 AM UTC)
+[triggers]
+crons = ["0 3 * * *", "0 4 1 * *"]
+
 # ========== Environment Variables ==========
 [vars]
 ENVIRONMENT = "development"

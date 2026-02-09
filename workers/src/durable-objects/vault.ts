@@ -214,6 +214,8 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
           return this.handleWarmth();
         case '/bulk-store':
           return this.handleBulkStore(request);
+        case '/archival-stats':
+          return this.handleArchivalStats(request);
         default:
           return new Response('Not Found', { status: 404 });
       }
@@ -812,6 +814,7 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
 
   /**
    * Delete specific vectors by ID or by timestamp.
+   * Returns deleted count and bytes (for archival purge tracking).
    */
   private async handleDelete(request: Request): Promise<Response> {
     this.loadVectorsIntoMemory();
@@ -822,6 +825,7 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
     };
 
     let deleted = 0;
+    let bytesDeleted = 0;
 
     if (body.ids && body.ids.length > 0) {
       const placeholders = body.ids.map(() => '?').join(',');
@@ -837,6 +841,27 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
     }
 
     if (body.olderThan) {
+      // Count bytes before deleting (for archival purge tracking)
+      const bytesRow = this.ctx.storage.sql.exec(
+        `SELECT SUM(LENGTH(embedding)) as vec_bytes FROM vectors WHERE timestamp < ?`,
+        body.olderThan
+      ).one();
+      const contentBytesRow = this.ctx.storage.sql.exec(
+        `SELECT SUM(LENGTH(content)) as content_bytes FROM items WHERE timestamp < ?`,
+        body.olderThan
+      ).one();
+      
+      bytesDeleted = ((bytesRow?.vec_bytes as number) || 0) + 
+                     ((contentBytesRow?.content_bytes as number) || 0);
+
+      // Count vectors being deleted
+      const countRow = this.ctx.storage.sql.exec(
+        `SELECT COUNT(*) as cnt FROM vectors WHERE timestamp < ?`,
+        body.olderThan
+      ).one();
+      deleted = (countRow?.cnt as number) || 0;
+
+      // Now delete
       this.ctx.storage.sql.exec(
         `DELETE FROM vectors WHERE timestamp < ?`,
         body.olderThan
@@ -860,6 +885,7 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
 
     return Response.json({
       deleted,
+      bytesDeleted,
       totalVectors: this.vaultState!.vectorCount,
     });
   }
@@ -887,6 +913,57 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
       totalTokens: countRow?.total_tokens ?? 0,
       createdAt: this.vaultState!.createdAt,
       lastAccess: this.vaultState!.lastAccess,
+    });
+  }
+
+  // ==================== Archival Stats ====================
+
+  /**
+   * Get archival storage stats for billing.
+   * Returns vectors older than archivalCutoff timestamp.
+   * 
+   * REQUEST:  { archivalCutoff: number }
+   * RESPONSE: { vectorsTotal, vectorsArchived, bytesArchived, oldestAt, newestAt }
+   */
+  private async handleArchivalStats(request: Request): Promise<Response> {
+    this.ensureSchema();
+
+    const body = await request.json() as { archivalCutoff: number };
+    const cutoff = body.archivalCutoff;
+
+    // Get total vectors and archived (older than cutoff)
+    const statsRow = this.ctx.storage.sql.exec(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN timestamp < ? THEN 1 ELSE 0 END) as archived,
+        MIN(timestamp) as oldest,
+        MAX(timestamp) as newest
+      FROM vectors
+    `, cutoff).one();
+
+    // Calculate bytes for archived vectors (embedding BLOBs)
+    const bytesRow = this.ctx.storage.sql.exec(`
+      SELECT SUM(LENGTH(embedding)) as bytes
+      FROM vectors
+      WHERE timestamp < ?
+    `, cutoff).one();
+
+    // Also count content bytes from items table
+    const contentBytesRow = this.ctx.storage.sql.exec(`
+      SELECT SUM(LENGTH(content)) as bytes
+      FROM items
+      WHERE timestamp < ?
+    `, cutoff).one();
+
+    const embeddingBytes = (bytesRow?.bytes as number) || 0;
+    const contentBytes = (contentBytesRow?.bytes as number) || 0;
+
+    return Response.json({
+      vectorsTotal: (statsRow?.total as number) || 0,
+      vectorsArchived: (statsRow?.archived as number) || 0,
+      bytesArchived: embeddingBytes + contentBytes,
+      oldestAt: statsRow?.oldest ? new Date(statsRow.oldest as number).toISOString() : null,
+      newestAt: statsRow?.newest ? new Date(statsRow.newest as number).toISOString() : null,
     });
   }
 
