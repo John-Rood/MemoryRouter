@@ -242,7 +242,7 @@ export function createAnthropicRouter() {
     };
 
     // Forward to Anthropic
-    // OAuth tokens (sk-ant-oat01-*) need Bearer auth + Claude Code beta headers
+    // OAuth tokens (sk-ant-oat01-*) need Bearer auth + Claude Code stealth headers
     // API keys (sk-ant-api*) use x-api-key
     const isOAuthToken = anthropicKey.startsWith('sk-ant-oat01-');
     const authHeaders: Record<string, string> = {
@@ -252,6 +252,9 @@ export function createAnthropicRouter() {
     if (isOAuthToken) {
       authHeaders['Authorization'] = `Bearer ${anthropicKey}`;
       authHeaders['anthropic-beta'] = 'claude-code-20250219,oauth-2025-04-20';
+      authHeaders['anthropic-dangerous-direct-browser-access'] = 'true';
+      authHeaders['user-agent'] = 'claude-cli/1.0.0 (external, cli)';
+      authHeaders['x-app'] = 'cli';
     } else {
       authHeaders['x-api-key'] = anthropicKey;
     }
