@@ -284,11 +284,11 @@ export async function forwardToProvider(
       transformedBody = transformForAnthropic(body);
       endpoint = `${config.baseUrl}/messages`;
       headers['anthropic-version'] = '2023-06-01';
-      // OAuth tokens (sk-ant-oat01-*) need Bearer auth + beta header
+      // OAuth tokens (sk-ant-oat01-*) need Bearer auth + Claude Code beta headers
       // API keys (sk-ant-api*) use x-api-key
       if (apiKey.startsWith('sk-ant-oat01-')) {
         headers['Authorization'] = `Bearer ${apiKey}`;
-        headers['anthropic-beta'] = 'oauth-2025-04-20';
+        headers['anthropic-beta'] = 'claude-code-20250219,oauth-2025-04-20';
       } else {
         headers[config.authHeader] = apiKey;
       }
