@@ -82,10 +82,10 @@ export class ArchivalService {
   /**
    * Daily cron job: Calculate archival storage and purge old data
    * 
-   * For each memory key:
+   * Archival is automatic based on payment method:
    * 1. Query vault DO for storage stats (vectors older than 90 days)
-   * 2. If user has archival_enabled=1: Record storage for monthly billing
-   * 3. If user has archival_enabled=0: Purge vectors older than 90 days
+   * 2. If user has payment method: Record storage for monthly billing (keep forever)
+   * 3. If user has no payment method: Purge vectors older than 90 days
    */
   async runDailyArchivalCheck(): Promise<DailyArchivalResult> {
     const result: DailyArchivalResult = {
@@ -103,8 +103,9 @@ export class ArchivalService {
 
     try {
       // Get all users with billing records
+      // Archival is automatic: has_payment_method = keep forever, no payment = purge at 90d
       const usersResult = await this.db.prepare(`
-        SELECT DISTINCT user_id, archival_enabled 
+        SELECT DISTINCT user_id, has_payment_method 
         FROM billing 
         WHERE user_id IS NOT NULL
       `).all();
@@ -114,7 +115,7 @@ export class ArchivalService {
 
       for (const user of users) {
         const userId = user.user_id as string;
-        const archivalEnabled = Boolean(user.archival_enabled);
+        const hasPaymentMethod = Boolean(user.has_payment_method);
 
         try {
           // Get all memory keys for this user
@@ -132,8 +133,8 @@ export class ArchivalService {
               // Get vault stats from Durable Object
               const vaultStats = await this.getVaultArchivalStats(memoryKey, archivalCutoff);
 
-              if (archivalEnabled) {
-                // Record archival storage for billing
+              if (hasPaymentMethod) {
+                // Has payment method = keep data forever, record for billing
                 await this.db.prepare(`
                   INSERT INTO archival_storage (
                     user_id, memory_key, vectors_total, vectors_archived, 
@@ -160,7 +161,7 @@ export class ArchivalService {
                 result.totalArchivalBytes += vaultStats.bytesArchived;
 
               } else if (vaultStats.vectorsArchived > 0) {
-                // Purge old vectors for users without archival enabled
+                // No payment method = purge old vectors (>90 days)
                 const purgeResult = await this.purgeOldVectors(memoryKey, archivalCutoff);
                 
                 // Log the purge
@@ -302,9 +303,9 @@ export class ArchivalService {
   /**
    * Monthly cron job (1st of month): Bill archival storage to Stripe
    * 
-   * For each user with archival_enabled and bytes_archived > 0:
-   * 1. Calculate GB and cost
-   * 2. Create Stripe usage record
+   * Automatic billing for users with payment method and bytes_archived > 0:
+   * 1. Calculate GB and cost ($0.10/GB/month)
+   * 2. Report to Stripe Billing Meter
    * 3. Log billing record
    */
   async runMonthlyArchivalBilling(
@@ -329,7 +330,7 @@ export class ArchivalService {
     const nowIso = now.toISOString();
 
     try {
-      // Get all users with archival enabled and storage (Billing Meters only need customer ID)
+      // Get all users with payment method and archival storage (automatic billing)
       const usersResult = await this.db.prepare(`
         SELECT 
           user_id,
@@ -337,7 +338,7 @@ export class ArchivalService {
           archival_cost_cents,
           stripe_customer_id
         FROM billing
-        WHERE archival_enabled = 1 
+        WHERE has_payment_method = 1 
           AND archival_bytes_total > 0
           AND stripe_customer_id IS NOT NULL
       `).all();
@@ -413,30 +414,23 @@ export class ArchivalService {
   }
 
   // ==========================================================================
-  // USER SETTINGS
+  // USER INFO (Archival is now automatic based on payment method)
   // ==========================================================================
 
   /**
-   * Enable/disable archival storage for a user
-   */
-  async setArchivalEnabled(userId: string, enabled: boolean): Promise<void> {
-    await this.db.prepare(`
-      UPDATE billing SET archival_enabled = ? WHERE user_id = ?
-    `).bind(enabled ? 1 : 0, userId).run();
-  }
-
-  /**
    * Get archival storage info for a user
+   * Archival is automatic: has_payment_method = keep forever
    */
   async getArchivalInfo(userId: string): Promise<{
     enabled: boolean;
+    hasPaymentMethod: boolean;
     bytesTotal: number;
     gbTotal: number;
     estimatedMonthlyCostCents: number;
     keys: ArchivalStorageRecord[];
   } | null> {
     const billingResult = await this.db.prepare(`
-      SELECT archival_enabled, archival_bytes_total, archival_cost_cents
+      SELECT has_payment_method, archival_bytes_total, archival_cost_cents
       FROM billing WHERE user_id = ?
     `).bind(userId).first();
 
@@ -447,9 +441,11 @@ export class ArchivalService {
     `).bind(userId).all();
 
     const bytesTotal = billingResult.archival_bytes_total as number || 0;
+    const hasPaymentMethod = Boolean(billingResult.has_payment_method);
 
     return {
-      enabled: Boolean(billingResult.archival_enabled),
+      enabled: hasPaymentMethod,  // Archival enabled = has payment method
+      hasPaymentMethod,
       bytesTotal,
       gbTotal: bytesTotal / BYTES_PER_GB,
       estimatedMonthlyCostCents: billingResult.archival_cost_cents as number || 0,

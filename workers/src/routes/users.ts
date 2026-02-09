@@ -649,13 +649,14 @@ users.post('/:userId/onboarding/complete', async (c) => {
 // ============================================================================
 
 // GET /api/users/:userId/archival - Get archival storage info
+// Archival is automatic: has payment method = data kept forever, no payment = purged at 90 days
 users.get('/:userId/archival', async (c) => {
   const userId = c.req.param('userId');
 
   try {
-    // Get billing record with archival settings
+    // Get billing record - archival is automatic based on payment method
     const billing = await c.env.VECTORS_D1.prepare(
-      `SELECT archival_enabled, archival_bytes_total, archival_cost_cents, archival_last_calculated
+      `SELECT has_payment_method, archival_bytes_total, archival_cost_cents, archival_last_calculated
        FROM billing WHERE user_id = ?`
     ).bind(userId).first();
 
@@ -678,10 +679,16 @@ users.get('/:userId/archival', async (c) => {
     ).bind(userId).all();
 
     const bytesTotal = (billing.archival_bytes_total as number) || 0;
+    const hasPaymentMethod = Boolean(billing.has_payment_method);
     const GB = 1024 * 1024 * 1024;
 
     return c.json({
-      enabled: Boolean(billing.archival_enabled),
+      // Archival is automatic: has payment method = keep forever
+      enabled: hasPaymentMethod,
+      hasPaymentMethod,
+      retentionPolicy: hasPaymentMethod 
+        ? 'Data kept forever. Billed at $0.10/GB/month for data older than 90 days.'
+        : 'Data older than 90 days will be automatically purged. Add a payment method to retain all data.',
       storage: {
         bytesTotal,
         gbTotal: bytesTotal / GB,
@@ -701,32 +708,33 @@ users.get('/:userId/archival', async (c) => {
   }
 });
 
-// POST /api/users/:userId/archival - Enable/disable archival storage
+// POST /api/users/:userId/archival - Archival is now automatic based on payment method
+// This endpoint is deprecated but kept for backwards compatibility
 users.post('/:userId/archival', async (c) => {
   const userId = c.req.param('userId');
-  const body = await c.req.json() as { enabled: boolean };
-
-  if (typeof body.enabled !== 'boolean') {
-    return c.json({ error: 'Missing required field: enabled' }, 400);
-  }
-
-  const now = new Date().toISOString();
 
   try {
-    await c.env.VECTORS_D1.prepare(`
-      UPDATE billing SET archival_enabled = ?, updated_at = ? WHERE user_id = ?
-    `).bind(body.enabled ? 1 : 0, now, userId).run();
+    const billing = await c.env.VECTORS_D1.prepare(
+      `SELECT has_payment_method FROM billing WHERE user_id = ?`
+    ).bind(userId).first();
+
+    if (!billing) {
+      return c.json({ error: 'Billing record not found' }, 404);
+    }
+
+    const hasPaymentMethod = Boolean(billing.has_payment_method);
 
     return c.json({ 
-      success: true, 
-      archivalEnabled: body.enabled,
-      message: body.enabled 
-        ? 'Archival storage enabled. Data older than 90 days will be retained and billed at $0.10/GB/month.'
-        : 'Archival storage disabled. Data older than 90 days will be automatically purged.',
+      success: true,
+      enabled: hasPaymentMethod,
+      message: hasPaymentMethod
+        ? 'Archival is automatically enabled. Data older than 90 days is retained and billed at $0.10/GB/month.'
+        : 'Add a payment method to automatically retain all data. Without a payment method, data older than 90 days will be purged.',
+      note: 'Archival is now automatic based on payment method. No manual toggle required.',
     });
   } catch (error) {
-    console.error('Update archival settings failed:', error);
-    return c.json({ error: 'Failed to update archival settings' }, 500);
+    console.error('Get archival status failed:', error);
+    return c.json({ error: 'Failed to get archival status' }, 500);
   }
 });
 
