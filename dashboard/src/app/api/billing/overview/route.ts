@@ -39,10 +39,24 @@ export async function GET(request: NextRequest) {
         });
         
         if (customer && !customer.deleted) {
+          // Try invoice_settings.default_payment_method first
           const defaultPm = customer.invoice_settings?.default_payment_method;
           if (defaultPm && typeof defaultPm !== 'string' && defaultPm.card) {
             cardBrand = defaultPm.card.brand;
             cardLast4 = defaultPm.card.last4;
+          }
+          
+          // If no default, list customer's payment methods
+          if (!cardBrand) {
+            const paymentMethods = await stripe.paymentMethods.list({
+              customer: billing.stripeCustomerId,
+              type: 'card',
+              limit: 1,
+            });
+            if (paymentMethods.data.length > 0 && paymentMethods.data[0].card) {
+              cardBrand = paymentMethods.data[0].card.brand;
+              cardLast4 = paymentMethods.data[0].card.last4;
+            }
           }
         }
       } catch (error) {
