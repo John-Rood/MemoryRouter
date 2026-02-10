@@ -17,27 +17,22 @@ import { useBilling } from "@/contexts/billing-context";
 // Card brand icons - using react-icons FontAwesome payment icons
 function CardBrandIcon({ brand }: { brand: string | null }) {
   const brandLower = brand?.toLowerCase() || '';
+  const iconClass = "h-8 w-10";
   
-  // Standard brand colors with proper contrast
   if (brandLower === 'visa') {
-    return <FaCcVisa className="h-8 w-10 text-[#1A1F71]" />;
+    return <FaCcVisa className={iconClass} />;
   }
   
   if (brandLower === 'mastercard') {
-    return <FaCcMastercard className="h-8 w-10 text-[#EB001B]" />;
+    return <FaCcMastercard className={iconClass} />;
   }
   
   if (brandLower === 'amex' || brandLower === 'american express') {
-    // Amex icon has negative space for text - wrap in blue bg so text shows white
-    return (
-      <div className="h-8 w-10 rounded bg-[#006FCF] flex items-center justify-center">
-        <FaCcAmex className="h-7 w-9 text-white" />
-      </div>
-    );
+    return <FaCcAmex className={iconClass} />;
   }
   
   if (brandLower === 'discover') {
-    return <FaCcDiscover className="h-8 w-10 text-[#FF6000]" />;
+    return <FaCcDiscover className={iconClass} />;
   }
   
   // Default credit card icon
