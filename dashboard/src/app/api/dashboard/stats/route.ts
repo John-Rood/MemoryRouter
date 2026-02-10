@@ -53,6 +53,9 @@ export async function GET(request: NextRequest) {
     // This is a simplified estimate - memory retrieval saves re-processing
     const estimatedSavings = (totalTokensOut * 0.00003); // ~$0.03/1k output tokens saved
     
+    // Fill in missing days with 0s for consistent 7-day display
+    const filledDailyUsage = fillMissingDays(usageData.dailyUsage || [], 7);
+    
     return NextResponse.json({
       stats: {
         totalMemoryKeys: keysData.keys?.length || 0,
@@ -61,12 +64,12 @@ export async function GET(request: NextRequest) {
         totalTokensRetrieved: totalTokensOut,
         estimatedSavings: estimatedSavings.toFixed(2),
       },
-      dailyUsage: usageData.dailyUsage?.map((d: { date: string; requests: number; tokens_in: number; tokens_out: number }) => ({
+      dailyUsage: filledDailyUsage.map((d) => ({
         date: d.date,
         requests: d.requests,
         tokensIn: d.tokens_in,
         tokensOut: d.tokens_out,
-      })) || [],
+      })),
     });
   } catch (error) {
     console.error("Failed to get dashboard stats:", error);
