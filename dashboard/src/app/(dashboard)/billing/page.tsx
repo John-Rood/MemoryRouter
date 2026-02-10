@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CreditCard, Plus, TrendingUp, Wallet, History, Sparkles, CheckCircle2, XCircle, Loader2, RefreshCw, Activity, Zap } from "lucide-react";
+import { CreditCard, Plus, TrendingUp, Wallet, History, Sparkles, CheckCircle2, XCircle, Loader2, RefreshCw, Activity, Zap, Save, DollarSign } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBilling } from "@/contexts/billing-context";
 
 const FREE_TIER_LIMIT = 50000000;
@@ -39,6 +40,10 @@ export default function BillingPage() {
   const [isAddingPaymentMethod, setIsAddingPaymentMethod] = useState(false);
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [localAutoReup, setLocalAutoReup] = useState<boolean | null>(null);
+  const [localReupAmount, setLocalReupAmount] = useState<number | null>(null);
+  const [localReupTrigger, setLocalReupTrigger] = useState<number | null>(null);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [settingsChanged, setSettingsChanged] = useState(false);
   const [usage, setUsage] = useState<UsageStats | null>(null);
   const [isLoadingUsage, setIsLoadingUsage] = useState(true);
   
@@ -48,8 +53,8 @@ export default function BillingPage() {
     freeTierTokensUsed: contextBilling?.freeTierTokensUsed ?? 0,
     freeTierLimit: FREE_TIER_LIMIT,
     autoReupEnabled: localAutoReup ?? contextBilling?.autoReupEnabled ?? true,
-    autoReupAmountCents: contextBilling?.autoReupAmountCents ?? 2000,
-    autoReupTriggerCents: contextBilling?.autoReupTriggerCents ?? 500,
+    autoReupAmountCents: localReupAmount ?? contextBilling?.autoReupAmountCents ?? 2000,
+    autoReupTriggerCents: localReupTrigger ?? contextBilling?.autoReupTriggerCents ?? 500,
     hasPaymentMethod: contextBilling?.hasPaymentMethod ?? false,
   };
   
@@ -208,8 +213,97 @@ export default function BillingPage() {
     }
   };
   
-  const toggleAutoReup = () => {
-    setLocalAutoReup(!billing.autoReupEnabled);
+  // Track changes to auto-reup settings
+  const hasUnsavedChanges = () => {
+    if (localAutoReup !== null && localAutoReup !== (contextBilling?.autoReupEnabled ?? true)) return true;
+    if (localReupAmount !== null && localReupAmount !== (contextBilling?.autoReupAmountCents ?? 2000)) return true;
+    if (localReupTrigger !== null && localReupTrigger !== (contextBilling?.autoReupTriggerCents ?? 500)) return true;
+    return false;
+  };
+
+  const toggleAutoReup = async () => {
+    const newValue = !billing.autoReupEnabled;
+    setLocalAutoReup(newValue);
+    
+    // Auto-save toggle immediately
+    try {
+      const response = await fetch("/api/billing/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ autoReupEnabled: newValue }),
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to update");
+      }
+      
+      await refreshBilling();
+      setLocalAutoReup(null); // Clear local state after successful save
+    } catch (error) {
+      console.error("Failed to toggle auto-reup:", error);
+      setNotification({
+        type: "error",
+        message: error instanceof Error ? error.message : "Failed to update auto-reup setting",
+      });
+      setLocalAutoReup(null); // Revert to server state
+    }
+  };
+
+  const handleReupAmountChange = (value: string) => {
+    const amount = parseInt(value);
+    setLocalReupAmount(amount);
+    setSettingsChanged(true);
+  };
+
+  const handleReupTriggerChange = (value: string) => {
+    const trigger = parseInt(value);
+    setLocalReupTrigger(trigger);
+    setSettingsChanged(true);
+  };
+
+  const saveAutoReupSettings = async () => {
+    if (!hasUnsavedChanges()) return;
+    
+    setIsSavingSettings(true);
+    
+    try {
+      const payload: Record<string, number | boolean> = {};
+      if (localReupAmount !== null) payload.autoReupAmountCents = localReupAmount;
+      if (localReupTrigger !== null) payload.autoReupTriggerCents = localReupTrigger;
+      
+      const response = await fetch("/api/billing/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to save settings");
+      }
+      
+      setNotification({
+        type: "success",
+        message: "Auto-reup settings saved successfully!",
+      });
+      
+      await refreshBilling();
+      
+      // Clear local state after successful save
+      setLocalReupAmount(null);
+      setLocalReupTrigger(null);
+      setSettingsChanged(false);
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+      setNotification({
+        type: "error",
+        message: error instanceof Error ? error.message : "Failed to save settings",
+      });
+    } finally {
+      setIsSavingSettings(false);
+    }
   };
   
   return (
@@ -480,21 +574,75 @@ export default function BillingPage() {
           )}
           
           {billing.autoReupEnabled && (
-            <div className="grid gap-4 md:grid-cols-2 pt-4 border-t border-border/10">
-              <div className="space-y-2">
-                <Label>Reup Amount</Label>
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold">${(billing.autoReupAmountCents / 100).toFixed(0)}</span>
-                  <span className="text-muted-foreground">per charge</span>
+            <div className="space-y-4 pt-4 border-t border-border/10">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="reup-amount">Recharge Amount</Label>
+                  <Select 
+                    value={billing.autoReupAmountCents.toString()} 
+                    onValueChange={handleReupAmountChange}
+                  >
+                    <SelectTrigger id="reup-amount" className="bg-muted/50">
+                      <SelectValue placeholder="Select amount" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1000">$10</SelectItem>
+                      <SelectItem value="2000">$20</SelectItem>
+                      <SelectItem value="5000">$50</SelectItem>
+                      <SelectItem value="10000">$100</SelectItem>
+                      <SelectItem value="20000">$200</SelectItem>
+                      <SelectItem value="50000">$500</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Amount charged when balance is low
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reup-trigger">Trigger When Below</Label>
+                  <Select 
+                    value={billing.autoReupTriggerCents.toString()} 
+                    onValueChange={handleReupTriggerChange}
+                  >
+                    <SelectTrigger id="reup-trigger" className="bg-muted/50">
+                      <SelectValue placeholder="Select threshold" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="100">$1</SelectItem>
+                      <SelectItem value="250">$2.50</SelectItem>
+                      <SelectItem value="500">$5</SelectItem>
+                      <SelectItem value="1000">$10</SelectItem>
+                      <SelectItem value="2500">$25</SelectItem>
+                      <SelectItem value="5000">$50</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Recharge triggers at this balance
+                  </p>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Trigger Threshold</Label>
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold">${(billing.autoReupTriggerCents / 100).toFixed(2)}</span>
-                  <span className="text-muted-foreground">balance trigger</span>
+              
+              {hasUnsavedChanges() && (
+                <div className="flex justify-end pt-2">
+                  <Button 
+                    className="btn-neon" 
+                    onClick={saveAutoReupSettings}
+                    disabled={isSavingSettings}
+                  >
+                    {isSavingSettings ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Save Settings
+                      </>
+                    )}
+                  </Button>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </CardContent>

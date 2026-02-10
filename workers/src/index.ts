@@ -407,6 +407,94 @@ v1.delete('/memory', async (c) => {
   }
 });
 
+// ========== Account Stats Endpoint (for Clawdbot extension) ==========
+// GET /v1/me/stats - Quick stats for authenticated user
+v1.get('/me/stats', async (c) => {
+  const userContext = c.get('userContext');
+  const memoryKey = userContext.memoryKey.key;
+  
+  let vaultSize = 0;
+  let lastActivity: string | null = null;
+  
+  // Get vault size from Durable Object or KV
+  if (c.env.USE_DURABLE_OBJECTS === 'true' && c.env.VAULT_DO) {
+    try {
+      const doId = c.env.VAULT_DO.idFromName(`${memoryKey}:core`);
+      const stub = c.env.VAULT_DO.get(doId);
+      const response = await stub.fetch(new Request('https://do/stats'));
+      const stats = await response.json() as { vectorCount?: number; lastUpdated?: number };
+      vaultSize = stats.vectorCount ?? 0;
+      if (stats.lastUpdated) {
+        lastActivity = new Date(stats.lastUpdated).toISOString();
+      }
+    } catch (error) {
+      console.error('Failed to get DO stats for /me/stats:', error);
+    }
+  } else {
+    // Legacy KV+R2 path
+    const storage = new StorageManager({
+      VECTORS_KV: c.env.VECTORS_KV,
+      METADATA_KV: c.env.METADATA_KV,
+      VECTORS_R2: c.env.VECTORS_R2,
+    });
+    try {
+      const stats = await storage.getStats(memoryKey);
+      vaultSize = stats.totalVectors;
+      const manifest = await storage.getManifest(memoryKey);
+      lastActivity = new Date(manifest.updatedAt).toISOString();
+    } catch (error) {
+      console.error('Failed to get KV stats for /me/stats:', error);
+    }
+  }
+  
+  // Get tokens processed this month
+  let tokensThisMonth = 0;
+  if (c.env.VECTORS_D1) {
+    try {
+      const now = new Date();
+      const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const startTs = firstOfMonth.getTime();
+      
+      // Query usage_events for this month
+      const result = await c.env.VECTORS_D1.prepare(`
+        SELECT 
+          SUM(input_tokens) + SUM(output_tokens) as total_tokens,
+          MAX(timestamp) as last_ts
+        FROM usage_events
+        WHERE memory_key = ? AND timestamp >= ?
+      `).bind(memoryKey, startTs).first() as { total_tokens: number | null; last_ts: number | null } | null;
+      
+      if (result) {
+        tokensThisMonth = result.total_tokens ?? 0;
+        // Update lastActivity if we have a more recent usage event
+        if (result.last_ts && (!lastActivity || new Date(result.last_ts) > new Date(lastActivity))) {
+          lastActivity = new Date(result.last_ts).toISOString();
+        }
+      }
+      
+      // Also check usage_daily for rolled-up data
+      const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const dailyResult = await c.env.VECTORS_D1.prepare(`
+        SELECT SUM(input_tokens) + SUM(output_tokens) as total_tokens
+        FROM usage_daily
+        WHERE memory_key = ? AND date LIKE ?
+      `).bind(memoryKey, `${monthStr}%`).first() as { total_tokens: number | null } | null;
+      
+      if (dailyResult?.total_tokens) {
+        tokensThisMonth += dailyResult.total_tokens;
+      }
+    } catch (error) {
+      console.error('Failed to get usage for /me/stats:', error);
+    }
+  }
+  
+  return c.json({
+    vaultSize,
+    tokensThisMonth,
+    lastActivity,
+  });
+});
+
 // ========== Account Usage Endpoint ==========
 // GET /v1/account/usage?start=YYYY-MM-DD&end=YYYY-MM-DD
 v1.get('/account/usage', async (c) => {

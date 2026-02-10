@@ -3,7 +3,7 @@
  * 
  * POST /v1/memory/upload
  * - Accepts JSONL (one memory per line)
- * - Requires card on file (has_payment_method = 1)
+ * - CHARGE FIRST: Checks balance and auto-charges if needed before storing
  * - Stores to main vault or session vault (via X-Session-ID header)
  * 
  * JSONL format (each line):
@@ -13,6 +13,12 @@
 
 import { Hono } from 'hono';
 import { UserContext } from '../middleware/auth';
+import {
+  ensureBalance,
+  estimateUploadTokens,
+  buildPaymentRequiredResponse,
+} from '../services/balance-checkpoint';
+import { createBalanceGuard } from '../services/balance-guard';
 
 interface UploadEnv {
   VECTORS_D1: D1Database;
@@ -20,6 +26,7 @@ interface UploadEnv {
   VAULT_DO: DurableObjectNamespace;
   USE_DURABLE_OBJECTS: string;
   AI?: Ai; // Cloudflare Workers AI binding
+  STRIPE_SECRET_KEY?: string; // For auto-charging
 }
 
 interface MemoryLine {
@@ -51,41 +58,7 @@ export function createUploadRouter() {
     const vaultType = sessionId ? 'session' : 'core';
 
     // ========================================================================
-    // Step 1: Check card on file
-    // ========================================================================
-    const userId = userContext.userId;
-    
-    try {
-      const billing = await c.env.VECTORS_D1.prepare(
-        `SELECT has_payment_method FROM billing WHERE user_id = ?`
-      ).bind(userId).first() as { has_payment_method: number } | null;
-
-      if (!billing) {
-        return c.json({
-          error: 'Billing not found',
-          message: 'No billing record exists for this user. Please set up billing in the dashboard.',
-          code: 'NO_BILLING_RECORD',
-        }, 403);
-      }
-
-      if (!billing.has_payment_method) {
-        return c.json({
-          error: 'Payment method required',
-          message: 'Please add a card to your account before uploading memories. This ensures we can process your data.',
-          code: 'NO_PAYMENT_METHOD',
-          action: 'Add a card at https://app.memoryrouter.ai/settings/billing',
-        }, 402); // 402 Payment Required
-      }
-    } catch (error) {
-      console.error('[Upload] Billing check failed:', error);
-      return c.json({
-        error: 'Billing check failed',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      }, 500);
-    }
-
-    // ========================================================================
-    // Step 2: Parse JSONL body
+    // Step 1: Parse JSONL body FIRST (to count tokens)
     // ========================================================================
     let lines: MemoryLine[] = [];
     
@@ -152,6 +125,31 @@ export function createUploadRouter() {
     }
 
     // ========================================================================
+    // Step 2: CHARGE FIRST — Check balance and auto-charge if needed
+    // ========================================================================
+    const memoryKey = userContext.memoryKey.key;
+    const tokensNeeded = estimateUploadTokens(lines);
+    
+    console.log(`[Upload] Checking balance for ${memoryKey}: ${tokensNeeded} tokens, ${lines.length} items`);
+
+    const balanceResult = await ensureBalance(
+      c.env.VECTORS_D1,
+      memoryKey,
+      tokensNeeded,
+      c.env.STRIPE_SECRET_KEY
+    );
+
+    if (!balanceResult.allowed) {
+      console.log(`[Upload] Balance check failed for ${memoryKey}:`, balanceResult.error);
+      return buildPaymentRequiredResponse(balanceResult);
+    }
+
+    // Log if we charged
+    if (balanceResult.charged) {
+      console.log(`[Upload] Auto-charged ${memoryKey}: $${((balanceResult.amountCharged || 0) / 100).toFixed(2)}`);
+    }
+
+    // ========================================================================
     // Step 3: Store memories in vault
     // ========================================================================
     const result: UploadResult = {
@@ -197,6 +195,22 @@ export function createUploadRouter() {
         result.processed = doResult.stored;
         result.failed = doResult.failed;
         result.errors = doResult.errors || [];
+
+        // Record usage (deduct tokens) after successful storage
+        if (result.processed > 0) {
+          const balanceGuard = createBalanceGuard(c.env.METADATA_KV, c.env.VECTORS_D1);
+          const tokensUsed = estimateUploadTokens(lines.slice(0, result.processed));
+          
+          c.executionCtx.waitUntil(
+            balanceGuard.recordUsageAndDeduct(
+              memoryKey,
+              tokensUsed,
+              'upload',
+              'memoryrouter',
+              sessionId
+            ).catch(err => console.error('[Upload] Failed to record usage:', err))
+          );
+        }
 
       } catch (error) {
         console.error('[Upload] DO error:', error);

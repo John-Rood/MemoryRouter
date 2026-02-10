@@ -57,6 +57,11 @@ import {
   type BalanceGuardResult,
   type BlockedUserRecord,
 } from '../services/balance-guard';
+import {
+  ensureBalance,
+  buildPaymentRequiredResponse,
+  type EnsureBalanceResult,
+} from '../services/balance-checkpoint';
 
 // ==================== BILLING TOGGLE ====================
 const BILLING_ENABLED = true;  // Billing is now enabled
@@ -110,6 +115,8 @@ export interface ChatEnv extends StorageBindings {
   STORAGE_QUEUE?: Queue<StorageJob>;
   // Cloudflare Workers AI binding (embeddings)
   AI: Ai;
+  // Stripe for auto-charging
+  STRIPE_SECRET_KEY?: string;
 }
 
 /**
@@ -436,12 +443,13 @@ export function createChatRouter() {
     // Mark end of MR processing, start of provider call
     mrProcessingTime = Date.now() - startTime;
     
-    // ==================== BILLING: CHECK PARALLEL RESULTS ====================
-    // Both checks ran in parallel with memory retrieval — now verify before LLM call
+    // ==================== BILLING: CHARGE FIRST, SERVE SECOND ====================
+    // Check balance and auto-charge if needed BEFORE the LLM call
     let balanceCheckResult: BalanceGuardResult | null = null;
+    let ensureBalanceResult: EnsureBalanceResult | null = null;
     
-    if (BILLING_ENABLED && billingUserId) {
-      // Check blocked cache result first (fastest rejection path)
+    if (BILLING_ENABLED && billingUserId && env.VECTORS_D1) {
+      // First check blocked cache (fast path for known blocked users)
       if (blockedCachePromise) {
         const blockedRecord = await blockedCachePromise;
         if (blockedRecord) {
@@ -450,21 +458,39 @@ export function createChatRouter() {
         }
       }
       
-      // Check balance result
-      if (balanceCheckPromise) {
-        balanceCheckResult = await balanceCheckPromise;
+      // Use ensureBalance for charge-first semantics
+      // memoryTokensUsed is the estimated memory tokens to inject
+      const tokensForBilling = memoryTokensUsed > 0 ? memoryTokensUsed : 1000; // Min 1K tokens estimate
+      
+      ensureBalanceResult = await ensureBalance(
+        env.VECTORS_D1,
+        billingUserId,
+        tokensForBilling,
+        env.STRIPE_SECRET_KEY
+      );
+      
+      if (!ensureBalanceResult.allowed) {
+        console.log(`[BILLING] Balance check failed: ${billingUserId} - ${ensureBalanceResult.error}`);
         
-        if (!balanceCheckResult.allowed) {
-          console.log(`[BILLING] Insufficient balance: ${billingUserId} - ${balanceCheckResult.reason}`);
-          return buildInsufficientBalanceResponse(
-            balanceCheckResult.reason || 'insufficient_balance',
-            balanceCheckResult.balanceCheck?.balance_cents ?? 0,
-            balanceCheckResult.balanceCheck?.free_tokens_remaining ?? 0
+        // Add to blocked cache for fast rejection of subsequent requests
+        if (balanceGuard && ensureBalanceResult.error === 'no_payment_method') {
+          await balanceGuard.addToBlockedCache(
+            billingUserId,
+            'insufficient_balance',
+            ensureBalanceResult.projectedBalance ?? 0,
+            ensureBalanceResult.freeTokensRemaining ?? 0
           );
         }
         
-        console.log(`[BILLING] Balance OK: ${billingUserId} - balance=${balanceCheckResult.balanceCheck?.balance_cents}c, free=${balanceCheckResult.balanceCheck?.free_tokens_remaining}`);
+        return buildPaymentRequiredResponse(ensureBalanceResult);
       }
+      
+      // Log if we charged
+      if (ensureBalanceResult.charged) {
+        console.log(`[BILLING] Auto-charged ${billingUserId}: $${((ensureBalanceResult.amountCharged || 0) / 100).toFixed(2)} (PI: ${ensureBalanceResult.paymentIntentId})`);
+      }
+      
+      console.log(`[BILLING] Balance OK: ${billingUserId} - projected=${ensureBalanceResult.projectedBalance}c, charged=${ensureBalanceResult.charged || false}`);
     }
     
     providerStartTime = Date.now();
