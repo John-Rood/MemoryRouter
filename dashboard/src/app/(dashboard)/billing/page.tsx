@@ -13,6 +13,53 @@ import { CreditCard, Plus, TrendingUp, Wallet, History, Sparkles, CheckCircle2, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBilling } from "@/contexts/billing-context";
 
+// Card brand icons
+function CardBrandIcon({ brand }: { brand: string | null }) {
+  const brandLower = brand?.toLowerCase() || '';
+  
+  if (brandLower === 'visa') {
+    return (
+      <svg viewBox="0 0 48 32" className="h-6 w-9">
+        <rect width="48" height="32" rx="4" fill="#1A1F71"/>
+        <path d="M19.5 21h-3l1.9-12h3l-1.9 12zm-5.4 0h-3.2l-2.4-9.1-.3 1.5-.9 4.6c-.2 1-.8 1.5-1.6 1.5H2l-.1-.5c1-.3 2.2-.7 2.9-1 .5-.2.6-.4.7-.8l2.2-8.2h3.2l4.7 12h-1.5zm21.4 0h2.8l-2.5-12h-2.6c-.6 0-1.1.3-1.3.9l-4.6 11.1h3.2l.6-1.8h3.9l.5 1.8zm-3.4-4.3l1.6-4.5.9 4.5h-2.5zm-6.6-4.9l.4-2.5c-.8-.3-1.6-.5-2.5-.5-2.8 0-4.7 1.5-4.7 3.6 0 1.6 1.4 2.4 2.5 3 1.1.5 1.5.9 1.5 1.4 0 .7-.9 1.1-1.7 1.1-1.1 0-2.3-.4-3-.7l-.4 2.5c.8.4 2.1.6 3.4.6 3 0 4.9-1.5 4.9-3.7 0-2.8-4-3-4-4.3 0-.4.4-.8 1.2-.8.9 0 1.7.2 2.4.5z" fill="#fff"/>
+      </svg>
+    );
+  }
+  
+  if (brandLower === 'mastercard') {
+    return (
+      <svg viewBox="0 0 48 32" className="h-6 w-9">
+        <rect width="48" height="32" rx="4" fill="#000"/>
+        <circle cx="18" cy="16" r="10" fill="#EB001B"/>
+        <circle cx="30" cy="16" r="10" fill="#F79E1B"/>
+        <path d="M24 8.5a10 10 0 0 0 0 15 10 10 0 0 0 0-15z" fill="#FF5F00"/>
+      </svg>
+    );
+  }
+  
+  if (brandLower === 'amex' || brandLower === 'american express') {
+    return (
+      <svg viewBox="0 0 48 32" className="h-6 w-9">
+        <rect width="48" height="32" rx="4" fill="#006FCF"/>
+        <path d="M8 12h4l.7 1.5.7-1.5h4v8h-3.2v-5.5l-1.2 2.7h-1.6l-1.2-2.7V20H8v-8zm11 0h3.2l2 5.5 2-5.5H29v8h-2.5v-5l-1.8 5h-1.4l-1.8-5v5H19v-8zm13 0h6v2h-3.5v1h3.5v2h-3.5v1h3.5v2h-6v-8z" fill="#fff"/>
+      </svg>
+    );
+  }
+  
+  if (brandLower === 'discover') {
+    return (
+      <svg viewBox="0 0 48 32" className="h-6 w-9">
+        <rect width="48" height="32" rx="4" fill="#fff" stroke="#eee"/>
+        <path d="M24 10c-5.5 0-10 4.5-10 10h20c0-5.5-4.5-10-10-10z" fill="#F76F1B"/>
+        <text x="8" y="22" fontSize="8" fill="#000" fontWeight="bold">DISCOVER</text>
+      </svg>
+    );
+  }
+  
+  // Default credit card icon
+  return <CreditCard className="h-5 w-5 text-muted-foreground" />;
+}
+
 const FREE_TIER_LIMIT = 50000000;
 const presetAmounts = [5, 10, 20, 50, 100];
 
@@ -663,8 +710,8 @@ export default function BillingPage() {
           {billing.hasPaymentMethod ? (
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-8 bg-muted rounded flex items-center justify-center">
-                  <CreditCard className="h-4 w-4" />
+                <div className="w-12 h-8 rounded flex items-center justify-center overflow-hidden">
+                  <CardBrandIcon brand={contextBilling?.cardBrand || null} />
                 </div>
                 <div>
                   <p className="font-medium">
