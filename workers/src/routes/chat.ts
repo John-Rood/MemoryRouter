@@ -771,14 +771,21 @@ export function createChatRouter() {
     const debugMode = c.req.header('X-Debug') === 'true' || c.req.query('debug') === 'true';
     
     // ===== BILLING: RECORD USAGE & DEDUCT BALANCE (non-streaming path) =====
-    if (BILLING_ENABLED && balanceGuard && memoryTokensUsed > 0) {
+    const responseUsage = (responseBody as { usage?: { prompt_tokens?: number; completion_tokens?: number } }).usage;
+    const totalTokens = (responseUsage?.prompt_tokens ?? 0) + (responseUsage?.completion_tokens ?? 0);
+    // Fallback if provider doesn't report usage
+    const billableTokens = totalTokens > 0 
+      ? totalTokens 
+      : countMessagesTokens(augmentedMessages) + Math.ceil((assistantResponse?.length ?? 0) / 4);
+    
+    if (BILLING_ENABLED && balanceGuard && billableTokens > 0) {
       const userId = userContext.memoryKey.key;
       ctx.waitUntil(
         (async () => {
           // Deduct usage
           await balanceGuard.recordUsageAndDeduct(
             userId,
-            memoryTokensUsed,
+            billableTokens,
             body.model,
             provider,
             sessionId
@@ -794,7 +801,7 @@ export function createChatRouter() {
           }
         })()
       );
-      console.log(`[BILLING] Queued usage recording: ${userId} - ${memoryTokensUsed} tokens`);
+      console.log(`[BILLING] Queued usage recording: ${userId} - ${billableTokens} total tokens (provider: ${totalTokens})`);
     }
 
     // ===== USAGE TRACKING (fire-and-forget) =====
