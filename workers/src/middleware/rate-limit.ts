@@ -111,9 +111,11 @@ export function rateLimitMiddleware(): MiddlewareHandler<{
         await kv.put(sustainedKey, String(sustainedCount), { expirationTtl: 120 });
 
         // Check limits and block if exceeded
-        const limits = isAuthenticated ? RATE_LIMITS.authenticated : { burst: RATE_LIMITS.unauthenticated, sustained: RATE_LIMITS.unauthenticated };
-        const burstLimit = 'burst' in limits ? limits.burst.limit : limits.limit;
-        const sustainedLimit = 'sustained' in limits ? limits.sustained.limit : limits.limit;
+        const limits = isAuthenticated 
+          ? RATE_LIMITS.authenticated 
+          : { burst: RATE_LIMITS.unauthenticated, sustained: RATE_LIMITS.unauthenticated };
+        const burstLimit = limits.burst.limit;
+        const sustainedLimit = limits.sustained.limit;
 
         if (burstCount > burstLimit || sustainedCount > sustainedLimit) {
           await kv.put(`blocked:${identifier}`, JSON.stringify({

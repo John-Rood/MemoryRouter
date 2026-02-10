@@ -116,6 +116,7 @@ export class StorageManager {
    * Load a shard from R2
    */
   async loadShardFromR2(memoryKey: string, shardId: string): Promise<WorkersVectorIndex | null> {
+    if (!this.r2) return null;
     const key = `indexes/${memoryKey}/shards/${shardId}.bin`;
     const object = await this.r2.get(key);
     
@@ -131,6 +132,7 @@ export class StorageManager {
    * Rotate hot shard to R2 (called when hot shard gets too large)
    */
   async rotateHotShard(memoryKey: string): Promise<void> {
+    if (!this.r2) return;
     const hotIndex = await this.loadHotShard(memoryKey);
     if (!hotIndex || hotIndex.size === 0) {
       return;
@@ -348,8 +350,10 @@ export class StorageManager {
     const manifest = await this.getManifest(memoryKey);
     
     // Delete all R2 shards
-    for (const shard of manifest.shards) {
-      await this.r2.delete(`indexes/${memoryKey}/shards/${shard.id}.bin`);
+    if (this.r2) {
+      for (const shard of manifest.shards) {
+        await this.r2.delete(`indexes/${memoryKey}/shards/${shard.id}.bin`);
+      }
     }
     
     // Delete manifest

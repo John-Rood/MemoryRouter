@@ -412,8 +412,8 @@ export function injectContext(
   const systemIndex = messages.findIndex(m => m.role === 'system');
   
   if (systemIndex >= 0) {
-    const existingContent = updated[systemIndex].content as string;
     const updated = [...messages];
+    const existingContent = updated[systemIndex].content as string;
     
     // For Claude Code OAuth: system prompt MUST start with "You are Claude Code"
     // Anthropic validates this, so we APPEND memory context instead of prepending

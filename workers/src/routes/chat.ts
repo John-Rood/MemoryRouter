@@ -307,9 +307,10 @@ export function createChatRouter() {
             const doRace = doPromise.then(r => r?.result ? r : Promise.reject('no result'));
             const d1Race = d1Promise.then(r => r?.result ? r : Promise.reject('no result'));
             
-            let winner: { source: 'do' | 'd1'; result: typeof retrieval; time?: number } | null = null;
+            type RaceWinner = { source: 'do' | 'd1'; result: MemoryRetrievalResult | DOMemoryRetrievalResult; time?: number };
+            let winner: RaceWinner | null = null;
             try {
-              winner = await Promise.any([doRace, d1Race]);
+              winner = await Promise.any([doRace, d1Race]) as RaceWinner;
             } catch {
               // Both failed - empty result
               winner = null;
@@ -541,7 +542,7 @@ export function createChatRouter() {
       c.header('X-Memory-Tokens-Retrieved', String(retrieval?.tokenCount ?? 0));
       c.header('X-Memory-Chunks-Retrieved', String(retrieval?.chunks.length ?? 0));
       c.header('X-Memory-Tokens-Injected', String(memoryTokensUsed));
-      c.header('X-Memory-Injection-Format', memoryInjection?.formatUsed ?? 'none');
+      c.header('X-Memory-Injection-Format', (memoryInjection as InjectionResult | null)?.formatUsed ?? 'none');
       // Latency breakdown headers
       c.header('X-Embedding-Ms', String(embeddingMs));
       c.header('X-MR-Processing-Ms', String(mrProcessingTime));
@@ -838,7 +839,7 @@ export function createChatRouter() {
         tokens_retrieved: retrieval?.tokenCount ?? 0,
         memories_retrieved: retrieval?.chunks.length ?? 0,
         tokens_injected: memoryTokensUsed,
-        injection_format: memoryInjection?.formatUsed ?? null,
+        injection_format: (memoryInjection as InjectionResult | null)?.formatUsed ?? null,
         window_breakdown: retrieval?.windowBreakdown ?? { hot: 0, working: 0, longterm: 0 },
         memories: retrieval?.chunks ?? [],
         latency_ms: totalTime,
