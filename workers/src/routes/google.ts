@@ -15,6 +15,7 @@ import { searchD1, getBufferFromD1 } from '../services/d1-search';
 import { generateEmbedding, EmbeddingConfig } from '../services/providers';
 import { formatMemoryContext } from '../formatters';
 import { DEFAULT_KRONOS_CONFIG } from '../types/do';
+import { createBalanceGuard } from '../services/balance-guard';
 
 // Google/Gemini types
 interface GeminiPart {
@@ -311,6 +312,28 @@ export function createGoogleRouter() {
 
       // Return native Google response with memory metadata
       const responseData = await response.json() as Record<string, unknown>;
+      
+      // Extract usage for billing (Google uses different field names)
+      const usageMetadata = responseData.usageMetadata as { 
+        promptTokenCount?: number; 
+        candidatesTokenCount?: number;
+      } | undefined;
+      const totalTokens = (usageMetadata?.promptTokenCount ?? 0) + (usageMetadata?.candidatesTokenCount ?? 0);
+      
+      // Bill on total tokens
+      if (c.env.VECTORS_D1 && c.env.METADATA_KV && totalTokens > 0) {
+        const balanceGuard = createBalanceGuard(c.env.METADATA_KV, c.env.VECTORS_D1);
+        c.executionCtx.waitUntil(
+          balanceGuard.recordUsageAndDeduct(
+            userContext.memoryKey.key,
+            totalTokens,
+            model,
+            'google',
+            undefined // sessionId
+          )
+        );
+        console.log(`[BILLING] Google native: ${userContext.memoryKey.key} - ${totalTokens} tokens`);
+      }
       
       // Add memory metadata
       responseData._memory = {

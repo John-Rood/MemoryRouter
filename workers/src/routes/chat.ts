@@ -441,6 +441,11 @@ export function createChatRouter() {
       messages: augmentedMessages,
     };
     
+    // Enable streaming usage for OpenAI/OpenRouter
+    if (body.stream && (provider === 'openai' || provider === 'openrouter')) {
+      (augmentedBody as Record<string, unknown>).stream_options = { include_usage: true };
+    }
+    
     // Mark end of MR processing, start of provider call
     mrProcessingTime = Date.now() - startTime;
     
@@ -567,6 +572,8 @@ export function createChatRouter() {
         
         const decoder = new TextDecoder();
         let fullResponse = '';
+        let streamInputTokens = 0;
+        let streamOutputTokens = 0;
         
         try {
           while (true) {
@@ -586,6 +593,22 @@ export function createChatRouter() {
                   const anthropicContent = data.delta?.text;
                   if (content) fullResponse += content;
                   if (anthropicContent) fullResponse += anthropicContent;
+                  
+                  // Anthropic: message_start has input tokens
+                  if (data.type === 'message_start' && data.message?.usage) {
+                    streamInputTokens = data.message.usage.input_tokens ?? 0;
+                  }
+                  
+                  // Anthropic: message_delta (at end) has output tokens
+                  if (data.type === 'message_delta' && data.usage) {
+                    streamOutputTokens = data.usage.output_tokens ?? 0;
+                  }
+                  
+                  // OpenAI: final chunk has usage (when stream_options.include_usage is true)
+                  if (data.usage?.prompt_tokens !== undefined) {
+                    streamInputTokens = data.usage.prompt_tokens ?? 0;
+                    streamOutputTokens = data.usage.completion_tokens ?? 0;
+                  }
                 } catch {
                   // Ignore parse errors
                 }
@@ -635,14 +658,20 @@ export function createChatRouter() {
           }
           
           // ===== BILLING: RECORD USAGE & DEDUCT BALANCE (streaming path) =====
-          if (BILLING_ENABLED && balanceGuard && memoryTokensUsed > 0) {
+          const totalStreamTokens = streamInputTokens + streamOutputTokens;
+          // Fallback to estimate if provider didn't report usage
+          const billableStreamTokens = totalStreamTokens > 0 
+            ? totalStreamTokens 
+            : countMessagesTokens(augmentedMessages) + Math.ceil(fullResponse.length / 4);
+          
+          if (BILLING_ENABLED && balanceGuard && billableStreamTokens > 0) {
             const userId = userContext.memoryKey.key;
             ctx.waitUntil(
               (async () => {
                 // Deduct usage
                 await balanceGuard.recordUsageAndDeduct(
                   userId,
-                  memoryTokensUsed,
+                  billableStreamTokens,
                   body.model,
                   provider,
                   sessionId
@@ -658,20 +687,27 @@ export function createChatRouter() {
                 }
               })()
             );
-            console.log(`[BILLING] Queued usage recording (streaming): ${userId} - ${memoryTokensUsed} tokens`);
+            console.log(`[BILLING] Queued usage recording (streaming): ${userId} - ${billableStreamTokens} total tokens (provider: ${totalStreamTokens})`);
           }
 
           // ===== USAGE TRACKING (fire-and-forget) =====
           if (env.VECTORS_D1) {
             const providerEndTime = Date.now();
+            // Use actual Anthropic tokens if captured, otherwise estimate
+            const actualInputTokens = streamInputTokens > 0 
+              ? streamInputTokens 
+              : countMessagesTokens(body.messages as ChatMessage[]);
+            const actualOutputTokens = streamOutputTokens > 0 
+              ? streamOutputTokens 
+              : Math.ceil(fullResponse.length / 4); // Estimate ~4 chars/token
             const usageEvent: UsageEvent = {
               timestamp: Date.now(),
               memoryKey: userContext.memoryKey.key,
               sessionId: sessionId,
               model: body.model,
               provider: provider,
-              inputTokens: countMessagesTokens(body.messages as ChatMessage[]),
-              outputTokens: Math.ceil(fullResponse.length / 4), // Estimate ~4 chars/token
+              inputTokens: actualInputTokens,
+              outputTokens: actualOutputTokens,
               memoryTokensRetrieved: retrieval?.tokenCount ?? 0,
               memoryTokensInjected: memoryTokensUsed,
               latencyEmbeddingMs: embeddingMs,

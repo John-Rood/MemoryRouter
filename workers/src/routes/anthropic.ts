@@ -14,6 +14,7 @@ import { searchD1, getBufferFromD1 } from '../services/d1-search';
 import { generateEmbedding, EmbeddingConfig } from '../services/providers';
 import { formatMemoryContext } from '../formatters';
 import { DEFAULT_KRONOS_CONFIG } from '../types/do';
+import { createBalanceGuard } from '../services/balance-guard';
 
 // Anthropic-specific types
 interface AnthropicMessage {
@@ -271,6 +272,25 @@ export function createAnthropicRouter() {
 
       // Return native Anthropic response with memory metadata
       const responseData = await response.json() as Record<string, unknown>;
+      
+      // Extract usage for billing
+      const responseUsage = responseData.usage as { input_tokens?: number; output_tokens?: number } | undefined;
+      const totalTokens = (responseUsage?.input_tokens ?? 0) + (responseUsage?.output_tokens ?? 0);
+      
+      // Bill on total tokens
+      if (c.env.VECTORS_D1 && c.env.METADATA_KV && totalTokens > 0) {
+        const balanceGuard = createBalanceGuard(c.env.METADATA_KV, c.env.VECTORS_D1);
+        c.executionCtx.waitUntil(
+          balanceGuard.recordUsageAndDeduct(
+            userContext.memoryKey.key,
+            totalTokens,
+            body.model,
+            'anthropic',
+            undefined // sessionId
+          )
+        );
+        console.log(`[BILLING] Anthropic native: ${userContext.memoryKey.key} - ${totalTokens} tokens`);
+      }
       
       // Add memory metadata (non-standard fields prefixed with _)
       responseData._memory = {
