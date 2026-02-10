@@ -89,6 +89,11 @@ export default function BillingPage() {
     fetchUsage();
   }, []);
   
+  // Refresh billing on mount to get card info from Stripe
+  useEffect(() => {
+    refreshBilling();
+  }, [refreshBilling]);
+  
   // Handle success/canceled URL params
   useEffect(() => {
     const success = searchParams.get("success");
