@@ -13,48 +13,40 @@ import { CreditCard, Plus, TrendingUp, Wallet, History, Sparkles, CheckCircle2, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBilling } from "@/contexts/billing-context";
 
-// Card brand icons - using proper brand logos
+// Card brand icons - simple styled text badges (reliable, can't break)
 function CardBrandIcon({ brand }: { brand: string | null }) {
   const brandLower = brand?.toLowerCase() || '';
   
   if (brandLower === 'visa') {
     return (
-      <svg viewBox="0 0 750 471" className="h-6 w-9">
-        <rect width="750" height="471" rx="40" fill="#1A1F71"/>
-        <path d="M278.2 334.2h-60.2l37.6-232.1h60.3l-37.7 232.1zm246.8-226.4c-11.9-4.7-30.6-9.7-53.9-9.7-59.5 0-101.4 31.6-101.7 76.9-.4 33.4 29.9 52.1 52.7 63.2 23.4 11.4 31.3 18.7 31.2 28.9-.2 15.6-18.7 22.7-36 22.7-24.1 0-36.9-3.5-56.6-12.2l-7.8-3.7-8.4 52.2c14.1 6.5 40.1 12.1 67.1 12.4 63.3 0 104.4-31.2 104.8-79.6.2-26.5-15.8-46.7-50.6-63.3-21.1-10.8-34-18-33.9-28.9 0-9.7 10.9-20 34.5-20 19.7-.3 34 4.2 45.1 8.9l5.4 2.7 8.1-50.5zm157.9-5.7h-46.7c-14.5 0-25.3 4.2-31.7 19.4l-89.8 214.4h63.5s10.4-28.8 12.7-35.1h77.4c1.8 8.2 7.4 35.1 7.4 35.1h56.1l-48.9-233.8zm-74.5 150.8c5-13.5 24.2-65.6 24.2-65.6-.4.6 5-13.6 8-22.4l4.1 20.3s11.6 56.1 14 67.7h-50.3zm-408.5-150.8l-59.1 158.3-6.3-32.3c-10.9-37.2-45.1-77.5-83.3-97.7l54.1 203.5h63.8l94.9-231.8h-64.1z" fill="#fff"/>
-        <path d="M131.9 102.1H34.8l-.8 5c75.5 19.3 125.5 65.9 146.3 121.9l-21.1-107c-3.6-14.6-14.1-19.3-27.3-19.9z" fill="#F9A533"/>
-      </svg>
+      <div className="h-6 w-9 rounded bg-[#1A1F71] flex items-center justify-center">
+        <span className="text-white text-[9px] font-bold italic tracking-tight">VISA</span>
+      </div>
     );
   }
   
   if (brandLower === 'mastercard') {
     return (
-      <svg viewBox="0 0 750 471" className="h-6 w-9">
-        <rect width="750" height="471" rx="40" fill="#000"/>
-        <circle cx="299" cy="235.5" r="140" fill="#EB001B"/>
-        <circle cx="451" cy="235.5" r="140" fill="#F79E1B"/>
-        <path d="M375 130.5c-34.5 28.5-56.5 71.4-56.5 119.5s22 91 56.5 119.5c34.5-28.5 56.5-71.4 56.5-119.5s-22-91-56.5-119.5z" fill="#FF5F00"/>
-      </svg>
+      <div className="h-6 w-9 rounded bg-[#1a1a1a] flex items-center justify-center gap-0.5">
+        <div className="w-3 h-3 rounded-full bg-[#EB001B]" />
+        <div className="w-3 h-3 rounded-full bg-[#F79E1B] -ml-1.5" />
+      </div>
     );
   }
   
   if (brandLower === 'amex' || brandLower === 'american express') {
     return (
-      <svg viewBox="0 0 750 471" className="h-6 w-9">
-        <rect width="750" height="471" rx="40" fill="#006FCF"/>
-        <path d="M0 221h51.8l11.7-28.1h26.2L101.4 221h102v-21.5l9.1 21.5h52.8l9.1-21.8V221h253v-45.3h-5c-4.4 0-5.7-0.6-5.7-5.8v-39.7h10.7v-27.6h-56.5c-4.1 0-7 0.5-9.9 4.9l-30.3 47.1-33-47.1c-2.4-3.4-6.6-4.9-12.9-4.9h-54.2v21.2l-10.2-21.2h-55.7l-29.6 66.7v-66.7h-64.9l-8 19.6h-21.9l-8.1-19.6H30.3L0 175.7v45.3zm227.7-27.6l-47.1-90.8h26.1l30.2 59.7 28.5-59.7h25.3l-46.8 90.8h-16.2zm-119.5 0v-90.8h27v17.9h38.7v22.4h-38.7v17.5h38.7v23h-38.7v10h-27zm343.2 0v-90.8h76.1v22.4h-49.6v13.5h48.4v22.4h-48.4v10.1h49.6v22.4h-76.1zm-135.9 0v-90.8h25.7v68.1h44.7v22.7h-70.4zm114.9 0v-90.8h26.3l39.7 59.5v-59.5h26v90.8h-25.6l-40.4-60.8v60.8h-26zm-391.3 0l43.7-90.8h30.9l43.5 90.8h-29.9l-8.1-19.6h-44.3l-8 19.6h-27.8zm63-39.7l-12.9-33.8-13.5 33.8h26.4z" fill="#fff"/>
-        <path d="M750 339.6v-119h-51.2l-29.7 46.6-31.5-46.6H531.4v21.2l-10.2-21.2h-92.8l-10.2 21.2v-21.2H312.7l-13 30.3-13.4-30.3h-87.2v21.2l-9.1-21.2H136l-42.5 89.3v29.7h71.3l8.1-19.6h18.1l8.1 19.6h140v-15l12.5 15h76.9V374.4l1.7 3.2h28.3l1.7-3.2v17.2h145.7v-32.9c4.7 1 9.7 1.5 17 1.5h25.6v31.4h49.5v-32.7c7.9 5 18.3 6.1 28.9 6.1h51.2v-25.6h-5c-4.4 0-5.7-.6-5.7-5.8v-39.7h10.7v-27.6h-56.5c-4.1 0-7 .5-9.9 4.9l-30.3 47.1-33-47.1c-2.4-3.4-6.6-4.9-12.9-4.9h-54.2v21.2l-10.2-21.2h-55.7l-29.6 66.7v-66.7h-64.9l-8 19.6h-21.9l-8.1-19.6h-47.7l-42.1 91.7h30.2l8.1-19.6h44l8.1 19.6h76.5v-68.7l27.4 68.7h23.7l27-68.1v68.1H406l.1-90.8h-61.3l-25 58.7-27.2-58.7h-61.9v68.7l-37.9-68.7h-52.2l-42.1 90.8h30.2l8.1-19.6h44l8.1 19.6h76.5v-68.7l27.4 68.7h23.7l27-68.1v68.1h26.5v-90.8h-66.2zm217 0h-26.4v23h26.4c7.6 0 12.2-4.2 12.2-11.6 0-7.3-4.5-11.4-12.2-11.4zm-217-50.5l-12.9-33.8-13.5 33.8h26.4zm-293.2 50.5l-12.9-33.8-13.5 33.8h26.4z" fill="#fff"/>
-      </svg>
+      <div className="h-6 w-9 rounded bg-[#006FCF] flex items-center justify-center">
+        <span className="text-white text-[8px] font-bold tracking-tight">AMEX</span>
+      </div>
     );
   }
   
   if (brandLower === 'discover') {
     return (
-      <svg viewBox="0 0 750 471" className="h-6 w-9">
-        <rect width="750" height="471" rx="40" fill="#fff" stroke="#ddd" strokeWidth="2"/>
-        <path d="M375 130c-79.5 0-144 64.5-144 144s64.5 144 144 144c40.3 0 76.8-16.6 103-43.3-32.9 22.7-72.9 36-116 36-112.1 0-203-90.9-203-203S249.9 4.7 362 4.7c43.1 0 83.1 13.3 116 36-26.2-26.7-62.7-43.3-103-43.3z" fill="#F47216"/>
-        <text x="100" y="270" fontFamily="Arial, sans-serif" fontSize="90" fontWeight="bold" fill="#000">DISCOVER</text>
-      </svg>
+      <div className="h-6 w-9 rounded bg-white border border-gray-300 flex items-center justify-center overflow-hidden">
+        <span className="text-[#F47216] text-[7px] font-bold tracking-tight">DISC</span>
+      </div>
     );
   }
   
