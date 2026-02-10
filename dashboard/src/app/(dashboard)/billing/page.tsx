@@ -18,21 +18,26 @@ import { useBilling } from "@/contexts/billing-context";
 function CardBrandIcon({ brand }: { brand: string | null }) {
   const brandLower = brand?.toLowerCase() || '';
   
-  // Standard brand colors - icons render as solid color on dark background
+  // Standard brand colors with proper contrast
   if (brandLower === 'visa') {
-    return <FaCcVisa className="h-8 w-10 text-white" />;
+    return <FaCcVisa className="h-8 w-10 text-[#1A1F71]" />;
   }
   
   if (brandLower === 'mastercard') {
-    return <FaCcMastercard className="h-8 w-10 text-white" />;
+    return <FaCcMastercard className="h-8 w-10 text-[#EB001B]" />;
   }
   
   if (brandLower === 'amex' || brandLower === 'american express') {
-    return <FaCcAmex className="h-8 w-10 text-white" />;
+    // Amex icon has negative space for text - wrap in blue bg so text shows white
+    return (
+      <div className="h-8 w-10 rounded bg-[#006FCF] flex items-center justify-center">
+        <FaCcAmex className="h-7 w-9 text-white" />
+      </div>
+    );
   }
   
   if (brandLower === 'discover') {
-    return <FaCcDiscover className="h-8 w-10 text-white" />;
+    return <FaCcDiscover className="h-8 w-10 text-[#FF6000]" />;
   }
   
   // Default credit card icon
