@@ -60,6 +60,7 @@ import {
 import {
   ensureBalance,
   buildPaymentRequiredResponse,
+  checkAndReupIfNeeded,
   type EnsureBalanceResult,
 } from '../services/balance-checkpoint';
 
@@ -637,13 +638,25 @@ export function createChatRouter() {
           if (BILLING_ENABLED && balanceGuard && memoryTokensUsed > 0) {
             const userId = userContext.memoryKey.key;
             ctx.waitUntil(
-              balanceGuard.recordUsageAndDeduct(
-                userId,
-                memoryTokensUsed,
-                body.model,
-                provider,
-                sessionId
-              )
+              (async () => {
+                // Deduct usage
+                await balanceGuard.recordUsageAndDeduct(
+                  userId,
+                  memoryTokensUsed,
+                  body.model,
+                  provider,
+                  sessionId
+                );
+                
+                // Check if balance fell below threshold — auto-reup if needed
+                if (env.VECTORS_D1) {
+                  await checkAndReupIfNeeded(
+                    env.VECTORS_D1,
+                    userId,
+                    env.STRIPE_SECRET_KEY
+                  );
+                }
+              })()
             );
             console.log(`[BILLING] Queued usage recording (streaming): ${userId} - ${memoryTokensUsed} tokens`);
           }
@@ -725,13 +738,25 @@ export function createChatRouter() {
     if (BILLING_ENABLED && balanceGuard && memoryTokensUsed > 0) {
       const userId = userContext.memoryKey.key;
       ctx.waitUntil(
-        balanceGuard.recordUsageAndDeduct(
-          userId,
-          memoryTokensUsed,
-          body.model,
-          provider,
-          sessionId
-        )
+        (async () => {
+          // Deduct usage
+          await balanceGuard.recordUsageAndDeduct(
+            userId,
+            memoryTokensUsed,
+            body.model,
+            provider,
+            sessionId
+          );
+          
+          // Check if balance fell below threshold — auto-reup if needed
+          if (env.VECTORS_D1) {
+            await checkAndReupIfNeeded(
+              env.VECTORS_D1,
+              userId,
+              env.STRIPE_SECRET_KEY
+            );
+          }
+        })()
       );
       console.log(`[BILLING] Queued usage recording: ${userId} - ${memoryTokensUsed} tokens`);
     }

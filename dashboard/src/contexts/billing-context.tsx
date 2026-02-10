@@ -13,6 +13,8 @@ export interface BillingData {
   monthlySpendCents: number;
   stripeCustomerId: string | null;
   hasPaymentMethod: boolean;
+  cardBrand: string | null;
+  cardLast4: string | null;
   transactions: Array<{
     id: string;
     type: string;
@@ -58,6 +60,8 @@ export function BillingProvider({
           monthlySpendCents: 0,
           stripeCustomerId: data.stripeCustomerId || null,
           hasPaymentMethod: data.hasPaymentMethod || false,
+          cardBrand: data.cardBrand || null,
+          cardLast4: data.cardLast4 || null,
           transactions: data.transactions?.map((t: { id: string; type: string; amount: number; description: string; createdAt: string }) => ({
             id: t.id,
             type: t.type,

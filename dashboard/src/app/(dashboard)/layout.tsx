@@ -17,6 +17,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   console.log(`[DashboardLayout] Total server time: ${Date.now() - layoutStart}ms`);
   
   // Transform billing for context
+  // Note: cardBrand/cardLast4 are fetched from Stripe in /api/billing/overview, not from Workers API
   const billingData = billing ? {
     creditBalanceCents: billing.creditBalanceCents,
     freeTierTokensUsed: billing.freeTierTokensUsed,
@@ -28,6 +29,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
     monthlySpendCents: billing.monthlySpendCents,
     stripeCustomerId: billing.stripeCustomerId,
     hasPaymentMethod: billing.hasPaymentMethod,
+    cardBrand: null, // Fetched from Stripe on client refresh
+    cardLast4: null, // Fetched from Stripe on client refresh
     transactions: billing.transactions || [],
   } : null;
   

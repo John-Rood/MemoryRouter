@@ -325,6 +325,184 @@ export function estimateUploadTokens(items: Array<{ content: string }>): number 
 // ERROR RESPONSE BUILDERS
 // ============================================================================
 
+// ============================================================================
+// POST-USAGE AUTO-REUP CHECK
+// ============================================================================
+
+export interface CheckReupResult {
+  recharged: boolean;
+  amountCharged?: number;  // cents
+  newBalance?: number;     // cents after recharge
+  paymentIntentId?: string;
+  error?: string;
+}
+
+/**
+ * Check if auto-reup is needed after usage deduction.
+ * 
+ * Called in waitUntil AFTER recordUsageAndDeduct().
+ * If balance fell below threshold AND auto-reup is enabled AND has payment method:
+ *   → Charge auto_reup_amount_cents
+ *   → Record transaction
+ *   → Update balance
+ * 
+ * Example: User has $6, uses $2 worth, now has $4. Threshold is $5.
+ *          This function detects $4 < $5 and triggers recharge.
+ * 
+ * @param db - D1 database
+ * @param memoryKey - The memory key (used to look up user_id)
+ * @param stripeSecretKey - Stripe secret key for charging
+ * @returns Result with recharge status
+ */
+export async function checkAndReupIfNeeded(
+  db: D1Database,
+  memoryKey: string,
+  stripeSecretKey?: string
+): Promise<CheckReupResult> {
+  try {
+    // Step 1: Look up user_id from memory_keys table
+    const memKeyRow = await db
+      .prepare('SELECT user_id FROM memory_keys WHERE id = ? OR key = ?')
+      .bind(memoryKey, memoryKey)
+      .first() as { user_id: string } | null;
+
+    if (!memKeyRow) {
+      // Memory key not in D1 — nothing to do
+      return { recharged: false };
+    }
+
+    const userId = memKeyRow.user_id;
+
+    // Step 2: Get billing record with all auto-reup fields
+    const billing = await db
+      .prepare(`
+        SELECT 
+          credit_balance_cents,
+          auto_reup_enabled,
+          auto_reup_amount_cents,
+          auto_reup_trigger_cents,
+          stripe_customer_id,
+          stripe_default_payment_method_id,
+          has_payment_method
+        FROM billing WHERE user_id = ?
+      `)
+      .bind(userId)
+      .first() as {
+        credit_balance_cents: number;
+        auto_reup_enabled: number;
+        auto_reup_amount_cents: number;
+        auto_reup_trigger_cents: number;
+        stripe_customer_id: string | null;
+        stripe_default_payment_method_id: string | null;
+        has_payment_method: number;
+      } | null;
+
+    if (!billing) {
+      return { recharged: false };
+    }
+
+    // Step 3: Check if reup is needed
+    const balanceBelowThreshold = billing.credit_balance_cents < billing.auto_reup_trigger_cents;
+    const autoReupEnabled = billing.auto_reup_enabled === 1;
+    const hasPaymentMethod = billing.has_payment_method === 1 && 
+                             billing.stripe_customer_id && 
+                             billing.stripe_default_payment_method_id;
+
+    console.log(`[AUTO_REUP_CHECK] User ${userId}: balance=${billing.credit_balance_cents}c, threshold=${billing.auto_reup_trigger_cents}c, enabled=${autoReupEnabled}, hasPayment=${!!hasPaymentMethod}`);
+
+    if (!balanceBelowThreshold) {
+      // Balance is fine, no reup needed
+      return { recharged: false };
+    }
+
+    if (!autoReupEnabled) {
+      console.log(`[AUTO_REUP_CHECK] User ${userId}: Below threshold but auto-reup disabled`);
+      return { recharged: false };
+    }
+
+    if (!hasPaymentMethod) {
+      console.log(`[AUTO_REUP_CHECK] User ${userId}: Below threshold but no payment method`);
+      return { recharged: false };
+    }
+
+    if (!stripeSecretKey) {
+      console.log(`[AUTO_REUP_CHECK] User ${userId}: Below threshold but Stripe not configured`);
+      return { recharged: false, error: 'stripe_not_configured' };
+    }
+
+    // Step 4: Charge Stripe
+    const chargeAmount = billing.auto_reup_amount_cents || DEFAULT_AUTO_REUP_AMOUNT;
+    
+    console.log(`[AUTO_REUP_CHECK] Charging user ${userId}: $${(chargeAmount / 100).toFixed(2)} (balance fell below threshold)`);
+
+    let paymentIntentId: string;
+    try {
+      paymentIntentId = await chargeStripe(
+        stripeSecretKey,
+        billing.stripe_customer_id!,
+        billing.stripe_default_payment_method_id!,
+        chargeAmount
+      );
+    } catch (error) {
+      console.error(`[AUTO_REUP_CHECK] Stripe charge failed for user ${userId}:`, error);
+      return {
+        recharged: false,
+        error: error instanceof Error ? error.message : 'Stripe charge failed',
+      };
+    }
+
+    // Step 5: Update balance and record transaction
+    const newBalance = billing.credit_balance_cents + chargeAmount;
+    const now = new Date().toISOString();
+    const txId = `tx_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+
+    await db.batch([
+      // Update balance
+      db.prepare(`
+        UPDATE billing SET 
+          credit_balance_cents = ?,
+          updated_at = ?
+        WHERE user_id = ?
+      `).bind(newBalance, now, userId),
+      
+      // Record transaction
+      db.prepare(`
+        INSERT INTO transactions (id, user_id, type, amount_cents, description, balance_after_cents, stripe_payment_intent_id, created_at)
+        VALUES (?, ?, 'auto_reup', ?, ?, ?, ?, ?)
+      `).bind(
+        txId,
+        userId,
+        chargeAmount,
+        `Auto-reup (balance below $${(billing.auto_reup_trigger_cents / 100).toFixed(2)} threshold): $${(chargeAmount / 100).toFixed(2)}`,
+        newBalance,
+        paymentIntentId,
+        now
+      ),
+    ]);
+
+    console.log(`[AUTO_REUP_CHECK] Recharged user ${userId}: $${(chargeAmount / 100).toFixed(2)}, new balance: $${(newBalance / 100).toFixed(2)}`);
+
+    return {
+      recharged: true,
+      amountCharged: chargeAmount,
+      newBalance,
+      paymentIntentId,
+    };
+
+  } catch (error) {
+    // On unexpected errors, log but don't throw (this runs in waitUntil)
+    console.error('[AUTO_REUP_CHECK] Unexpected error:', error);
+    return {
+      recharged: false,
+      error: error instanceof Error ? error.message : 'Unexpected error',
+    };
+  }
+}
+
+// ============================================================================
+// ERROR RESPONSE BUILDERS
+// ============================================================================
+
 /**
  * Build 402 Payment Required response
  */

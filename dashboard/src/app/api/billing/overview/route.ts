@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserBilling } from "@/lib/auth/server";
+import Stripe from "stripe";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
@@ -25,6 +28,29 @@ export async function GET(request: NextRequest) {
     const creditBalance = billing.creditBalanceCents / 100;
     const creditTokens = Math.floor(billing.creditBalanceCents * 1000); // $1 = ~1M tokens at $0.001/1k
     
+    // Fetch card info from Stripe if customer exists
+    let cardBrand: string | null = null;
+    let cardLast4: string | null = null;
+    
+    if (billing.stripeCustomerId && billing.hasPaymentMethod) {
+      try {
+        const customer = await stripe.customers.retrieve(billing.stripeCustomerId, {
+          expand: ['invoice_settings.default_payment_method'],
+        });
+        
+        if (customer && !customer.deleted) {
+          const defaultPm = customer.invoice_settings?.default_payment_method;
+          if (defaultPm && typeof defaultPm !== 'string' && defaultPm.card) {
+            cardBrand = defaultPm.card.brand;
+            cardLast4 = defaultPm.card.last4;
+          }
+        }
+      } catch (error) {
+        console.error('[billing/overview] Failed to fetch card info from Stripe:', error);
+        // Continue without card info — not critical
+      }
+    }
+    
     console.log(`[billing/overview] Total time: ${Date.now() - startTime}ms`);
     
     return NextResponse.json({
@@ -40,6 +66,8 @@ export async function GET(request: NextRequest) {
         monthlyCap: billing.monthlyCapCents ? billing.monthlyCapCents / 100 : null,
       },
       hasPaymentMethod: billing.hasPaymentMethod,
+      cardBrand,
+      cardLast4,
       stripeCustomerId: billing.stripeCustomerId,
       transactions: billing.transactions?.slice(0, 5).map(t => ({
         id: t.id,

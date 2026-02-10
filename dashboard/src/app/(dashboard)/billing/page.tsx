@@ -608,8 +608,6 @@ export default function BillingPage() {
                       <SelectValue placeholder="Select threshold" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="100">$1</SelectItem>
-                      <SelectItem value="250">$2.50</SelectItem>
                       <SelectItem value="500">$5</SelectItem>
                       <SelectItem value="1000">$10</SelectItem>
                       <SelectItem value="2500">$25</SelectItem>
@@ -664,7 +662,11 @@ export default function BillingPage() {
                   <CreditCard className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="font-medium">Card on file</p>
+                  <p className="font-medium">
+                    {contextBilling?.cardBrand && contextBilling?.cardLast4
+                      ? `${contextBilling.cardBrand.charAt(0).toUpperCase() + contextBilling.cardBrand.slice(1)} •••• ${contextBilling.cardLast4}`
+                      : "Card on file"}
+                  </p>
                   <p className="text-sm text-muted-foreground">
                     Ready for auto-reup
                   </p>

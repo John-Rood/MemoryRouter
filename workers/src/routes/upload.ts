@@ -17,6 +17,7 @@ import {
   ensureBalance,
   estimateUploadTokens,
   buildPaymentRequiredResponse,
+  checkAndReupIfNeeded,
 } from '../services/balance-checkpoint';
 import { createBalanceGuard } from '../services/balance-guard';
 
@@ -202,13 +203,23 @@ export function createUploadRouter() {
           const tokensUsed = estimateUploadTokens(lines.slice(0, result.processed));
           
           c.executionCtx.waitUntil(
-            balanceGuard.recordUsageAndDeduct(
-              memoryKey,
-              tokensUsed,
-              'upload',
-              'memoryrouter',
-              sessionId
-            ).catch(err => console.error('[Upload] Failed to record usage:', err))
+            (async () => {
+              // Deduct usage
+              await balanceGuard.recordUsageAndDeduct(
+                memoryKey,
+                tokensUsed,
+                'upload',
+                'memoryrouter',
+                sessionId
+              );
+              
+              // Check if balance fell below threshold — auto-reup if needed
+              await checkAndReupIfNeeded(
+                c.env.VECTORS_D1,
+                memoryKey,
+                c.env.STRIPE_SECRET_KEY
+              );
+            })().catch(err => console.error('[Upload] Failed to record usage or reup:', err))
           );
         }
 

@@ -2,6 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUsage, getMemoryKeys } from "@/lib/api/workers-client";
 
+// Generate array of last N days with 0s for missing data
+function fillMissingDays(
+  dailyUsage: Array<{ date: string; requests: number; tokens_in: number; tokens_out: number }>,
+  days: number = 7
+): Array<{ date: string; requests: number; tokens_in: number; tokens_out: number }> {
+  const result: Array<{ date: string; requests: number; tokens_in: number; tokens_out: number }> = [];
+  const usageMap = new Map(dailyUsage.map(d => [d.date, d]));
+  
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    const existing = usageMap.get(dateStr);
+    result.push(existing || { date: dateStr, requests: 0, tokens_in: 0, tokens_out: 0 });
+  }
+  
+  return result;
+}
+
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
   console.log(`[dashboard/stats] Request started`);
