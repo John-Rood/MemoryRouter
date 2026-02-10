@@ -18,20 +18,21 @@ import { useBilling } from "@/contexts/billing-context";
 function CardBrandIcon({ brand }: { brand: string | null }) {
   const brandLower = brand?.toLowerCase() || '';
   
+  // Light/bright colors for dark theme visibility
   if (brandLower === 'visa') {
-    return <FaCcVisa className="h-8 w-10 text-[#1A1F71]" />;
+    return <FaCcVisa className="h-8 w-10 text-[#1A8CFF]" />; // Bright blue
   }
   
   if (brandLower === 'mastercard') {
-    return <FaCcMastercard className="h-8 w-10 text-[#EB001B]" />;
+    return <FaCcMastercard className="h-8 w-10 text-[#FF5F00]" />; // Bright orange
   }
   
   if (brandLower === 'amex' || brandLower === 'american express') {
-    return <FaCcAmex className="h-8 w-10 text-[#006FCF]" />;
+    return <FaCcAmex className="h-8 w-10 text-[#2E9AFE]" />; // Bright blue
   }
   
   if (brandLower === 'discover') {
-    return <FaCcDiscover className="h-8 w-10 text-[#F47216]" />;
+    return <FaCcDiscover className="h-8 w-10 text-[#FF6000]" />; // Bright orange
   }
   
   // Default credit card icon
