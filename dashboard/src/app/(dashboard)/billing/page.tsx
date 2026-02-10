@@ -10,44 +10,28 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { CreditCard, Plus, TrendingUp, Wallet, History, Sparkles, CheckCircle2, XCircle, Loader2, RefreshCw, Activity, Zap, Save, DollarSign } from "lucide-react";
+import { FaCcVisa, FaCcMastercard, FaCcAmex, FaCcDiscover } from "react-icons/fa";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBilling } from "@/contexts/billing-context";
 
-// Card brand icons - simple styled text badges (reliable, can't break)
+// Card brand icons - using react-icons FontAwesome payment icons
 function CardBrandIcon({ brand }: { brand: string | null }) {
   const brandLower = brand?.toLowerCase() || '';
   
   if (brandLower === 'visa') {
-    return (
-      <div className="h-6 w-9 rounded bg-[#1A1F71] flex items-center justify-center">
-        <span className="text-white text-[9px] font-bold italic tracking-tight">VISA</span>
-      </div>
-    );
+    return <FaCcVisa className="h-8 w-10 text-[#1A1F71]" />;
   }
   
   if (brandLower === 'mastercard') {
-    return (
-      <div className="h-6 w-9 rounded bg-[#1a1a1a] flex items-center justify-center gap-0.5">
-        <div className="w-3 h-3 rounded-full bg-[#EB001B]" />
-        <div className="w-3 h-3 rounded-full bg-[#F79E1B] -ml-1.5" />
-      </div>
-    );
+    return <FaCcMastercard className="h-8 w-10 text-[#EB001B]" />;
   }
   
   if (brandLower === 'amex' || brandLower === 'american express') {
-    return (
-      <div className="h-6 w-9 rounded bg-[#006FCF] flex items-center justify-center">
-        <span className="text-white text-[8px] font-bold tracking-tight">AMEX</span>
-      </div>
-    );
+    return <FaCcAmex className="h-8 w-10 text-[#006FCF]" />;
   }
   
   if (brandLower === 'discover') {
-    return (
-      <div className="h-6 w-9 rounded bg-white border border-gray-300 flex items-center justify-center overflow-hidden">
-        <span className="text-[#F47216] text-[7px] font-bold tracking-tight">DISC</span>
-      </div>
-    );
+    return <FaCcDiscover className="h-8 w-10 text-[#F47216]" />;
   }
   
   // Default credit card icon
