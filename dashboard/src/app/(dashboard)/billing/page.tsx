@@ -19,7 +19,8 @@ function CardBrandIcon({ brand }: { brand: string | null }) {
   const brandLower = brand?.toLowerCase() || '';
   
   // White background behind icons so negative space (letters) shows white
-  const wrapperClass = "relative h-8 w-10 bg-white rounded-sm flex items-center justify-center";
+  // overflow-hidden clips the bg to icon edges
+  const wrapperClass = "relative h-7 w-9 bg-white rounded-[3px] overflow-hidden flex items-center justify-center";
   const iconClass = "h-8 w-10";
   
   if (brandLower === 'visa') {
