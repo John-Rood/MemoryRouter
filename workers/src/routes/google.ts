@@ -310,52 +310,42 @@ export function createGoogleRouter() {
       const providerTime = Date.now() - providerStartTime;
       const totalTime = Date.now() - startTime;
 
-      // Return native Google response with memory metadata
-      const responseData = await response.json() as Record<string, unknown>;
+      // Return native Google response UNTOUCHED — metadata in headers only
+      const responseBody = await response.arrayBuffer();
       
-      // Extract usage for billing (Google uses different field names)
-      const usageMetadata = responseData.usageMetadata as { 
-        promptTokenCount?: number; 
-        candidatesTokenCount?: number;
-      } | undefined;
-      const totalTokens = (usageMetadata?.promptTokenCount ?? 0) + (usageMetadata?.candidatesTokenCount ?? 0);
-      
-      // Bill on total tokens
-      if (c.env.VECTORS_D1 && c.env.METADATA_KV && totalTokens > 0) {
-        const balanceGuard = createBalanceGuard(c.env.METADATA_KV, c.env.VECTORS_D1);
-        c.executionCtx.waitUntil(
-          balanceGuard.recordUsageAndDeduct(
-            userContext.memoryKey.key,
-            totalTokens,
-            model,
-            'google',
-            undefined // sessionId
-          )
-        );
-        console.log(`[BILLING] Google native: ${userContext.memoryKey.key} - ${totalTokens} tokens`);
-      }
-      
-      // Add memory metadata
-      responseData._memory = {
-        key: userContext.memoryKey.key,
-        tokens_retrieved: memoryTokensUsed,
-        memories_retrieved: chunksRetrieved,
-      };
-      responseData._latency = {
-        mr_processing_ms: mrProcessingTime,
-        provider_ms: providerTime,
-        total_ms: totalTime,
-      };
+      // Background: extract usage for billing
+      c.executionCtx.waitUntil(
+        (async () => {
+          try {
+            const responseData = JSON.parse(new TextDecoder().decode(responseBody));
+            const usageMetadata = responseData.usageMetadata as { 
+              promptTokenCount?: number; 
+              candidatesTokenCount?: number;
+            } | undefined;
+            const totalTokens = (usageMetadata?.promptTokenCount ?? 0) + (usageMetadata?.candidatesTokenCount ?? 0);
+            
+            if (c.env.VECTORS_D1 && c.env.METADATA_KV && totalTokens > 0) {
+              const balanceGuard = createBalanceGuard(c.env.METADATA_KV, c.env.VECTORS_D1);
+              await balanceGuard.recordUsageAndDeduct(
+                userContext.memoryKey.key, totalTokens, model, 'google', undefined
+              );
+              console.log(`[BILLING] Google native: ${userContext.memoryKey.key} - ${totalTokens} tokens`);
+            }
+          } catch (err) {
+            console.error('[GOOGLE] Background billing error:', err);
+          }
+        })()
+      );
 
-      const headers = new Headers({
-        'Content-Type': 'application/json',
-        'X-MR-Processing-Ms': String(mrProcessingTime),
-        'X-Provider-Response-Ms': String(providerTime),
-        'X-Total-Ms': String(totalTime),
-        'X-Memory-Tokens-Retrieved': String(memoryTokensUsed),
-      });
+      // Headers only — no body modification
+      const headers = new Headers(response.headers);
+      headers.set('X-MR-Processing-Ms', String(mrProcessingTime));
+      headers.set('X-Provider-Response-Ms', String(providerTime));
+      headers.set('X-Total-Ms', String(totalTime));
+      headers.set('X-Memory-Tokens-Retrieved', String(memoryTokensUsed));
+      headers.set('X-Memory-Chunks-Retrieved', String(chunksRetrieved));
 
-      return new Response(JSON.stringify(responseData), {
+      return new Response(responseBody, {
         status: response.status,
         headers,
       });

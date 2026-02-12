@@ -3,12 +3,10 @@
  * Routes requests to OpenAI, Anthropic, or OpenRouter
  */
 
+// Google transforms removed — native endpoint only.
+// Keeping extractGoogleResponseContent for memory storage extraction.
 import {
-  transformToGoogle,
-  transformFromGoogle,
-  createGoogleStreamTransformer,
   extractGoogleResponseContent,
-  type GeminiResponse,
 } from '../formatters/google';
 
 export type Provider = 'openai' | 'anthropic' | 'openrouter' | 'google' | 'xai' | 'cerebras' | 'deepseek' | 'azure' | 'ollama' | 'mistral';
@@ -191,63 +189,12 @@ function mapToAnthropicModel(model: string): string {
   return ANTHROPIC_MODEL_MAP[baseName] || baseName;
 }
 
-/**
- * Transform Anthropic API response to OpenAI format
- */
-function transformAnthropicToOpenAI(anthropicResponse: Record<string, unknown>): Record<string, unknown> {
-  const content = anthropicResponse.content as Array<{ type: string; text?: string }> | undefined;
-  const textContent = content?.find(c => c.type === 'text')?.text || '';
-  const usage = anthropicResponse.usage as { input_tokens?: number; output_tokens?: number } | undefined;
-  
-  return {
-    id: `chatcmpl-${(anthropicResponse.id as string || '').slice(4)}`,
-    object: 'chat.completion',
-    created: Math.floor(Date.now() / 1000),
-    model: anthropicResponse.model,
-    choices: [{
-      index: 0,
-      message: {
-        role: 'assistant',
-        content: textContent,
-      },
-      finish_reason: anthropicResponse.stop_reason === 'end_turn' ? 'stop' : (anthropicResponse.stop_reason || 'stop'),
-    }],
-    usage: {
-      prompt_tokens: usage?.input_tokens || 0,
-      completion_tokens: usage?.output_tokens || 0,
-      total_tokens: (usage?.input_tokens || 0) + (usage?.output_tokens || 0),
-    },
-  };
-}
-
-/**
- * Transform request for Anthropic API
- */
-function transformForAnthropic(body: ChatCompletionRequest): Record<string, unknown> {
-  const messages = body.messages;
-  const systemMessages = messages.filter(m => m.role === 'system');
-  const otherMessages = messages.filter(m => m.role !== 'system');
-  
-  const anthropicBody: Record<string, unknown> = {
-    model: mapToAnthropicModel(body.model),
-    messages: otherMessages.map(m => ({
-      role: m.role,
-      content: m.content,
-    })),
-    max_tokens: body.max_tokens ?? 4096,
-    stream: body.stream ?? false,
-  };
-  
-  if (systemMessages.length > 0) {
-    anthropicBody.system = systemMessages.map(m => m.content).join('\n\n');
-  }
-  
-  if (body.temperature !== undefined) {
-    anthropicBody.temperature = body.temperature;
-  }
-  
-  return anthropicBody;
-}
+// NOTE: Anthropic and Google transforms REMOVED.
+// MemoryRouter is a pass-through wrapper — no format conversion.
+// Use native endpoints:
+//   - /v1/messages → Anthropic native
+//   - /v1/models/{model}:generateContent → Google native
+//   - /v1/chat/completions → OpenAI-compatible only
 
 /**
  * Transform request for OpenAI-compatible APIs
@@ -281,21 +228,19 @@ export async function forwardToProvider(
   
   switch (provider) {
     case 'anthropic':
-      transformedBody = transformForAnthropic(body);
-      endpoint = `${config.baseUrl}/messages`;
-      headers['anthropic-version'] = '2023-06-01';
-      // OAuth tokens (sk-ant-oat01-*) need Bearer auth + Claude Code stealth headers
-      // API keys (sk-ant-api*) use x-api-key
-      if (apiKey.startsWith('sk-ant-oat01-')) {
-        headers['Authorization'] = `Bearer ${apiKey}`;
-        headers['anthropic-beta'] = 'claude-code-20250219,oauth-2025-04-20';
-        headers['anthropic-dangerous-direct-browser-access'] = 'true';
-        headers['user-agent'] = 'claude-cli/1.0.0 (external, cli)';
-        headers['x-app'] = 'cli';
-      } else {
-        headers[config.authHeader] = apiKey;
-      }
-      break;
+      // Anthropic should use the native /v1/messages endpoint, not /v1/chat/completions.
+      // Reject here to prevent silent format mangling.
+      throw new Error(
+        'Anthropic models must use the native /v1/messages endpoint. ' +
+        '/v1/chat/completions is for OpenAI-compatible providers only.'
+      );
+    
+    case 'google':
+      // Google should use the native /v1/models/{model}:generateContent endpoint.
+      throw new Error(
+        'Google models must use the native /v1/models/{model}:generateContent endpoint. ' +
+        '/v1/chat/completions is for OpenAI-compatible providers only.'
+      );
     
     case 'xai':
       // xAI needs model name mapping
@@ -368,21 +313,7 @@ export async function forwardToProvider(
       break;
     }
     
-    case 'google': {
-      // Google Gemini uses completely different format
-      transformedBody = transformToGoogle(body) as unknown as Record<string, unknown>;
-      const modelName = getModelName(body.model);
-      // Use streamGenerateContent for streaming, generateContent for non-streaming
-      const action = body.stream ? 'streamGenerateContent' : 'generateContent';
-      endpoint = `${config.baseUrl}/models/${modelName}:${action}`;
-      // Gemini supports API key as header (x-goog-api-key) or query param
-      headers[config.authHeader] = apiKey;
-      // For streaming, add alt=sse query param
-      if (body.stream) {
-        endpoint += '?alt=sse';
-      }
-      break;
-    }
+    // case 'google': blocked above — must use native endpoint
     
     default:
       throw new Error(`Unknown provider: ${provider}`);
@@ -394,63 +325,9 @@ export async function forwardToProvider(
     body: JSON.stringify(transformedBody),
   });
   
-  // NOTE: We no longer transform Anthropic responses here.
-  // Use the native /v1/messages endpoint for Anthropic SDK compatibility.
-  // The /v1/chat/completions endpoint with anthropic/* models is for
-  // OpenAI SDK users who want to call Anthropic - they get OpenAI format.
-  
-  // For /v1/chat/completions with Anthropic models, still transform to OpenAI format
-  // (This is for OpenAI SDK users calling Anthropic through the OpenAI endpoint)
-  if (provider === 'anthropic' && response.ok && !body.stream) {
-    const anthropicResponse = await response.json() as Record<string, unknown>;
-    const openaiResponse = transformAnthropicToOpenAI(anthropicResponse);
-    
-    return new Response(JSON.stringify(openaiResponse), {
-      status: response.status,
-      statusText: response.statusText,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-  }
-  
-  // NOTE: Google transformation only applies to /v1/chat/completions endpoint.
-  // Native Google endpoint (/v1/models/{m}:generateContent) returns native format.
-  // This transformation is for OpenAI SDK users calling Google through OpenAI endpoint.
-  if (provider === 'google' && response.ok) {
-    const modelName = getModelName(body.model);
-    const requestId = `chatcmpl-${crypto.randomUUID().slice(0, 8)}`;
-    
-    if (body.stream && response.body) {
-      // Transform streaming response
-      const transformedStream = response.body.pipeThrough(
-        createGoogleStreamTransformer(modelName, requestId)
-      );
-      
-      return new Response(transformedStream, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-        },
-      });
-    } else {
-      // Transform non-streaming response
-      const geminiResponse = await response.json() as GeminiResponse;
-      const openaiResponse = transformFromGoogle(geminiResponse, modelName, requestId);
-      
-      return new Response(JSON.stringify(openaiResponse), {
-        status: response.status,
-        statusText: response.statusText,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-    }
-  }
-  
+  // No response transformations — pass through as-is.
+  // Anthropic and Google are blocked above (must use native endpoints).
+  // All providers reaching here are OpenAI-compatible and return OpenAI format natively.
   return response;
 }
 

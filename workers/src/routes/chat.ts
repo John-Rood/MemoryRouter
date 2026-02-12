@@ -502,7 +502,23 @@ export function createChatRouter() {
     
     providerStartTime = Date.now();
     
-    // Forward to provider
+    // Reject non-OpenAI-compatible providers — they must use native endpoints
+    if (provider === 'anthropic') {
+      return c.json({
+        error: 'Wrong endpoint for Anthropic models',
+        message: 'Use POST /v1/messages for Anthropic models (native format, no transformations).',
+        hint: 'Just change your base_url to https://api.memoryrouter.ai and use the Anthropic SDK natively.',
+      }, 400);
+    }
+    if (provider === 'google') {
+      return c.json({
+        error: 'Wrong endpoint for Google models',
+        message: 'Use POST /v1/models/{model}:generateContent for Google models (native format, no transformations).',
+        hint: 'Just change your base_url to https://api.memoryrouter.ai and use the Google SDK natively.',
+      }, 400);
+    }
+    
+    // Forward to provider (OpenAI-compatible only)
     let providerResponse: Response;
     try {
       providerResponse = await forwardToProvider(provider, apiKey, augmentedBody);
