@@ -19,6 +19,13 @@ import {
   buildPaymentRequiredResponse,
   checkAndReupIfNeeded,
 } from '../services/balance-checkpoint';
+import {
+  processBuffer,
+  chunkLargeContent,
+  estimateTokens,
+  formatMessageForChunk,
+  CHUNKING_CONFIG,
+} from '../services/chunker';
 import { createBalanceGuard } from '../services/balance-guard';
 
 interface UploadEnv {
@@ -43,6 +50,73 @@ interface UploadResult {
   errors: string[];
   vault: 'core' | 'session';
   sessionId?: string;
+}
+
+interface ChunkedItem {
+  content: string;
+  timestamp: number;
+}
+
+/**
+ * Process uploaded items through the chunker.
+ * - Accumulates small items until reaching target chunk size (~300 tokens)
+ * - Splits large items into multiple chunks with overlap
+ * - Returns ready-to-embed chunks
+ * 
+ * Token counting for billing should happen BEFORE this function,
+ * on the raw extracted text (lines[].content).
+ */
+function processItemsForUpload(lines: MemoryLine[]): ChunkedItem[] {
+  const chunks: ChunkedItem[] = [];
+  let buffer = '';
+  let bufferTimestamp = Date.now();
+  
+  for (const line of lines) {
+    // Format the line with role prefix (matches chat behavior)
+    // Map 'system' to 'user' since formatMessageForChunk only accepts user/assistant
+    const role = line.role === 'assistant' ? 'assistant' : 'user';
+    const formatted = formatMessageForChunk(
+      role,
+      line.content,
+      line.timestamp
+    );
+    
+    const lineTokens = estimateTokens(formatted);
+    
+    // If this single item is too large, chunk it directly
+    if (lineTokens > CHUNKING_CONFIG.TARGET_TOKENS * 1.5) {
+      // Flush any pending buffer first
+      if (buffer) {
+        chunks.push({ content: buffer, timestamp: bufferTimestamp });
+        buffer = '';
+      }
+      
+      // Split the large item
+      const splitChunks = chunkLargeContent(formatted);
+      for (const chunk of splitChunks) {
+        chunks.push({ content: chunk, timestamp: line.timestamp || Date.now() });
+      }
+    } else {
+      // Use processBuffer to accumulate small items
+      const result = processBuffer(buffer, formatted);
+      
+      // Add any complete chunks
+      for (const chunk of result.chunksToStore) {
+        chunks.push({ content: chunk, timestamp: bufferTimestamp });
+      }
+      
+      // Update buffer
+      buffer = result.newBuffer;
+      bufferTimestamp = line.timestamp || Date.now();
+    }
+  }
+  
+  // Flush remaining buffer
+  if (buffer && estimateTokens(buffer) > 0) {
+    chunks.push({ content: buffer, timestamp: bufferTimestamp });
+  }
+  
+  return chunks;
 }
 
 // Create router
@@ -151,7 +225,16 @@ export function createUploadRouter() {
     }
 
     // ========================================================================
-    // Step 3: Store memories in vault
+    // Step 3: Process items through chunker
+    // ========================================================================
+    // Token counting for billing already happened above (estimateUploadTokens on raw lines)
+    // Now we chunk for optimal embedding/retrieval
+    const chunks = processItemsForUpload(lines);
+    
+    console.log(`[Upload] Processed ${lines.length} items → ${chunks.length} chunks`);
+
+    // ========================================================================
+    // Step 4: Store chunks in vault
     // ========================================================================
     const result: UploadResult = {
       success: true,
@@ -172,14 +255,14 @@ export function createUploadRouter() {
         const doId = c.env.VAULT_DO.idFromName(vaultName);
         const stub = c.env.VAULT_DO.get(doId);
 
-        // Send batch to DO for processing (embeddings via Cloudflare AI)
+        // Send CHUNKS to DO for embedding (not raw items)
         const response = await stub.fetch(new Request('https://do/bulk-store', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            items: lines,
+            items: chunks,
           }),
         }));
 
@@ -198,9 +281,13 @@ export function createUploadRouter() {
         result.errors = doResult.errors || [];
 
         // Record usage (deduct tokens) after successful storage
+        // Use original token count (tokensNeeded) - billing is on raw input, not chunks
         if (result.processed > 0) {
           const balanceGuard = createBalanceGuard(c.env.METADATA_KV, c.env.VECTORS_D1);
-          const tokensUsed = estimateUploadTokens(lines.slice(0, result.processed));
+          // Bill on original input tokens (counted before chunking)
+          // If some chunks failed, prorate based on success rate
+          const successRate = result.processed / chunks.length;
+          const tokensUsed = Math.ceil(tokensNeeded * successRate);
           
           c.executionCtx.waitUntil(
             (async () => {
@@ -247,14 +334,16 @@ export function createUploadRouter() {
       vault: result.vault,
       sessionId: result.sessionId,
       stats: {
-        total: lines.length,
-        processed: result.processed,
+        inputItems: lines.length,
+        inputTokens: tokensNeeded,
+        chunks: chunks.length,
+        stored: result.processed,
         failed: result.failed,
       },
       errors: result.errors.length > 0 ? result.errors.slice(0, 10) : undefined, // Limit error output
       message: result.success 
-        ? `Successfully stored ${result.processed} memories`
-        : `Stored ${result.processed} memories, ${result.failed} failed`,
+        ? `Stored ${result.processed} chunks from ${lines.length} items (${tokensNeeded} tokens)`
+        : `Stored ${result.processed}/${chunks.length} chunks, ${result.failed} failed`,
     });
   });
 
