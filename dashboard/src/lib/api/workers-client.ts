@@ -153,6 +153,7 @@ export async function updateBilling(userId: string, data: {
   autoReupTriggerCents?: number;
   monthlyCapCents?: number | null;
   stripeCustomerId?: string;
+  stripeDefaultPaymentMethodId?: string;
   hasPaymentMethod?: boolean;
 }): Promise<{ billing: Billing }> {
   return apiCall(`/api/users/${userId}/billing`, {

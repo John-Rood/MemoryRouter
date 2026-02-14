@@ -163,13 +163,20 @@ export async function POST(request: NextRequest) {
                   default_payment_method: paymentMethodId,
                 },
               });
+              
+              // Update billing with payment method ID AND hasPaymentMethod
+              await updateBilling(userId, {
+                stripeDefaultPaymentMethodId: paymentMethodId,
+                hasPaymentMethod: true,
+              });
+              console.log(`✅ Updated stripe_default_payment_method_id=${paymentMethodId} and hasPaymentMethod=true for user ${userId}`);
+            } else {
+              // No payment method, just update hasPaymentMethod
+              await updateBilling(userId, {
+                hasPaymentMethod: true,
+              });
+              console.log(`✅ Updated hasPaymentMethod=true for user ${userId}`);
             }
-            
-            // Update hasPaymentMethod in database
-            await updateBilling(userId, {
-              hasPaymentMethod: true,
-            });
-            console.log(`✅ Updated hasPaymentMethod=true for user ${userId}`);
           }
         } catch (error) {
           console.error(`Failed to update payment method status:`, error);
@@ -202,11 +209,12 @@ export async function POST(request: NextRequest) {
               },
             });
             
-            // Update hasPaymentMethod in database
+            // Update billing with payment method ID AND hasPaymentMethod
             await updateBilling(userId, {
+              stripeDefaultPaymentMethodId: paymentMethod.id,
               hasPaymentMethod: true,
             });
-            console.log(`✅ Updated hasPaymentMethod=true for user ${userId}`);
+            console.log(`✅ Updated stripe_default_payment_method_id=${paymentMethod.id} and hasPaymentMethod=true for user ${userId}`);
           }
         } catch (error) {
           console.error(`Failed to update payment method status:`, error);
@@ -230,7 +238,7 @@ export async function POST(request: NextRequest) {
           const paymentMethods = await stripe.paymentMethods.list({
             customer: previousCustomerId,
             type: "card",
-            limit: 1,
+            limit: 5,
           });
 
           const customer = await stripe.customers.retrieve(previousCustomerId);
@@ -239,13 +247,25 @@ export async function POST(request: NextRequest) {
             const hasRemainingMethods = paymentMethods.data.length > 0;
 
             if (!hasRemainingMethods) {
-              // No payment methods left — update database
+              // No payment methods left — clear both fields
               await updateBilling(userId, {
+                stripeDefaultPaymentMethodId: "",
                 hasPaymentMethod: false,
               });
-              console.log(`⚠️ Updated hasPaymentMethod=false for user ${userId} (no cards remaining)`);
+              console.log(`⚠️ Cleared payment method for user ${userId} (no cards remaining)`);
             } else {
-              console.log(`✅ User ${userId} still has ${paymentMethods.data.length} payment methods`);
+              // Still has methods — update to first remaining one as default
+              const newDefault = paymentMethods.data[0].id;
+              await stripe.customers.update(previousCustomerId, {
+                invoice_settings: {
+                  default_payment_method: newDefault,
+                },
+              });
+              await updateBilling(userId, {
+                stripeDefaultPaymentMethodId: newDefault,
+                hasPaymentMethod: true,
+              });
+              console.log(`✅ User ${userId} still has ${paymentMethods.data.length} payment methods, updated default to ${newDefault}`);
             }
           }
         } catch (error) {

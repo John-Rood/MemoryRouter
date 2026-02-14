@@ -206,6 +206,7 @@ users.post('/:userId/billing', async (c) => {
     autoReupTriggerCents?: number;
     monthlyCapCents?: number | null;
     stripeCustomerId?: string;
+    stripeDefaultPaymentMethodId?: string;
     hasPaymentMethod?: boolean;
   };
 
@@ -235,6 +236,10 @@ users.post('/:userId/billing', async (c) => {
     if (body.stripeCustomerId !== undefined) {
       updates.push('stripe_customer_id = ?');
       values.push(body.stripeCustomerId);
+    }
+    if (body.stripeDefaultPaymentMethodId !== undefined) {
+      updates.push('stripe_default_payment_method_id = ?');
+      values.push(body.stripeDefaultPaymentMethodId);
     }
     if (body.hasPaymentMethod !== undefined) {
       updates.push('has_payment_method = ?');
