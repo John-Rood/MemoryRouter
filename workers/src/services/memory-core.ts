@@ -48,6 +48,12 @@ export interface StoreResult {
   chunksStored: number;
   tokensStored: number;
   bufferedTokens: number;
+  /** Whether D1 mirroring succeeded for all chunks */
+  d1Synced: boolean;
+  /** Number of chunks successfully mirrored to D1 */
+  d1ChunksSynced: number;
+  /** D1 sync errors (if any) */
+  d1Errors?: string[];
 }
 
 export interface ClearMemoryParams {
@@ -141,8 +147,13 @@ export async function storeConversation(params: StoreConversationParams): Promis
   }
 
   if (contentToProcess.length === 0) {
-    return { stored: false, chunksStored: 0, tokensStored: 0, bufferedTokens: 0 };
+    return { stored: false, chunksStored: 0, tokensStored: 0, bufferedTokens: 0, d1Synced: true, d1ChunksSynced: 0 };
   }
+
+  // Track D1 mirror operations for sync status
+  const d1MirrorPromises: Promise<{ success: boolean; error?: string }>[] = [];
+  let d1ChunksSynced = 0;
+  const d1Errors: string[] = [];
 
   try {
     // Process each content item through DO's chunking buffer
@@ -173,59 +184,94 @@ export async function storeConversation(params: StoreConversationParams): Promis
           chunksStored++;
           tokensStored += Math.ceil(chunkContent.length / 4);
 
-          // Mirror to D1 (fire-and-forget via waitUntil)
+          // Mirror to D1 — track success/failure
           if (d1) {
             const timestamp = Date.now();
             const tokenCount = Math.ceil(chunkContent.length / 4);
-            ctx.waitUntil(
-              mirrorToD1(
-                d1,
-                memoryKey,
-                vaultType,
-                sessionId,
-                chunkContent,
-                item.role,
-                embedding,
-                timestamp,
-                tokenCount,
-                model
-              ).catch(err => console.error('[MEMORY-CORE] D1 mirror failed:', err))
-            );
+            const mirrorPromise = mirrorToD1(
+              d1,
+              memoryKey,
+              vaultType,
+              sessionId,
+              chunkContent,
+              item.role,
+              embedding,
+              timestamp,
+              tokenCount,
+              model
+            )
+              .then(() => ({ success: true }))
+              .catch(err => {
+                console.error('[MEMORY-CORE] D1 mirror failed:', err);
+                return { success: false, error: String(err) };
+              });
+            
+            d1MirrorPromises.push(mirrorPromise);
           }
         }
       }
     }
 
-    // Mirror buffer state to D1 (fire-and-forget)
+    // Mirror buffer state to D1
     if (d1 && bufferedTokens >= 0) {
       const bufferRes = await stub.fetch(new Request('https://do/buffer', { method: 'GET' }));
       if (bufferRes.ok) {
         const bufferData = await bufferRes.json() as { content: string; tokenCount: number; lastUpdated: number };
         if (bufferData.content) {
-          ctx.waitUntil(
-            mirrorBufferToD1(
-              d1,
-              memoryKey,
-              vaultType,
-              sessionId,
-              bufferData.content,
-              bufferData.tokenCount,
-              bufferData.lastUpdated || Date.now()
-            ).catch(err => console.error('[MEMORY-CORE] D1 buffer mirror failed:', err))
-          );
+          const bufferMirrorPromise = mirrorBufferToD1(
+            d1,
+            memoryKey,
+            vaultType,
+            sessionId,
+            bufferData.content,
+            bufferData.tokenCount,
+            bufferData.lastUpdated || Date.now()
+          )
+            .then(() => ({ success: true }))
+            .catch(err => {
+              console.error('[MEMORY-CORE] D1 buffer mirror failed:', err);
+              return { success: false, error: String(err) };
+            });
+          
+          d1MirrorPromises.push(bufferMirrorPromise);
+        }
+      }
+    }
+
+    // Wait for all D1 operations and track results
+    if (d1MirrorPromises.length > 0) {
+      const results = await Promise.all(d1MirrorPromises);
+      for (const result of results) {
+        if (result.success) {
+          d1ChunksSynced++;
+        } else if (result.error) {
+          d1Errors.push(result.error);
         }
       }
     }
   } catch (error) {
     console.error('[MEMORY-CORE] Store failed:', error);
-    return { stored: false, chunksStored: 0, tokensStored: 0, bufferedTokens: 0 };
+    return { 
+      stored: false, 
+      chunksStored: 0, 
+      tokensStored: 0, 
+      bufferedTokens: 0,
+      d1Synced: false,
+      d1ChunksSynced: 0,
+      d1Errors: [String(error)],
+    };
   }
+
+  const d1Synced = d1 ? (d1Errors.length === 0 && d1ChunksSynced === d1MirrorPromises.length) : true;
 
   return {
     stored: chunksStored > 0,
     chunksStored,
     tokensStored,
     bufferedTokens,
+    d1Synced,
+    d1ChunksSynced,
+    ...(d1Errors.length > 0 ? { d1Errors } : {}),
   };
 }
 

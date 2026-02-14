@@ -515,10 +515,16 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
       stored: 0,
       failed: 0,
       errors: [] as string[],
+      d1Synced: true,
+      d1ChunksSynced: 0,
+      d1Errors: [] as string[],
     };
 
     // D1 binding for mirroring (may be undefined)
     const d1 = this.env.VECTORS_D1;
+    
+    // Track D1 mirror promises for sync status
+    const d1MirrorPromises: Promise<{ success: boolean; error?: string }>[] = [];
 
     // Batch size for Cloudflare AI embedding calls
     const EMBED_BATCH_SIZE = 100;
@@ -615,10 +621,9 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
             this.vaultState!.vectorCount++;
             results.stored++;
 
-            // Mirror to D1 for cold-start fallback (fire-and-forget)
-            // Matches the pattern used by /store (chat) handler
+            // Mirror to D1 for cold-start fallback — track success/failure
             if (d1 && memoryKey) {
-              mirrorToD1(
+              const mirrorPromise = mirrorToD1(
                 d1,
                 memoryKey,
                 vaultType,
@@ -630,7 +635,14 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
                 tokenCount,
                 undefined, // model
                 contentHash
-              ).catch(err => console.error('[D1-MIRROR] Bulk store failed:', err));
+              )
+                .then(() => ({ success: true }))
+                .catch(err => {
+                  console.error('[D1-MIRROR] Bulk store failed:', err);
+                  return { success: false, error: String(err) };
+                });
+              
+              d1MirrorPromises.push(mirrorPromise);
             }
 
           } catch (itemError) {
@@ -648,6 +660,23 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
         results.errors.push(`Batch ${batchStart}: ${(batchError as Error).message}`);
       }
     }
+
+    // Wait for all D1 mirror operations and track results
+    if (d1MirrorPromises.length > 0) {
+      const d1Results = await Promise.all(d1MirrorPromises);
+      for (const result of d1Results) {
+        if (result.success) {
+          results.d1ChunksSynced++;
+        } else if (result.error) {
+          results.d1Errors.push(result.error);
+        }
+      }
+      results.d1Synced = results.d1Errors.length === 0 && results.d1ChunksSynced === d1MirrorPromises.length;
+    }
+
+    // Clean up empty arrays before returning
+    if (results.errors.length === 0) delete (results as Record<string, unknown>).errors;
+    if (results.d1Errors.length === 0) delete (results as Record<string, unknown>).d1Errors;
 
     return Response.json(results);
   }

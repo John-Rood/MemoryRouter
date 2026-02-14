@@ -88,6 +88,9 @@ import type { MemoryRetrievalResult as DOMemoryRetrievalResult } from '../types/
 // D1 imports (intermediate state for cold start fallback)
 import { searchD1, mirrorToD1, mirrorBufferToD1, getBufferFromD1 } from '../services/d1-search';
 
+// Centralized memory storage (with D1 sync tracking)
+import { storeConversation } from '../services/memory-core';
+
 // Storage job type for queue (embeddings use Cloudflare AI, no external key needed)
 export interface StorageJob {
   type: 'store-conversation';
@@ -930,6 +933,17 @@ function getProviderKey(
  * 
  * Chunks are ~300 tokens with 30 token overlap for context continuity.
  */
+/**
+ * Store conversation via centralized memory-core service.
+ * 
+ * This wrapper calls storeConversation() from memory-core.ts, which:
+ * - Handles DO storage with intelligent chunking
+ * - Mirrors to D1 with sync tracking
+ * - Returns d1Synced status
+ * 
+ * The caller (chat route) uses ctx.waitUntil() so this runs async,
+ * but internally we await D1 operations and log sync status.
+ */
 async function storeConversationDO(
   doNamespace: DurableObjectNamespace,
   memoryKey: string,
@@ -942,96 +956,33 @@ async function storeConversationDO(
   d1?: D1Database,
   ctx?: ExecutionContext
 ): Promise<void> {
-  const requestId = crypto.randomUUID();
-  const stub = resolveVaultForStore(doNamespace, memoryKey, sessionId);
+  // Use centralized storeConversation from memory-core.ts
+  // This ensures consistent D1 mirroring with sync tracking
+  if (!embeddingConfig || !ctx) {
+    console.error('[CHAT-STORE] Missing embeddingConfig or ctx, skipping store');
+    return;
+  }
   
-  try {
-    // Collect content to process — ONLY last user message + new assistant response
-    // (users send full history each request; we don't want to re-process old messages)
-    const contentToProcess: Array<{ role: string; content: string }> = [];
-    
-    if (options.storeInput) {
-      // Find the last user message only
-      const lastUserMsg = [...messages]
-        .reverse()
-        .find(m => m.role === 'user' && m.memory !== false);
-      
-      if (lastUserMsg) {
-        contentToProcess.push({ role: 'user', content: lastUserMsg.content });
-      }
+  const result = await storeConversation({
+    doNamespace,
+    memoryKey,
+    sessionId,
+    messages,
+    assistantResponse,
+    model,
+    options,
+    embeddingConfig,
+    d1,
+    ctx,
+  });
+  
+  // Log D1 sync status for monitoring
+  if (result.stored) {
+    if (result.d1Synced) {
+      console.log(`[CHAT-STORE] Stored ${result.chunksStored} chunks, D1 synced: ${result.d1ChunksSynced}`);
+    } else {
+      console.warn(`[CHAT-STORE] Stored ${result.chunksStored} chunks, D1 SYNC FAILED:`, result.d1Errors);
     }
-    
-    if (options.storeResponse && assistantResponse) {
-      contentToProcess.push({ role: 'assistant', content: assistantResponse });
-    }
-    
-    // Process each piece of content through the chunking buffer
-    for (const item of contentToProcess) {
-      // Send to DO's chunking endpoint
-      const chunkResponse = await stub.fetch(new Request('https://do/store-chunked', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: item.content,
-          role: item.role,
-        }),
-      }));
-      
-      const chunkResult = await chunkResponse.json() as {
-        chunksToEmbed: string[];
-        bufferTokens: number;
-      };
-      
-      // Embed and store each complete chunk via Cloudflare AI
-      for (const chunkContent of chunkResult.chunksToEmbed) {
-        const embedding = await generateEmbedding(chunkContent, undefined, undefined, embeddingConfig);
-        const storeResult = await storeToVault(stub, embedding, chunkContent, item.role, model, requestId);
-        
-        // Mirror to D1 for cold start fallback (fire-and-forget)
-        if (d1 && storeResult.stored && ctx) {
-          const timestamp = Date.now();
-          const tokenCount = Math.ceil(chunkContent.length / 4);
-          ctx.waitUntil(
-            mirrorToD1(
-              d1,
-              memoryKey,
-              sessionId ? 'session' : 'core',
-              sessionId,
-              chunkContent,
-              item.role,
-              embedding,
-              timestamp,
-              tokenCount,
-              model
-            ).catch(err => console.error('[D1-MIRROR] Failed:', err))
-          );
-        }
-      }
-      
-      // Mirror buffer state to D1 (fire-and-forget)
-      if (d1 && ctx && chunkResult.bufferTokens >= 0) {
-        // Fetch current buffer content
-        const bufferRes = await stub.fetch(new Request('https://do/buffer', { method: 'GET' }));
-        if (bufferRes.ok) {
-          const bufferData = await bufferRes.json() as { content: string; tokenCount: number; lastUpdated: number };
-          if (bufferData.content) {
-            ctx.waitUntil(
-              mirrorBufferToD1(
-                d1,
-                memoryKey,
-                sessionId ? 'session' : 'core',
-                sessionId,
-                bufferData.content,
-                bufferData.tokenCount,
-                bufferData.lastUpdated || Date.now()
-              ).catch(err => console.error('[D1-BUFFER-MIRROR] Failed:', err))
-            );
-          }
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Failed to store conversation (DO):', error);
   }
 }
 
