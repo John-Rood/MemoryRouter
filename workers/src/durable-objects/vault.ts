@@ -660,8 +660,89 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
         this.saveVaultState();
 
       } catch (batchError) {
-        results.failed += batch.length;
-        results.errors.push(`Batch ${batchStart}: ${(batchError as Error).message}`);
+        // Batch embedding failed — fall back to one-by-one embedding
+        // to isolate and skip the bad item(s) instead of losing the whole batch
+        console.log(`[Bulk-Store] Batch ${batchStart} failed (${(batchError as Error).message}), retrying items individually`);
+        
+        for (let i = 0; i < batch.length; i++) {
+          const item = batch[i];
+          const role = item.role || 'user';
+          const text = `[${role.toUpperCase()}] ${item.content}`;
+          
+          try {
+            const singleEmbedding = await this.getEmbeddings([text]);
+            if (!singleEmbedding[0]) {
+              results.failed++;
+              results.errors.push(`Item ${batchStart + i}: empty embedding`);
+              continue;
+            }
+            
+            const embedding = singleEmbedding[0];
+            const timestamp = item.timestamp || Date.now();
+
+            // Generate content hash
+            const encoder = new TextEncoder();
+            const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(item.content));
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const contentHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
+
+            // Skip duplicates
+            const existingRows = this.ctx.storage.sql.exec(
+              `SELECT id FROM items WHERE content_hash = ?`, contentHash
+            ).toArray();
+            if (existingRows.length > 0) {
+              results.stored++;
+              continue;
+            }
+
+            // Get next ID
+            const maxIdRows = this.ctx.storage.sql.exec(`SELECT MAX(id) as max_id FROM vectors`).toArray();
+            const nextId = ((maxIdRows[0]?.max_id as number) ?? 0) + 1;
+            const tokenCount = Math.ceil(item.content.length / 4);
+            const embeddingArray = new Float32Array(embedding);
+
+            if (this.vaultState!.vectorCount === 0 && 
+                (this.vaultState!.dims === 0 || embeddingArray.length !== this.vaultState!.dims)) {
+              this.vaultState!.dims = embeddingArray.length;
+              this.index = new WorkersVectorIndex(this.vaultState!.dims);
+            }
+
+            this.ctx.storage.sql.exec(
+              `INSERT INTO vectors (id, embedding, timestamp, dims) VALUES (?, ?, ?, ?)`,
+              nextId, embeddingArray.buffer as ArrayBuffer, timestamp, embeddingArray.length
+            );
+            this.ctx.storage.sql.exec(
+              `INSERT INTO items (id, content, role, content_hash, timestamp, token_count) VALUES (?, ?, ?, ?, ?, ?)`,
+              nextId, item.content, role, contentHash, timestamp, tokenCount
+            );
+            this.index!.add(nextId, embeddingArray, timestamp);
+            this.vaultState!.vectorCount++;
+            results.stored++;
+
+            // D1 mirror
+            if (d1 && memoryKey) {
+              const mirrorPromise = mirrorToD1(
+                d1, memoryKey, vaultType, sessionId, item.content, role,
+                embeddingArray, timestamp, tokenCount, undefined, contentHash
+              ).then(() => ({ success: true }))
+               .catch(err => {
+                 console.error('[D1-MIRROR] Fallback store failed:', err);
+                 return { success: false, error: String(err) };
+               });
+              d1MirrorPromises.push(mirrorPromise);
+            }
+          } catch (itemError) {
+            results.failed++;
+            const errMsg = (itemError as Error).message;
+            const contentPreview = item.content.slice(0, 50).replace(/\n/g, ' ');
+            results.errors.push(`Item ${batchStart + i}: ${errMsg} [${contentPreview}...]`);
+            console.error(`[Bulk-Store] Item ${batchStart + i} failed individually: ${errMsg}`);
+          }
+        }
+        
+        // Save after fallback processing
+        this.vaultState!.lastAccess = Date.now();
+        this.saveVaultState();
       }
     }
 

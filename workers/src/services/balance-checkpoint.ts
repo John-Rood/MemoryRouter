@@ -86,7 +86,6 @@ export async function chargeStripe(
     off_session: 'true',
     confirm: 'true',
     statement_descriptor: 'MEMORYROUTER',
-    statement_descriptor_suffix: 'AI',
     description: `MemoryRouter auto-reup: $${(amountCents / 100).toFixed(2)}`,
     'metadata[type]': 'auto_reup',
     'metadata[source]': 'balance_checkpoint',
