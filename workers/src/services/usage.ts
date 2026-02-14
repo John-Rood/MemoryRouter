@@ -22,7 +22,7 @@ export interface UsageEvent {
   latencyEmbeddingMs?: number;
   latencyMrMs?: number;
   latencyProviderMs?: number;
-  requestType?: 'chat' | 'completion' | 'embedding';
+  requestType?: 'chat' | 'completion' | 'embedding' | 'messages' | 'upload';
 }
 
 export interface UsageSummary {

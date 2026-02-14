@@ -255,15 +255,20 @@ export function createUploadRouter() {
         const doId = c.env.VAULT_DO.idFromName(vaultName);
         const stub = c.env.VAULT_DO.get(doId);
 
-        // Send CHUNKS to DO for embedding (not raw items)
+        // Send CHUNKS to DO as JSONL (one JSON object per line)
+        // JSONL avoids the ~5000 item limit of JSON arrays in TS
+        const jsonlBody = chunks
+          .map(chunk => JSON.stringify(chunk))
+          .join('\n');
+        
         const response = await stub.fetch(new Request('https://do/bulk-store', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/x-jsonl',
+            'X-Memory-Key': memoryKey,
+            'X-Session-ID': sessionId || '',
           },
-          body: JSON.stringify({
-            items: chunks,
-          }),
+          body: jsonlBody,
         }));
 
         if (!response.ok) {
@@ -291,7 +296,7 @@ export function createUploadRouter() {
           
           c.executionCtx.waitUntil(
             (async () => {
-              // Deduct usage
+              // Deduct usage from billing
               await balanceGuard.recordUsageAndDeduct(
                 memoryKey,
                 tokensUsed,
@@ -299,6 +304,21 @@ export function createUploadRouter() {
                 'memoryrouter',
                 sessionId
               );
+              
+              // Record to usage_events table (for dashboard stats)
+              const { recordUsage } = await import('../services/usage');
+              await recordUsage(c.env.VECTORS_D1, {
+                timestamp: Date.now(),
+                memoryKey,
+                sessionId,
+                model: 'upload',
+                provider: 'memoryrouter',
+                inputTokens: tokensUsed,
+                outputTokens: 0,
+                memoryTokensRetrieved: 0,
+                memoryTokensInjected: result.processed,
+                requestType: 'embedding' as const,
+              });
               
               // Check if balance fell below threshold — auto-reup if needed
               await checkAndReupIfNeeded(

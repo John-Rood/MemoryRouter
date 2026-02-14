@@ -87,8 +87,6 @@ WORKING_WINDOW_DAYS = "3"
 LONGTERM_WINDOW_DAYS = "90"
 # Feature flag: use Durable Objects instead of KV+R2
 USE_DURABLE_OBJECTS = "true"
-# Max vectors held in DO memory (override per env)
-MAX_IN_MEMORY_VECTORS = "5000"
 
 # ========== STAGING ENVIRONMENT ==========
 # Deploy: npx wrangler deploy --env staging
@@ -145,7 +143,6 @@ binding = "AI"
 ENVIRONMENT = "staging"
 USE_DURABLE_OBJECTS = "true"
 DEFAULT_EMBEDDING_DIMS = "1024"
-MAX_IN_MEMORY_VECTORS = "5000"
 HOT_WINDOW_HOURS = "4"
 WORKING_WINDOW_DAYS = "3"
 LONGTERM_WINDOW_DAYS = "90"
@@ -205,7 +202,6 @@ binding = "AI"
 ENVIRONMENT = "production"
 USE_DURABLE_OBJECTS = "true"
 DEFAULT_EMBEDDING_DIMS = "1024"
-MAX_IN_MEMORY_VECTORS = "5000"
 HOT_WINDOW_HOURS = "4"
 WORKING_WINDOW_DAYS = "3"
 LONGTERM_WINDOW_DAYS = "90"

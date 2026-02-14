@@ -18,15 +18,16 @@
 import { DurableObject } from 'cloudflare:workers';
 import { WorkersVectorIndex } from '../vectors/workers-index';
 import type { VaultState } from '../types/do';
+import { mirrorToD1 } from '../services/d1-search';
 
 /**
  * Env interface for the Durable Object
  * The DO receives the same env as the Worker
  */
 interface VaultEnv {
-  MAX_IN_MEMORY_VECTORS?: string;
   DEFAULT_EMBEDDING_DIMS?: string;
   AI?: Ai; // Cloudflare Workers AI binding
+  VECTORS_D1?: D1Database; // D1 for cold-start fallback search
   [key: string]: unknown;
 }
 
@@ -101,8 +102,7 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
       `SELECT value FROM meta WHERE key = 'vault_state'`
     ).toArray();
 
-    const defaultDims = parseInt(this.env.DEFAULT_EMBEDDING_DIMS || '3072', 10);
-    const defaultMax = parseInt(this.env.MAX_IN_MEMORY_VECTORS || '5000', 10);
+    const defaultDims = parseInt(this.env.DEFAULT_EMBEDDING_DIMS || '1024', 10);
 
     if (stateRows.length > 0) {
       this.vaultState = JSON.parse(stateRows[0].value as string);
@@ -110,7 +110,6 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
       this.vaultState = {
         vectorCount: 0,
         dims: defaultDims,
-        maxInMemory: defaultMax,
         lastAccess: Date.now(),
         createdAt: Date.now(),
       };
@@ -126,10 +125,7 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
     if (totalVectors === 0) {
       // If dims is 0, skip creating index — will be created on first store
       if (this.vaultState!.dims > 0) {
-        this.index = new WorkersVectorIndex(
-          this.vaultState!.dims,
-          this.vaultState!.maxInMemory
-        );
+        this.index = new WorkersVectorIndex(this.vaultState!.dims);
       } else {
         this.index = null;
       }
@@ -137,20 +133,13 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
       return;
     }
 
-    // Load most recent vectors into memory (KRONOS: recency matters)
-    const loadCount = Math.min(totalVectors, this.vaultState!.maxInMemory);
-
+    // Load ALL vectors into memory — no cap
     const rows = this.ctx.storage.sql.exec(
       `SELECT id, embedding, timestamp FROM vectors 
-       ORDER BY timestamp DESC 
-       LIMIT ?`,
-      loadCount
+       ORDER BY timestamp DESC`
     ).toArray();
 
-    this.index = new WorkersVectorIndex(
-      this.vaultState!.dims,
-      this.vaultState!.maxInMemory
-    );
+    this.index = new WorkersVectorIndex(this.vaultState!.dims, rows.length || undefined);
 
     for (const row of rows) {
       const embedding = new Float32Array(row.embedding as ArrayBuffer);
@@ -408,10 +397,7 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
         (this.vaultState!.dims === 0 || embedding.length !== this.vaultState!.dims)) {
       this.vaultState!.dims = embedding.length;
       // Create/recreate index with correct dims
-      this.index = new WorkersVectorIndex(
-        this.vaultState!.dims,
-        this.vaultState!.maxInMemory
-      );
+      this.index = new WorkersVectorIndex(this.vaultState!.dims);
     }
 
     // Generate content hash for dedup
@@ -473,14 +459,8 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
       tokenCount
     );
 
-    // Add to in-memory index (instant searchability!)
-    if (this.index!.size < this.vaultState!.maxInMemory) {
-      this.index!.add(nextId, embedding, timestamp);
-    } else {
-      // Memory full — evict oldest from in-memory, then add
-      this.evictOldestFromMemory();
-      this.index!.add(nextId, embedding, timestamp);
-    }
+    // Add to in-memory index (instant searchability — no cap)
+    this.index!.add(nextId, embedding, timestamp);
 
     // Update vault state
     this.vaultState!.vectorCount++;
@@ -502,20 +482,32 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
    * Used by /v1/memory/upload endpoint.
    * 
    * REQUEST:  { items: Array<{content, role?, timestamp?}> }
+   * HEADERS:  X-Memory-Key (required), X-Session-ID (optional)
    * RESPONSE: { stored: number, failed: number, errors?: string[] }
    */
   private async handleBulkStore(request: Request): Promise<Response> {
     this.loadVectorsIntoMemory();
 
-    const body = await request.json() as {
-      items: Array<{
-        content: string;
-        role?: string;
-        timestamp?: number;
-      }>;
-    };
+    // Get memory key and session ID from headers (for D1 mirroring)
+    const memoryKey = request.headers.get('X-Memory-Key');
+    const sessionId = request.headers.get('X-Session-ID') || undefined;
+    const vaultType: 'core' | 'session' = sessionId ? 'session' : 'core';
 
-    if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
+    // Parse JSONL body (one JSON object per line) — avoids ~5000 item JSON array limit
+    const rawBody = await request.text();
+    const items: Array<{ content: string; role?: string; timestamp?: number }> = [];
+    
+    for (const line of rawBody.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        items.push(JSON.parse(trimmed));
+      } catch {
+        // Skip malformed lines
+      }
+    }
+
+    if (items.length === 0) {
       return Response.json({ error: 'No items provided' }, { status: 400 });
     }
 
@@ -525,9 +517,11 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
       errors: [] as string[],
     };
 
+    // D1 binding for mirroring (may be undefined)
+    const d1 = this.env.VECTORS_D1;
+
     // Batch size for Cloudflare AI embedding calls
     const EMBED_BATCH_SIZE = 100;
-    const items = body.items;
 
     // Process in batches
     for (let batchStart = 0; batchStart < items.length; batchStart += EMBED_BATCH_SIZE) {
@@ -559,10 +553,7 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
             if (this.vaultState!.vectorCount === 0 && 
                 (this.vaultState!.dims === 0 || embedding.length !== this.vaultState!.dims)) {
               this.vaultState!.dims = embedding.length;
-              this.index = new WorkersVectorIndex(
-                this.vaultState!.dims,
-                this.vaultState!.maxInMemory
-              );
+              this.index = new WorkersVectorIndex(this.vaultState!.dims);
             }
 
             // Generate content hash
@@ -618,13 +609,29 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
               tokenCount
             );
 
-            // Add to in-memory index
-            if (this.index!.size < this.vaultState!.maxInMemory) {
-              this.index!.add(nextId, embeddingArray, timestamp);
-            }
+            // Add to in-memory index (no cap)
+            this.index!.add(nextId, embeddingArray, timestamp);
 
             this.vaultState!.vectorCount++;
             results.stored++;
+
+            // Mirror to D1 for cold-start fallback (fire-and-forget)
+            // Matches the pattern used by /store (chat) handler
+            if (d1 && memoryKey) {
+              mirrorToD1(
+                d1,
+                memoryKey,
+                vaultType,
+                sessionId,
+                item.content,
+                role,
+                embeddingArray,
+                timestamp,
+                tokenCount,
+                undefined, // model
+                contentHash
+              ).catch(err => console.error('[D1-MIRROR] Bulk store failed:', err));
+            }
 
           } catch (itemError) {
             results.failed++;
@@ -907,7 +914,6 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
       totalVectors: this.vaultState!.vectorCount,
       hotVectors: this.index?.size ?? 0,
       dims: this.vaultState!.dims,
-      maxInMemory: this.vaultState!.maxInMemory,
       oldestItem: countRow?.oldest ?? null,
       newestItem: countRow?.newest ?? null,
       totalTokens: countRow?.total_tokens ?? 0,
@@ -978,17 +984,13 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
 
     this.vaultState = {
       vectorCount: 0,
-      dims: this.vaultState?.dims ?? 3072,
-      maxInMemory: this.vaultState?.maxInMemory ?? 5000,
+      dims: this.vaultState?.dims ?? 1024,
       lastAccess: Date.now(),
       createdAt: this.vaultState?.createdAt ?? Date.now(),
     };
     this.saveVaultState();
 
-    this.index = new WorkersVectorIndex(
-      this.vaultState.dims,
-      this.vaultState.maxInMemory
-    );
+    this.index = new WorkersVectorIndex(this.vaultState.dims);
     this.loaded = true;
 
     return Response.json({ cleared: true });
@@ -1007,13 +1009,9 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
     this.ctx.storage.sql.exec(`DELETE FROM pending_buffer`);
 
     // Reset state — allow new dimensions on first store
-    const defaultMax = parseInt(this.env.MAX_IN_MEMORY_VECTORS || '5000', 10);
-    const newDims = 0; // Will be set on first store
-    
     this.vaultState = {
       vectorCount: 0,
-      dims: newDims,
-      maxInMemory: defaultMax,
+      dims: 0, // Will be set on first store
       lastAccess: Date.now(),
       createdAt: Date.now(),
     };
@@ -1042,7 +1040,7 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
 
     return Response.json({
       vectorCount: vectors.length,
-      dims: this.vaultState?.dims ?? 3072,
+      dims: this.vaultState?.dims ?? 1024,
       data: vectors.map(v => ({
         id: v.id,
         timestamp: v.timestamp,
@@ -1218,32 +1216,4 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
       .filter((r): r is NonNullable<typeof r> => r !== null);
   }
 
-  /**
-   * Evict oldest vectors from in-memory index.
-   * SQLite retains all data — this only affects the hot cache.
-   */
-  private evictOldestFromMemory(): void {
-    const keepCount = Math.floor(this.vaultState!.maxInMemory * 0.9);
-
-    const rows = this.ctx.storage.sql.exec(
-      `SELECT id, embedding, timestamp FROM vectors 
-       ORDER BY timestamp DESC 
-       LIMIT ?`,
-      keepCount
-    ).toArray();
-
-    this.index = new WorkersVectorIndex(
-      this.vaultState!.dims,
-      this.vaultState!.maxInMemory
-    );
-
-    for (const row of rows) {
-      const embedding = new Float32Array(row.embedding as ArrayBuffer);
-      this.index.add(
-        row.id as number,
-        embedding,
-        row.timestamp as number
-      );
-    }
-  }
 }

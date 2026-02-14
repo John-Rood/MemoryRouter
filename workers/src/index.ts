@@ -50,7 +50,6 @@ interface Env extends ChatEnv, RateLimitEnv {
   // Durable Objects
   VAULT_DO: DurableObjectNamespace;
   USE_DURABLE_OBJECTS: string;
-  MAX_IN_MEMORY_VECTORS: string;
   // Queues
   STORAGE_QUEUE: Queue<StorageJob>;
   // Admin

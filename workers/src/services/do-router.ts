@@ -100,27 +100,4 @@ export function resolveVaultForStore(
   return namespace.get(id);
 }
 
-/**
- * Calculate max in-memory vectors based on embedding dimensions.
- * 
- * Memory budget: 128 MB per DO isolate
- *   - V8 engine overhead: ~20 MB
- *   - SQLite in-process: ~10 MB
- *   - Code + JS heap: ~10 MB
- *   - Safety margin: ~8 MB
- *   Available: ~80 MB
- * 
- * Per vector: (dims × 4) + 76 bytes (ID + timestamp + JS overhead)
- * 
- * Conservative limits (75% safety factor):
- *   3072 dims: ~5,000 vectors
- *   1536 dims: ~10,000 vectors
- *   768 dims:  ~20,000 vectors
- */
-export function calculateMaxInMemory(dims: number): number {
-  const AVAILABLE_MB = 80;
-  const AVAILABLE_BYTES = AVAILABLE_MB * 1024 * 1024;
-  const BYTES_PER_VECTOR = (dims * 4) + 76;
-  const theoretical = Math.floor(AVAILABLE_BYTES / BYTES_PER_VECTOR);
-  return Math.floor(theoretical * 0.75);
-}
+// No artificial vector limits — index grows dynamically within DO memory budget

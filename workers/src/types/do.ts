@@ -102,7 +102,6 @@ export interface DOStatsResponse {
   totalVectors: number;
   hotVectors: number;
   dims: number;
-  maxInMemory: number;
   oldestItem: number | null;
   newestItem: number | null;
   totalTokens: number;
@@ -204,7 +203,6 @@ export interface MemoryRetrievalResult {
 export interface VaultState {
   vectorCount: number;
   dims: number;
-  maxInMemory: number;
   lastAccess: number;
   createdAt: number;
 }

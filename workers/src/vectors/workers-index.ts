@@ -6,7 +6,8 @@
  * - Float32Array for memory efficiency
  * - Brute-force kNN with cosine similarity
  * - Binary serialization for KV/R2 storage
- * - Optimized for 3072 dimensions (text-embedding-3-large)
+ * - Dynamic growth — no artificial vector cap
+ * - Optimized for 1024 dimensions (BGE-M3)
  */
 
 export interface VectorMetadata {
@@ -26,25 +27,29 @@ export interface SearchResult {
   metadata?: VectorMetadata;
 }
 
+const DEFAULT_INITIAL_CAPACITY = 1024;
+const GROWTH_FACTOR = 2;
+
 /**
  * Pure TypeScript vector index optimized for Cloudflare Workers
  * Uses flat Float32Array storage for memory efficiency
+ * Grows dynamically — no artificial limits
  */
 export class WorkersVectorIndex {
   private vectors: Float32Array;
   private ids: Uint32Array;
   private timestamps: Float64Array;
   private count: number = 0;
+  private capacity: number;
   private readonly dims: number;
-  private readonly maxVectors: number;
 
-  constructor(dims: number = 3072, maxVectors: number = 5000) {
+  constructor(dims: number = 1024, initialCapacity: number = DEFAULT_INITIAL_CAPACITY) {
     this.dims = dims;
-    this.maxVectors = maxVectors;
-    // Pre-allocate for speed - flat packed arrays
-    this.vectors = new Float32Array(maxVectors * dims);
-    this.ids = new Uint32Array(maxVectors);
-    this.timestamps = new Float64Array(maxVectors);
+    this.capacity = initialCapacity;
+    // Pre-allocate initial capacity — will grow as needed
+    this.vectors = new Float32Array(initialCapacity * dims);
+    this.ids = new Uint32Array(initialCapacity);
+    this.timestamps = new Float64Array(initialCapacity);
   }
 
   /**
@@ -67,6 +72,27 @@ export class WorkersVectorIndex {
   get byteLength(): number {
     // Header (12 bytes) + ids (count * 4) + timestamps (count * 8) + vectors (count * dims * 4)
     return 12 + this.count * 4 + this.count * 8 + this.count * this.dims * 4;
+  }
+
+  /**
+   * Grow internal arrays when capacity is reached
+   */
+  private grow(): void {
+    const newCapacity = this.capacity * GROWTH_FACTOR;
+
+    const newVectors = new Float32Array(newCapacity * this.dims);
+    newVectors.set(this.vectors.subarray(0, this.count * this.dims));
+    this.vectors = newVectors;
+
+    const newIds = new Uint32Array(newCapacity);
+    newIds.set(this.ids.subarray(0, this.count));
+    this.ids = newIds;
+
+    const newTimestamps = new Float64Array(newCapacity);
+    newTimestamps.set(this.timestamps.subarray(0, this.count));
+    this.timestamps = newTimestamps;
+
+    this.capacity = newCapacity;
   }
 
   /**
@@ -101,14 +127,14 @@ export class WorkersVectorIndex {
   }
 
   /**
-   * Add a vector to the index
+   * Add a vector to the index — grows dynamically if needed
    * @param id Unique identifier for the vector
    * @param vector The embedding vector (will be normalized)
    * @param timestamp Unix timestamp for KRONOS filtering
    */
   add(id: number, vector: Float32Array | number[], timestamp: number = Date.now()): void {
-    if (this.count >= this.maxVectors) {
-      throw new Error(`Index full: max ${this.maxVectors} vectors`);
+    if (this.count >= this.capacity) {
+      this.grow();
     }
 
     // Convert to Float32Array if needed
@@ -316,16 +342,16 @@ export class WorkersVectorIndex {
 
   /**
    * Merge another index into this one
-   * Used when combining shards
+   * Grows dynamically if needed
    */
   merge(other: WorkersVectorIndex): void {
     if (other.dims !== this.dims) {
       throw new Error(`Dimension mismatch: ${this.dims} vs ${other.dims}`);
     }
     
-    const newCount = this.count + other.count;
-    if (newCount > this.maxVectors) {
-      throw new Error(`Merged index would exceed max: ${newCount} > ${this.maxVectors}`);
+    // Grow to fit
+    while (this.count + other.count > this.capacity) {
+      this.grow();
     }
     
     // Copy vectors
@@ -339,7 +365,7 @@ export class WorkersVectorIndex {
       this.timestamps[this.count + i] = other.timestamps[i];
     }
     
-    this.count = newCount;
+    this.count += other.count;
   }
 
   /**
@@ -381,6 +407,6 @@ export class WorkersVectorIndex {
 /**
  * Create an empty index with default settings
  */
-export function createIndex(dims: number = 3072, maxVectors: number = 5000): WorkersVectorIndex {
-  return new WorkersVectorIndex(dims, maxVectors);
+export function createIndex(dims: number = 1024, initialCapacity: number = DEFAULT_INITIAL_CAPACITY): WorkersVectorIndex {
+  return new WorkersVectorIndex(dims, initialCapacity);
 }
