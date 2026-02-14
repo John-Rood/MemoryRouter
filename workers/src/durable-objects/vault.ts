@@ -527,7 +527,11 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
     const d1MirrorPromises: Promise<{ success: boolean; error?: string }>[] = [];
 
     // Batch size for Cloudflare AI embedding calls
-    const EMBED_BATCH_SIZE = 100;
+    // BGE-M3 has a 60K token context limit per call. Our chunks target ~300
+    // estimated tokens (at 4 chars/token), but BGE-M3's SentencePiece tokenizer
+    // counts ~2-3 chars/token, so chunks are ~500-600 real tokens.
+    // At 25 chunks: 25 × 600 = 15K tokens — safe margin under 60K limit.
+    const EMBED_BATCH_SIZE = 25;
 
     // Process in batches
     for (let batchStart = 0; batchStart < items.length; batchStart += EMBED_BATCH_SIZE) {
