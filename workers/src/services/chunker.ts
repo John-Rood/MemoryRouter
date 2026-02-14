@@ -58,13 +58,28 @@ function splitAtTokens(text: string, targetTokens: number): { chunk: string; rem
   if (splitPoint > 0 && splitPoint < text.length) {
     const code = text.charCodeAt(splitPoint - 1);
     if (code >= 0xD800 && code <= 0xDBFF) {
-      // Last char of chunk is a high surrogate — include its low surrogate too
       splitPoint++;
     }
     const nextCode = text.charCodeAt(splitPoint);
     if (nextCode >= 0xDC00 && nextCode <= 0xDFFF) {
-      // First char of remainder is a low surrogate — move split back
       splitPoint--;
+    }
+  }
+
+  // Never split in the middle of a word — snap to nearest word boundary
+  if (splitPoint > 0 && splitPoint < text.length &&
+      text[splitPoint] !== ' ' && text[splitPoint - 1] !== ' ') {
+    // We're mid-word. Look backward for a space first (prefer shorter chunk).
+    const backSpace = text.lastIndexOf(' ', splitPoint);
+    if (backSpace > targetChars * 0.5) {
+      splitPoint = backSpace + 1; // Split after the space
+    } else {
+      // No space behind us within reason — look forward
+      const fwdSpace = text.indexOf(' ', splitPoint);
+      if (fwdSpace !== -1 && fwdSpace < splitPoint + tokensToChars(50)) {
+        splitPoint = fwdSpace + 1;
+      }
+      // If no space anywhere close, accept the mid-word split (very rare)
     }
   }
   
