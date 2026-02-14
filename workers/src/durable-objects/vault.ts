@@ -538,7 +538,9 @@ export class VaultDurableObject extends DurableObject<VaultEnv> {
       const batch = items.slice(batchStart, batchStart + EMBED_BATCH_SIZE);
       const texts = batch.map(item => {
         const role = item.role || 'user';
-        return `[${role.toUpperCase()}] ${item.content}`;
+        const raw = `[${role.toUpperCase()}] ${item.content}`;
+        // Strip orphaned surrogates and replacement chars that crash BGE-M3
+        return raw.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]|\uFFFD/g, '');
       });
 
       try {

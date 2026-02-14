@@ -52,6 +52,21 @@ function splitAtTokens(text: string, targetTokens: number): { chunk: string; rem
       splitPoint = spaceIndex;
     }
   }
+
+  // Avoid splitting in the middle of a surrogate pair (emoji, CJK, etc.)
+  // High surrogate: 0xD800-0xDBFF, Low surrogate: 0xDC00-0xDFFF
+  if (splitPoint > 0 && splitPoint < text.length) {
+    const code = text.charCodeAt(splitPoint - 1);
+    if (code >= 0xD800 && code <= 0xDBFF) {
+      // Last char of chunk is a high surrogate — include its low surrogate too
+      splitPoint++;
+    }
+    const nextCode = text.charCodeAt(splitPoint);
+    if (nextCode >= 0xDC00 && nextCode <= 0xDFFF) {
+      // First char of remainder is a low surrogate — move split back
+      splitPoint--;
+    }
+  }
   
   return {
     chunk: text.slice(0, splitPoint).trim(),
