@@ -6,16 +6,32 @@
  * 
  * Endpoint: POST /v1/models/{model}:generateContent
  * 
- * This enables true drop-in replacement for Google SDK users.
+ * REFACTORED: Now uses shared services for memory operations.
+ * - DO+D1 race (was D1-only)
+ * - Memory STORAGE (was missing entirely!)
+ * - Truncation support (was missing)
+ * - KRONOS config from env (was hardcoded)
+ * - Full billing flow (uses shared services)
+ * - Memory options parsing (was missing)
+ * - Debug headers (consistent with other providers)
  */
 
 import { Hono } from 'hono';
 import { UserContext } from '../middleware/auth';
-import { searchD1, getBufferFromD1 } from '../services/d1-search';
-import { generateEmbedding, EmbeddingConfig } from '../services/providers';
 import { formatMemoryContext } from '../formatters';
-import { DEFAULT_KRONOS_CONFIG } from '../types/do';
-import { createBalanceGuard } from '../services/balance-guard';
+
+// Import new modular services
+import { parseMemoryOptionsFromHeaders, shouldRetrieveMemory, shouldStoreMemory, type MemoryOptions } from '../services/memory-options';
+import { getKronosConfig } from '../services/kronos-config';
+import { searchMemory, extractQueryFromGoogle, type SearchResult } from '../services/memory-retrieval';
+import { storeConversation } from '../services/memory-core';
+import { checkBillingBeforeRequest, recordBillingAfterRequest, isBillingEnabled, createBillingContext } from '../services/memory-billing';
+import { buildMemoryHeaders, type LatencyMetrics, type MemoryMetrics } from '../services/debug-headers';
+import { truncateToFit, rebuildRetrievalResult, type TruncationResult } from '../services/truncation';
+import type { EmbeddingConfig } from '../services/providers';
+
+// Billing toggle (matches other providers)
+const BILLING_ENABLED = true;
 
 // Google/Gemini types
 interface GeminiPart {
@@ -59,6 +75,11 @@ interface GoogleEnv {
   USE_DURABLE_OBJECTS: string;
   DEFAULT_EMBEDDING_MODEL: string;
   STORAGE_QUEUE: Queue<unknown>;
+  STRIPE_SECRET_KEY?: string;
+  // KRONOS config from env
+  HOT_WINDOW_HOURS?: string;
+  WORKING_WINDOW_DAYS?: string;
+  LONGTERM_WINDOW_DAYS?: string;
 }
 
 type Variables = {
@@ -73,22 +94,6 @@ function getPartsText(parts: GeminiPart[]): string {
     .filter(p => p.text)
     .map(p => p.text!)
     .join('\n');
-}
-
-/**
- * Build query for embedding from Gemini contents
- */
-function buildQuery(contents: GeminiContent[]): string {
-  const parts: string[] = [];
-  
-  const recentContents = contents.slice(-3);
-  for (const content of recentContents) {
-    const text = getPartsText(content.parts);
-    const role = content.role === 'model' ? 'ASSISTANT' : 'USER';
-    parts.push(`[${role}] ${text}`);
-  }
-  
-  return parts.join('\n\n');
 }
 
 /**
@@ -115,6 +120,25 @@ function injectMemoryIntoSystemInstruction(
   };
 }
 
+/**
+ * Extract assistant response text from Gemini response
+ */
+function extractAssistantResponse(responseData: {
+  candidates?: Array<{
+    content?: {
+      parts?: GeminiPart[];
+    };
+  }>;
+}): string {
+  const candidates = responseData.candidates;
+  if (!candidates || candidates.length === 0) return '';
+  
+  const content = candidates[0].content;
+  if (!content?.parts) return '';
+  
+  return getPartsText(content.parts);
+}
+
 export function createGoogleRouter() {
   const router = new Hono<{ Bindings: GoogleEnv; Variables: Variables }>();
 
@@ -124,6 +148,8 @@ export function createGoogleRouter() {
    */
   router.post('/models/:modelAction', async (c) => {
     const startTime = Date.now();
+    const ctx = c.executionCtx;
+    const env = c.env;
     const userContext = c.get('userContext');
     
     // Parse model and action from path (e.g., "gemini-1.5-pro:generateContent")
@@ -150,6 +176,10 @@ export function createGoogleRouter() {
         },
       }, 400);
     }
+
+    // Parse memory options from headers (NEW!)
+    const memoryOptions = parseMemoryOptionsFromHeaders(c.req.raw.headers);
+    const sessionId = memoryOptions.sessionId;
 
     // Parse request body
     let body: GeminiRequest;
@@ -188,70 +218,123 @@ export function createGoogleRouter() {
       }, 401);
     }
 
+    // ==================== BILLING CHECK (NEW: using shared service) ====================
+    if (BILLING_ENABLED && isBillingEnabled(env)) {
+      const billingCtx = createBillingContext(env);
+      if (billingCtx) {
+        const billingResult = await checkBillingBeforeRequest(billingCtx, userContext.memoryKey.key, 1000);
+        if (!billingResult.allowed) {
+          return new Response(JSON.stringify({
+            error: {
+              code: 402,
+              message: 'Payment required',
+              status: 'PAYMENT_REQUIRED',
+            },
+          }), { status: 402, headers: { 'Content-Type': 'application/json' } });
+        }
+      }
+    }
+
+    // ==================== MEMORY RETRIEVAL (using shared service) ====================
+    let searchResult: SearchResult | null = null;
+    let truncationResult: TruncationResult | null = null;
     let memoryTokensUsed = 0;
     let chunksRetrieved = 0;
     let augmentedSystemInstruction = body.systemInstruction;
     
-    // Memory injection via D1 (reliable path)
-    try {
-      if (c.env.VECTORS_D1) {
+    if (shouldRetrieveMemory(memoryOptions) && env.VECTORS_D1) {
+      try {
+        // Get KRONOS config from env (NEW: was hardcoded!)
+        const kronosConfig = getKronosConfig(env);
+        
         // Build query from contents
-        const query = buildQuery(body.contents);
+        const query = extractQueryFromGoogle(body.contents);
         
-        // Generate embedding
-        const embeddingConfig: EmbeddingConfig = {
-          ai: c.env.AI,
-        };
-        const embedding = await generateEmbedding(
+        // Search memory with DO+D1 race (NEW: was D1-only!)
+        const embeddingConfig: EmbeddingConfig = { ai: env.AI };
+        searchResult = await searchMemory({
+          doNamespace: env.USE_DURABLE_OBJECTS === 'true' ? env.VAULT_DO : undefined,
+          d1: env.VECTORS_D1,
+          memoryKey: userContext.memoryKey.key,
+          sessionId,
           query,
-          '',
-          c.env.DEFAULT_EMBEDDING_MODEL || 'bge-base-en-v1.5',
-          embeddingConfig
-        );
+          limit: memoryOptions.contextLimit,
+          embeddingConfig,
+          kronosConfig,
+          useRace: env.USE_DURABLE_OBJECTS === 'true',
+        });
         
-        // Search D1 for relevant chunks
-        const retrieval = await searchD1(
-          c.env.VECTORS_D1,
-          embedding,
-          userContext.memoryKey.key,
-          undefined, // sessionId
-          30, // limit
-          DEFAULT_KRONOS_CONFIG
-        );
-        
-        // Also get buffer
-        const buffer = await getBufferFromD1(c.env.VECTORS_D1, userContext.memoryKey.key, undefined);
-        
-        if (retrieval.tokenCount > 0 || (buffer && buffer.tokenCount > 0)) {
+        if (searchResult.chunks.length > 0) {
+          chunksRetrieved = searchResult.chunks.length;
+          memoryTokensUsed = searchResult.tokenCount;
+          
+          // ===== TRUNCATION (NEW: was missing!) =====
+          // Convert contents to ChatMessage format for truncation
+          const chatMessages = body.contents.map(content => ({
+            role: content.role === 'model' ? 'assistant' as const : 'user' as const,
+            content: getPartsText(content.parts),
+          }));
+          
+          truncationResult = truncateToFit(
+            chatMessages,
+            { chunks: searchResult.chunks, tokenCount: searchResult.tokenCount, windowBreakdown: searchResult.windowBreakdown },
+            `google/${model}`,
+            memoryTokensUsed
+          );
+          
+          if (truncationResult.truncated) {
+            console.log('[GOOGLE] Truncation applied:', {
+              tokensRemoved: truncationResult.tokensRemoved,
+              chunksRemaining: truncationResult.chunks.length,
+            });
+            // Rebuild search result with truncated chunks
+            const retrieval = rebuildRetrievalResult(
+              { chunks: searchResult.chunks, tokenCount: searchResult.tokenCount, windowBreakdown: searchResult.windowBreakdown },
+              truncationResult.chunks
+            );
+            memoryTokensUsed = retrieval.tokenCount;
+            chunksRetrieved = retrieval.chunks.length;
+            
+            // Update searchResult with truncated data
+            searchResult = {
+              ...searchResult,
+              chunks: retrieval.chunks,
+              tokenCount: retrieval.tokenCount,
+              windowBreakdown: retrieval.windowBreakdown,
+            };
+          }
+          
           // Format context
           const contextParts: string[] = [];
           
-          if (buffer && buffer.content && buffer.tokenCount > 0) {
-            contextParts.push(`[MOST RECENT]\n${buffer.content}`);
-            memoryTokensUsed += buffer.tokenCount;
+          // Buffer goes first (most recent)
+          if (searchResult.buffer?.content && searchResult.buffer.tokenCount > 0) {
+            contextParts.push(`[MOST RECENT]\n${searchResult.buffer.content}`);
           }
           
-          if (retrieval.chunks.length > 0) {
-            const pastFormatted = retrieval.chunks
+          // Then retrieved chunks
+          if (searchResult.chunks.filter(c => c.source !== 'buffer').length > 0) {
+            const pastFormatted = searchResult.chunks
+              .filter(c => c.source !== 'buffer')
               .map((chunk, i) => `[${i + 1}] ${chunk.content}`)
               .join('\n\n');
             contextParts.push(pastFormatted);
-            memoryTokensUsed += retrieval.tokenCount;
-            chunksRetrieved = retrieval.chunks.length;
           }
           
-          const contextText = contextParts.join('\n\n---\n\n');
-          
-          // Inject into system instruction
-          augmentedSystemInstruction = injectMemoryIntoSystemInstruction(
-            body.systemInstruction,
-            contextText,
-            `google/${model}`
-          );
+          if (contextParts.length > 0) {
+            const contextText = contextParts.join('\n\n---\n\n');
+            
+            // Inject into system instruction
+            augmentedSystemInstruction = injectMemoryIntoSystemInstruction(
+              body.systemInstruction,
+              contextText,
+              `google/${model}`
+            );
+          }
         }
+      } catch (error) {
+        console.error('[GOOGLE] Memory retrieval error:', error);
       }
-    } catch (error) {
-      console.error('[GOOGLE] Memory retrieval error:', error);
     }
 
     const mrProcessingTime = Date.now() - startTime;
@@ -278,10 +361,93 @@ export function createGoogleRouter() {
           body: JSON.stringify(googleBody),
         });
 
-        // Return native streaming response with latency headers
+        const providerTime = Date.now() - providerStartTime;
+        const totalTime = Date.now() - startTime;
+
+        // Build memory headers (NEW: consistent with other providers!)
+        const latencyMetrics: LatencyMetrics = {
+          startTime,
+          embeddingMs: searchResult?.metrics.embeddingMs,
+          raceMs: searchResult?.metrics.raceMs,
+          raceWinner: searchResult?.metrics.winner,
+          mrProcessingMs: mrProcessingTime,
+          providerResponseMs: providerTime,
+          totalMs: totalTime,
+        };
+        
+        const memoryMetrics: MemoryMetrics = {
+          tokensRetrieved: memoryTokensUsed,
+          chunksRetrieved,
+          tokensInjected: memoryTokensUsed,
+        };
+
         const headers = new Headers(response.headers);
-        headers.set('X-MR-Processing-Ms', String(mrProcessingTime));
-        headers.set('X-Memory-Tokens-Retrieved', String(memoryTokensUsed));
+        const memoryHeaders = buildMemoryHeaders(latencyMetrics, memoryMetrics, memoryOptions, truncationResult);
+        for (const [key, value] of memoryHeaders.entries()) {
+          headers.set(key, value);
+        }
+
+        // Background: capture response for storage (NEW: was completely missing!)
+        if (shouldStoreMemory(memoryOptions) && env.USE_DURABLE_OBJECTS === 'true' && env.VAULT_DO && response.body) {
+          const [clientStream, storageStream] = response.body.tee();
+          
+          ctx.waitUntil(
+            (async () => {
+              try {
+                const reader = storageStream.getReader();
+                const decoder = new TextDecoder();
+                let fullText = '';
+
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  const chunk = decoder.decode(value, { stream: true });
+                  
+                  // Parse SSE events to extract text content
+                  const lines = chunk.split('\n');
+                  for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                      const data = JSON.parse(line.slice(6));
+                      const text = extractAssistantResponse(data);
+                      if (text) fullText += text;
+                    } catch { /* ignore parse errors */ }
+                  }
+                }
+                reader.releaseLock();
+
+                // Store to memory using shared service
+                if (fullText) {
+                  await storeConversation({
+                    doNamespace: env.VAULT_DO,
+                    memoryKey: userContext.memoryKey.key,
+                    sessionId,
+                    messages: body.contents.map(c => ({
+                      role: c.role === 'model' ? 'assistant' : 'user',
+                      content: getPartsText(c.parts),
+                    })),
+                    assistantResponse: fullText,
+                    model: `google/${model}`,
+                    options: {
+                      storeInput: memoryOptions.storeInput,
+                      storeResponse: memoryOptions.storeResponse,
+                    },
+                    embeddingConfig: { ai: env.AI },
+                    d1: env.VECTORS_D1,
+                    ctx,
+                  });
+                }
+              } catch (error) {
+                console.error('[GOOGLE] Streaming storage error:', error);
+              }
+            })()
+          );
+
+          return new Response(clientStream, {
+            status: response.status,
+            headers,
+          });
+        }
 
         return new Response(response.body, {
           status: response.status,
@@ -313,37 +479,85 @@ export function createGoogleRouter() {
       // Return native Google response UNTOUCHED — metadata in headers only
       const responseBody = await response.arrayBuffer();
       
-      // Background: extract usage for billing
-      c.executionCtx.waitUntil(
+      // Build memory headers
+      const latencyMetrics: LatencyMetrics = {
+        startTime,
+        embeddingMs: searchResult?.metrics.embeddingMs,
+        raceMs: searchResult?.metrics.raceMs,
+        raceWinner: searchResult?.metrics.winner,
+        mrProcessingMs: mrProcessingTime,
+        providerResponseMs: providerTime,
+        totalMs: totalTime,
+      };
+      
+      const memoryMetrics: MemoryMetrics = {
+        tokensRetrieved: memoryTokensUsed,
+        chunksRetrieved,
+        tokensInjected: memoryTokensUsed,
+      };
+
+      const headers = new Headers(response.headers);
+      const memoryHeaders = buildMemoryHeaders(latencyMetrics, memoryMetrics, memoryOptions, truncationResult);
+      for (const [key, value] of memoryHeaders.entries()) {
+        headers.set(key, value);
+      }
+
+      // Background: extract response for storage + billing (NEW: storage was completely missing!)
+      ctx.waitUntil(
         (async () => {
           try {
             const responseData = JSON.parse(new TextDecoder().decode(responseBody));
+            
+            // Extract assistant response for storage
+            const assistantText = extractAssistantResponse(responseData);
+            
+            // Store to memory (NEW: was completely missing!)
+            if (assistantText && shouldStoreMemory(memoryOptions) && env.USE_DURABLE_OBJECTS === 'true' && env.VAULT_DO) {
+              await storeConversation({
+                doNamespace: env.VAULT_DO,
+                memoryKey: userContext.memoryKey.key,
+                sessionId,
+                messages: body.contents.map(c => ({
+                  role: c.role === 'model' ? 'assistant' : 'user',
+                  content: getPartsText(c.parts),
+                })),
+                assistantResponse: assistantText,
+                model: `google/${model}`,
+                options: {
+                  storeInput: memoryOptions.storeInput,
+                  storeResponse: memoryOptions.storeResponse,
+                },
+                embeddingConfig: { ai: env.AI },
+                d1: env.VECTORS_D1,
+                ctx,
+              });
+            }
+            
+            // Billing (using shared service)
             const usageMetadata = responseData.usageMetadata as { 
               promptTokenCount?: number; 
               candidatesTokenCount?: number;
             } | undefined;
             const totalTokens = (usageMetadata?.promptTokenCount ?? 0) + (usageMetadata?.candidatesTokenCount ?? 0);
             
-            if (c.env.VECTORS_D1 && c.env.METADATA_KV && totalTokens > 0) {
-              const balanceGuard = createBalanceGuard(c.env.METADATA_KV, c.env.VECTORS_D1);
-              await balanceGuard.recordUsageAndDeduct(
-                userContext.memoryKey.key, totalTokens, model, 'google', undefined
-              );
-              console.log(`[BILLING] Google native: ${userContext.memoryKey.key} - ${totalTokens} tokens`);
+            if (BILLING_ENABLED && totalTokens > 0) {
+              const billingCtx = createBillingContext(env);
+              if (billingCtx) {
+                await recordBillingAfterRequest({
+                  ctx: billingCtx,
+                  userId: userContext.memoryKey.key,
+                  totalTokens,
+                  model: `google/${model}`,
+                  provider: 'google',
+                  sessionId,
+                });
+              }
             }
           } catch (err) {
-            console.error('[GOOGLE] Background billing error:', err);
+            console.error('[GOOGLE] Background processing error:', err);
           }
         })()
       );
-
-      // Headers only — no body modification
-      const headers = new Headers(response.headers);
-      headers.set('X-MR-Processing-Ms', String(mrProcessingTime));
-      headers.set('X-Provider-Response-Ms', String(providerTime));
-      headers.set('X-Total-Ms', String(totalTime));
-      headers.set('X-Memory-Tokens-Retrieved', String(memoryTokensUsed));
-      headers.set('X-Memory-Chunks-Retrieved', String(chunksRetrieved));
 
       return new Response(responseBody, {
         status: response.status,

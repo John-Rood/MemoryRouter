@@ -278,6 +278,58 @@ export async function clearBufferFromD1(
   `).bind(memoryKey, vaultType, sessionId || '').run();
 }
 
+// ==================== NEW: Clear and Purge Functions ====================
+// These functions fix the D1 sync bug — D1 is now cleared alongside DO
+
+/**
+ * Clear all chunks for a memory key from D1.
+ * Called by memory-core.ts when clearing memory.
+ * 
+ * THIS FIXES THE D1 SYNC BUG!
+ */
+export async function clearChunksFromD1(
+  db: D1Database,
+  memoryKey: string,
+  sessionId?: string
+): Promise<number> {
+  let result;
+  
+  if (sessionId) {
+    // Clear specific session
+    result = await db.prepare(`
+      DELETE FROM chunks 
+      WHERE memory_key = ? AND session_id = ?
+    `).bind(memoryKey, sessionId).run();
+  } else {
+    // Clear core vault (no session_id)
+    result = await db.prepare(`
+      DELETE FROM chunks 
+      WHERE memory_key = ? AND (session_id IS NULL OR session_id = '')
+    `).bind(memoryKey).run();
+  }
+  
+  console.log(`[D1-SEARCH] Cleared ${result.meta.changes || 0} chunks for ${memoryKey}${sessionId ? ':' + sessionId : ''}`);
+  return result.meta.changes || 0;
+}
+
+/**
+ * Purge old chunks from D1 (archival cleanup).
+ * Called by memory-core.ts during archival purge.
+ */
+export async function purgeOldChunksFromD1(
+  db: D1Database,
+  memoryKey: string,
+  olderThan: number
+): Promise<number> {
+  const result = await db.prepare(`
+    DELETE FROM chunks 
+    WHERE memory_key = ? AND timestamp < ?
+  `).bind(memoryKey, olderThan).run();
+  
+  console.log(`[D1-SEARCH] Purged ${result.meta.changes || 0} chunks older than ${new Date(olderThan).toISOString()}`);
+  return result.meta.changes || 0;
+}
+
 /**
  * Check if DO is likely warm based on recent D1 activity.
  * Optional optimization — can skip if latency is acceptable.

@@ -29,6 +29,7 @@ import {
 } from './routes/admin';
 import { getKeyUsage, getTopKeys, rollupDaily, getRecentEvents } from './services/usage';
 import { users as usersRouter } from './routes/users';
+import { clearMemory } from './services/memory-core';
 
 // Model catalog (updated via scripts/update-models.sh)
 import modelCatalog from './config/models.json';
@@ -346,36 +347,29 @@ v1.delete('/memory', async (c) => {
   const sessionId = c.req.header('X-Session-ID');
   // Use ?reset=true to fully reset (allows new embedding dimensions)
   const fullReset = c.req.query('reset') === 'true';
-  const endpoint = fullReset ? '/reset' : '/clear';
   
-  // Durable Objects path
+  // Durable Objects path — NOW USES clearMemory() which clears BOTH DO AND D1!
+  // This fixes the D1 sync bug where stale data would return from D1 fallback.
   if (c.env.USE_DURABLE_OBJECTS === 'true' && c.env.VAULT_DO) {
     try {
-      const clearPromises: Promise<Response>[] = [];
-      
-      // Clear/reset core vault
-      const coreId = c.env.VAULT_DO.idFromName(`${userContext.memoryKey.key}:core`);
-      const coreStub = c.env.VAULT_DO.get(coreId);
-      clearPromises.push(coreStub.fetch(new Request(`https://do${endpoint}`, { method: 'POST' })));
-      
-      // Clear/reset session vault if session ID provided
-      if (sessionId) {
-        const sessionDoId = c.env.VAULT_DO.idFromName(`${userContext.memoryKey.key}:session:${sessionId}`);
-        const sessionStub = c.env.VAULT_DO.get(sessionDoId);
-        clearPromises.push(sessionStub.fetch(new Request(`https://do${endpoint}`, { method: 'POST' })));
-      }
-      
-      await Promise.all(clearPromises);
+      const result = await clearMemory({
+        doNamespace: c.env.VAULT_DO,
+        memoryKey: userContext.memoryKey.key,
+        sessionId: sessionId || undefined,
+        fullReset,
+        d1: c.env.VECTORS_D1,
+      });
       
       return c.json({
         key: userContext.memoryKey.key,
-        sessionCleared: !!sessionId,
-        deleted: true,
+        sessionCleared: result.sessionCleared,
+        deleted: result.doCleared,
+        d1Synced: result.d1Cleared,  // NEW: confirms D1 was also cleared
         reset: fullReset,
         message: fullReset ? 'Memory reset (new dimensions allowed)' : 'Memory cleared successfully',
       });
     } catch (error) {
-      console.error('Failed to clear DO memory:', error);
+      console.error('Failed to clear memory:', error);
       return c.json({ 
         error: 'Failed to delete memory',
         details: error instanceof Error ? error.message : 'Unknown error',
