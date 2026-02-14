@@ -44,7 +44,7 @@ export interface BillingRecord {
   monthly_cap_cents: number | null;
   monthly_spend_cents: number;
   stripe_customer_id: string | null;
-  stripe_default_payment_method_id: string | null;
+  stripe_payment_method_id: string | null;
   has_payment_method: number;
 }
 
@@ -163,7 +163,7 @@ export async function ensureBalance(
           user_id, credit_balance_cents, free_tier_tokens_used, free_tier_exhausted,
           auto_reup_enabled, auto_reup_amount_cents, auto_reup_trigger_cents,
           monthly_cap_cents, monthly_spend_cents,
-          stripe_customer_id, stripe_default_payment_method_id, has_payment_method
+          stripe_customer_id, stripe_payment_method_id, has_payment_method
         FROM billing WHERE user_id = ?
       `)
       .bind(userId)
@@ -201,7 +201,7 @@ export async function ensureBalance(
     }
 
     // Step 5: Need to charge — check if we can
-    if (!billing.has_payment_method || !billing.stripe_customer_id || !billing.stripe_default_payment_method_id) {
+    if (!billing.has_payment_method || !billing.stripe_customer_id || !billing.stripe_payment_method_id) {
       console.log(`[BALANCE_CHECKPOINT] User ${userId} needs funds but no payment method`);
       return {
         allowed: false,
@@ -235,7 +235,7 @@ export async function ensureBalance(
       paymentIntentId = await chargeStripe(
         stripeSecretKey,
         billing.stripe_customer_id,
-        billing.stripe_default_payment_method_id,
+        billing.stripe_payment_method_id,
         chargeAmount
       );
     } catch (error) {
@@ -382,7 +382,7 @@ export async function checkAndReupIfNeeded(
           auto_reup_amount_cents,
           auto_reup_trigger_cents,
           stripe_customer_id,
-          stripe_default_payment_method_id,
+          stripe_payment_method_id,
           has_payment_method
         FROM billing WHERE user_id = ?
       `)
@@ -393,7 +393,7 @@ export async function checkAndReupIfNeeded(
         auto_reup_amount_cents: number;
         auto_reup_trigger_cents: number;
         stripe_customer_id: string | null;
-        stripe_default_payment_method_id: string | null;
+        stripe_payment_method_id: string | null;
         has_payment_method: number;
       } | null;
 
@@ -406,7 +406,7 @@ export async function checkAndReupIfNeeded(
     const autoReupEnabled = billing.auto_reup_enabled === 1;
     const hasPaymentMethod = billing.has_payment_method === 1 && 
                              billing.stripe_customer_id && 
-                             billing.stripe_default_payment_method_id;
+                             billing.stripe_payment_method_id;
 
     console.log(`[AUTO_REUP_CHECK] User ${userId}: balance=${billing.credit_balance_cents}c, threshold=${billing.auto_reup_trigger_cents}c, enabled=${autoReupEnabled}, hasPayment=${!!hasPaymentMethod}`);
 
@@ -440,7 +440,7 @@ export async function checkAndReupIfNeeded(
       paymentIntentId = await chargeStripe(
         stripeSecretKey,
         billing.stripe_customer_id!,
-        billing.stripe_default_payment_method_id!,
+        billing.stripe_payment_method_id!,
         chargeAmount
       );
     } catch (error) {
