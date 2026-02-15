@@ -353,8 +353,8 @@ export class BalanceGuard {
       }
       
       // Cost: $0.50 per 1M tokens = $0.0000005 per token = 0.00005 cents per token
-      // Round to nearest cent (no Math.ceil — avoids overcharge on small requests)
-      const costCents = Math.round(paidTokensUsed * 0.00005);
+      // Store precise fractional cents (SQLite handles floats in INTEGER columns)
+      const costCents = parseFloat((paidTokensUsed * 0.00005).toFixed(4));
       
       // Step 4: Update billing record
       const newFreeTokensUsed = billingRow.free_tier_tokens_used + freeTokensUsed;
