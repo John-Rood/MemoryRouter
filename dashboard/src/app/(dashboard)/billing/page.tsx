@@ -793,7 +793,9 @@ export default function BillingPage() {
                   </div>
                   <div className="text-right">
                     <p className={`font-mono font-medium ${tx.type === 'credit' ? 'text-neon-green' : 'text-destructive'}`}>
-                      {tx.type === 'credit' ? '+' : '-'}${Math.abs(tx.amountCents / 100).toFixed(2)}
+                      {tx.type === 'credit' ? '+' : '-'}${Math.abs(tx.amountCents / 100).toFixed(
+                        tx.type === 'credit' || Math.abs(tx.amountCents) >= 100 ? 2 : 4
+                      )}
                     </p>
                   </div>
                 </div>
