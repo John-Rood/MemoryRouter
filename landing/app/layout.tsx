@@ -15,17 +15,17 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'MemoryRouter — $1 on Memory Saves $10 on Inference',
+  title: 'MemoryRouter — Persistent Memory for Any AI Model',
   description:
-    'Persistent memory for any AI model. Every $1 on memory saves $10 on inference. Drop-in API. Works with OpenAI, Anthropic, and 100+ models.',
+    'Persistent memory for any AI model. $0.20 per 1M tokens · 50M free. Drop-in API. Works with OpenAI, Anthropic, and 100+ models.',
   icons: {
     icon: '/logo.png',
     apple: '/logo.png',
   },
   openGraph: {
-    title: 'MemoryRouter — $1 on Memory Saves $10 on Inference',
+    title: 'MemoryRouter — Persistent Memory for Any AI Model',
     description:
-      'Persistent memory for any AI model. Every $1 on memory saves $10 on inference. Drop-in API. Works with OpenAI, Anthropic, and 100+ models.',
+      'Persistent memory for any AI model. $0.20 per 1M tokens · 50M free. Drop-in API. Works with OpenAI, Anthropic, and 100+ models.',
     type: 'website',
   },
 }

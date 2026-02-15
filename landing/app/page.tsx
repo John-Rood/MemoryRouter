@@ -33,7 +33,7 @@ export default function Home() {
           </h1>
 
           <p className="text-xl md:text-2xl text-gray-400 mb-8 max-w-2xl mx-auto leading-relaxed">
-            Every $1 on memory saves $10 on inference.
+            Memory that makes every AI call smarter.
             <span className="text-white font-semibold"> Same memory, any model.</span>
           </p>
 
@@ -41,13 +41,13 @@ export default function Home() {
           <div className="inline-block bg-black/50 border border-green-500/30 rounded-2xl p-6 mb-10">
             <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8">
               <div className="text-center">
-                <div className="text-4xl md:text-5xl font-bold money-gradient">$1</div>
-                <div className="text-gray-500 text-sm">spent on memory</div>
+                <div className="text-4xl md:text-5xl font-bold money-gradient">$0.20</div>
+                <div className="text-gray-500 text-sm">per 1M tokens</div>
               </div>
-              <div className="text-4xl text-gray-600">=</div>
+              <div className="text-4xl text-gray-600">·</div>
               <div className="text-center">
-                <div className="text-4xl md:text-5xl font-bold money-gradient">$10</div>
-                <div className="text-gray-500 text-sm">saved on inference</div>
+                <div className="text-4xl md:text-5xl font-bold money-gradient">50M</div>
+                <div className="text-gray-500 text-sm">tokens free</div>
               </div>
             </div>
           </div>
@@ -570,7 +570,7 @@ export default function Home() {
                 <div>
                   <div className="text-xs text-green-400 font-bold tracking-widest uppercase mb-2">Simple Pricing</div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-6xl md:text-7xl font-bold">$0.50</span>
+                    <span className="text-6xl md:text-7xl font-bold">$0.20</span>
                     <span className="text-xl text-gray-500">per 1M memory tokens</span>
                   </div>
                 </div>
@@ -651,8 +651,8 @@ export default function Home() {
               <div className="px-6 pb-6 text-gray-400">
                 Without memory, you stuff context into every API call — user preferences, conversation history, project
                 details. That&apos;s often 50-70% of your tokens. With MemoryRouter, relevant context is automatically
-                retrieved and injected. You send less, get the same (or better) results. The $1 you spend on memory
-                saves $10 on inference.
+                retrieved and injected. You send less, get the same (or better) results. At $0.20 per million tokens, memory
+                is the cheapest way to make your AI smarter.
               </div>
             </details>
 
@@ -713,9 +713,8 @@ export default function Home() {
                 <span className="text-gray-500 group-open:rotate-180 transition-transform">▼</span>
               </summary>
               <div className="px-6 pb-6 text-gray-400">
-                All of them. MemoryRouter is OpenRouter-compatible, which means 200+ models work out of the box: GPT-4o,
-                GPT-4 Turbo, Claude 3.5 Sonnet, Claude 3 Opus, Gemini Pro, Llama 3, Mistral, DeepSeek, and many more. If
-                it works with the OpenAI SDK, it works with MemoryRouter.{' '}
+                All of them. MemoryRouter works with every model from OpenAI, Anthropic, Google, Meta, Mistral, DeepSeek,
+                and more — all models from every major provider. If it works with the OpenAI SDK, it works with MemoryRouter.{' '}
                 <a href="/models" className="text-green-400 hover:text-green-300 underline">
                   See all supported models →
                 </a>
