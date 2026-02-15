@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { Header } from '@/components/Header'
-import { FooterNewsletter } from '@/components/FooterNewsletter'
+import { Footer } from '@/components/Footer'
 
 export const metadata: Metadata = {
   title: 'Terms of Service — MemoryRouter',
@@ -91,35 +90,7 @@ export default function TermsPage() {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="border-t border-white/5 py-12 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <h4 className="font-semibold mb-4">Product</h4>
-              <ul className="space-y-2 text-sm">
-                <li><Link href="/#pricing" className="text-gray-400 hover:text-white transition">Pricing</Link></li>
-                <li><Link href="/models" className="text-gray-400 hover:text-white transition">Models</Link></li>
-                <li><a href="https://app.memoryrouter.ai" className="text-gray-400 hover:text-white transition">Dashboard</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-4">Legal</h4>
-              <ul className="space-y-2 text-sm">
-                <li><Link href="/privacy" className="text-gray-400 hover:text-white transition">Privacy Policy</Link></li>
-                <li><Link href="/terms" className="text-gray-400 hover:text-white transition">Terms of Service</Link></li>
-              </ul>
-            </div>
-            <div className="col-span-2 md:col-span-2">
-              <h4 className="font-semibold mb-4">Stay Updated</h4>
-              <FooterNewsletter />
-            </div>
-          </div>
-          <div className="border-t border-white/5 pt-8 text-center text-gray-500 text-sm">
-            © {new Date().getFullYear()} MemoryRouter. All rights reserved.
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }
