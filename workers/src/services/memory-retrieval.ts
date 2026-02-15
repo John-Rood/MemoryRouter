@@ -116,7 +116,6 @@ export async function searchMemory(params: SearchMemoryParams): Promise<SearchRe
   //   - Large vault (>2000): D1 is incomplete → prefer DO, D1 only if DO fails
   const raceStart = Date.now();
   const D1_COVERAGE_LIMIT = 2000;
-  const DO_TIMEOUT_MS = 3000; // Max wait for DO on cold start
 
   // Resolve which vaults to query
   const vaults = resolveVaultsForQuery(doNamespace, memoryKey, sessionId);
@@ -156,22 +155,15 @@ export async function searchMemory(params: SearchMemoryParams): Promise<SearchRe
     winner = d1Result;
     console.log(`[MEMORY-RETRIEVAL] Small vault (${vaultSize} chunks), using D1: ${d1Result.time}ms`);
   } else {
-    // Large vault: D1 is incomplete → wait for DO with timeout
-    const doWithTimeout = Promise.race([
-      doPromise,
-      new Promise<null>(resolve => setTimeout(() => resolve(null), DO_TIMEOUT_MS)),
-    ]);
-
-    const doResult = await doWithTimeout;
-    if (doResult?.result && doResult.result.chunks.length > 0) {
+    // Large vault: D1 is incomplete → always wait for DO (full coverage)
+    const doResult = await doPromise;
+    if (doResult?.result) {
       winner = doResult;
-      console.log(`[MEMORY-RETRIEVAL] Large vault (${vaultSize} chunks), DO responded: ${doResult.time}ms`);
+      console.log(`[MEMORY-RETRIEVAL] Large vault (${vaultSize} chunks), DO: ${doResult.time}ms`);
     } else if (d1Result?.result) {
-      // DO timed out — fall back to D1 partial results
+      // DO failed entirely — fall back to D1 partial results
       winner = d1Result;
-      console.log(`[MEMORY-RETRIEVAL] Large vault (${vaultSize} chunks), DO timeout, D1 fallback: ${d1Result.time}ms`);
-    } else if (doResult?.result) {
-      winner = doResult;
+      console.log(`[MEMORY-RETRIEVAL] Large vault (${vaultSize} chunks), DO failed, D1 fallback: ${d1Result.time}ms`);
     }
   }
 
