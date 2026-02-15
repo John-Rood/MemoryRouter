@@ -117,7 +117,7 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="11. Contact Us">
-            <p>For privacy concerns or data requests: <a href="mailto:privacy@memoryrouter.ai" className="text-green-400 hover:text-green-300 underline">privacy@memoryrouter.ai</a></p>
+            <p>For privacy concerns or data requests: <a href="mailto:support@memoryrouter.ai" className="text-green-400 hover:text-green-300 underline">support@memoryrouter.ai</a></p>
           </Section>
         </div>
       </div>
