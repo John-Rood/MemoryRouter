@@ -35,7 +35,7 @@ export interface MemoryOptions {
  */
 export const DEFAULT_MEMORY_OPTIONS: MemoryOptions = {
   mode: 'default',
-  contextLimit: 8000,
+  contextLimit: 30,
   storeInput: true,
   storeResponse: true,
   sessionId: undefined,
