@@ -65,7 +65,7 @@ export function BillingProvider({
           transactions: data.transactions?.map((t: { id: string; type: string; amount: number; description: string; createdAt: string }) => ({
             id: t.id,
             type: t.type,
-            amount_cents: Math.round(t.amount * 100),
+            amount_cents: t.amount * 100,
             description: t.description,
             created_at: t.createdAt,
           })) || [],
