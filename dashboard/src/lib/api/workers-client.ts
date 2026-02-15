@@ -144,7 +144,7 @@ export interface Transaction {
 
 export async function getBilling(userId: string): Promise<{ billing: Billing; transactions: Transaction[] }> {
   // Cache billing data for 30 seconds to avoid hammering the API on every page navigation
-  return apiCall(`/api/users/${userId}/billing`, { revalidate: 30 });
+  return apiCall(`/api/users/${userId}/billing`, { revalidate: 5 });
 }
 
 export async function updateBilling(userId: string, data: {
