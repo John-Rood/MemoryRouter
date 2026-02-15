@@ -477,8 +477,81 @@ export function createAnthropicRouter() {
           })()
         );
       } else {
-        // Not storing — just drain the storage stream
-        storageStream.cancel();
+        // Not storing — but still need to parse tokens for billing
+        ctx.waitUntil(
+          (async () => {
+            try {
+              const reader = storageStream.getReader();
+              const decoder = new TextDecoder();
+              let inputTokens = 0;
+              let outputTokens = 0;
+
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n');
+                for (const line of lines) {
+                  if (!line.startsWith('data: ') || line.includes('[DONE]')) continue;
+                  try {
+                    const data = JSON.parse(line.slice(6));
+                    if (data.type === 'message_start' && data.message?.usage) {
+                      inputTokens = data.message.usage.input_tokens ?? 0;
+                    }
+                    if (data.type === 'message_delta' && data.usage) {
+                      outputTokens = data.usage.output_tokens ?? 0;
+                    }
+                    // OpenAI-compatible format
+                    if (data.usage?.prompt_tokens !== undefined) {
+                      inputTokens = data.usage.prompt_tokens ?? 0;
+                      outputTokens = data.usage.completion_tokens ?? 0;
+                    }
+                  } catch { /* ignore parse errors */ }
+                }
+              }
+              reader.releaseLock();
+
+              // Record billing even for non-stored requests
+              const totalTokens = inputTokens + outputTokens;
+              if (BILLING_ENABLED && totalTokens > 0) {
+                const billingCtx = createBillingContext(env);
+                if (billingCtx) {
+                  await recordBillingAfterRequest({
+                    ctx: billingCtx,
+                    userId: userContext.memoryKey.key,
+                    totalTokens,
+                    model: rawBody.model as string,
+                    provider: 'anthropic',
+                    sessionId,
+                  });
+                }
+              }
+
+              // Usage tracking for non-stored requests too
+              if (env.VECTORS_D1) {
+                const providerTime = Date.now() - (providerStartTime || Date.now());
+                const usageEvent: UsageEvent = {
+                  timestamp: Date.now(),
+                  memoryKey: userContext.memoryKey.key,
+                  sessionId,
+                  model: rawBody.model as string,
+                  provider: 'anthropic',
+                  inputTokens,
+                  outputTokens,
+                  memoryTokensRetrieved: 0,
+                  memoryTokensInjected: 0,
+                  latencyEmbeddingMs: 0,
+                  latencyMrMs: mrProcessingTime,
+                  latencyProviderMs: providerTime,
+                  requestType: 'messages',
+                };
+                await recordUsage(env.VECTORS_D1, usageEvent);
+              }
+            } catch (error) {
+              console.error('[ANTHROPIC] Billing-only stream parse error:', error);
+            }
+          })()
+        );
       }
 
       // Return the client stream untouched
@@ -565,6 +638,55 @@ export function createAnthropicRouter() {
             }
           } catch (error) {
             console.error('[ANTHROPIC] Background storage error:', error);
+          }
+        })()
+      );
+    }
+
+    // Billing for non-stored requests (non-streaming)
+    if (!shouldStoreMemory(memoryOptions) && providerResponse.ok) {
+      ctx.waitUntil(
+        (async () => {
+          try {
+            const responseData = JSON.parse(new TextDecoder().decode(responseBody));
+            const usage = responseData.usage as { input_tokens?: number; output_tokens?: number } | undefined;
+            const totalTokens = (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0);
+
+            if (BILLING_ENABLED && totalTokens > 0) {
+              const billingCtx = createBillingContext(env);
+              if (billingCtx) {
+                await recordBillingAfterRequest({
+                  ctx: billingCtx,
+                  userId: userContext.memoryKey.key,
+                  totalTokens,
+                  model: rawBody.model as string,
+                  provider: 'anthropic',
+                  sessionId,
+                });
+              }
+            }
+
+            if (env.VECTORS_D1) {
+              const providerTime = Date.now() - (providerStartTime || Date.now());
+              const usageEvent: UsageEvent = {
+                timestamp: Date.now(),
+                memoryKey: userContext.memoryKey.key,
+                sessionId,
+                model: rawBody.model as string,
+                provider: 'anthropic',
+                inputTokens: usage?.input_tokens ?? 0,
+                outputTokens: usage?.output_tokens ?? 0,
+                memoryTokensRetrieved: 0,
+                memoryTokensInjected: 0,
+                latencyEmbeddingMs: 0,
+                latencyMrMs: mrProcessingTime,
+                latencyProviderMs: providerTime,
+                requestType: 'messages',
+              };
+              await recordUsage(env.VECTORS_D1, usageEvent);
+            }
+          } catch (error) {
+            console.error('[ANTHROPIC] Non-stored billing error:', error);
           }
         })()
       );

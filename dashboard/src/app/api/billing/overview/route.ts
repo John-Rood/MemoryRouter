@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
       cardBrand,
       cardLast4,
       stripeCustomerId: billing.stripeCustomerId,
-      transactions: billing.transactions?.slice(0, 5).map(t => ({
+      transactions: billing.transactions?.slice(0, 50).map(t => ({
         id: t.id,
         type: t.type,
         amount: t.amount_cents / 100,

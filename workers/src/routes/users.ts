@@ -181,12 +181,13 @@ users.get('/:userId/billing', async (c) => {
     }
 
     // Get recent transactions
+    const limit = parseInt(c.req.query('limit') || '50');
     const { results: transactions } = await c.env.VECTORS_D1.prepare(`
       SELECT * FROM transactions 
       WHERE user_id = ? 
       ORDER BY created_at DESC 
-      LIMIT 10
-    `).bind(userId).all();
+      LIMIT ?
+    `).bind(userId, Math.min(limit, 500)).all();
 
     return c.json({ billing, transactions });
   } catch (error) {
