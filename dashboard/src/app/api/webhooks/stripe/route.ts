@@ -118,6 +118,40 @@ export async function POST(request: NextRequest) {
         // The credit can be reconciled manually if needed
       }
 
+      // CRITICAL: Extract payment method from the PaymentIntent and convert to paid account
+      // This ensures checkout.session.completed is self-sufficient — no dependency on
+      // payment_method.attached firing separately or in the right order.
+      if (paymentIntentId && session.customer) {
+        try {
+          const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+          const pmId = typeof paymentIntent.payment_method === "string"
+            ? paymentIntent.payment_method
+            : paymentIntent.payment_method?.id;
+
+          const custId = typeof session.customer === "string"
+            ? session.customer
+            : session.customer?.id;
+
+          if (pmId && custId) {
+            // Set as default payment method in Stripe
+            await stripe.customers.update(custId, {
+              invoice_settings: { default_payment_method: pmId },
+            });
+
+            // Update billing: mark as paid account with payment method
+            await updateBilling(userId, {
+              stripeCustomerId: custId,
+              stripeDefaultPaymentMethodId: pmId,
+              hasPaymentMethod: true,
+            });
+            console.log(`✅ Converted user ${userId} to paid account: customer=${custId}, pm=${pmId}`);
+          }
+        } catch (pmError) {
+          console.error(`[STRIPE-WEBHOOK] Failed to extract payment method for user ${userId}:`, pmError);
+          // Non-fatal — payment_method.attached may still handle it
+        }
+      }
+
       break;
     }
 
