@@ -109,7 +109,7 @@ export default function BillingPage() {
     type: t.type,
     amountCents: t.amount_cents,
     description: t.description,
-    createdAt: new Date(t.created_at).toLocaleString(),
+    createdAt: new Date(String(t.created_at).endsWith('Z') || String(t.created_at).includes('+') ? t.created_at : t.created_at + 'Z').toLocaleString(),
     balanceAfterCents: 0,
   }));
   
