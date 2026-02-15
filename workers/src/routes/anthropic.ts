@@ -390,11 +390,18 @@ export function createAnthropicRouter() {
 
               // Buffer for SSE lines that may span multiple chunks
               let sseBuffer = '';
+              let debugEventTypes: string[] = [];
+              let chunkCount = 0;
               
               while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                sseBuffer += decoder.decode(value, { stream: true });
+                const chunkText = decoder.decode(value, { stream: true });
+                chunkCount++;
+                if (chunkCount <= 2) {
+                  console.log(`[ANTHROPIC-TOKENS] Chunk ${chunkCount} (${chunkText.length} chars): ${chunkText.slice(0, 200)}`);
+                }
+                sseBuffer += chunkText;
                 
                 // Process complete lines only (split on double newline or newline)
                 const parts = sseBuffer.split('\n');
@@ -406,26 +413,51 @@ export function createAnthropicRouter() {
                   if (!trimmed.startsWith('data: ') || trimmed.includes('[DONE]')) continue;
                   try {
                     const data = JSON.parse(trimmed.slice(6));
+                    if (data.type) debugEventTypes.push(data.type);
                     if (data.type === 'content_block_delta' && data.delta?.type === 'text_delta') {
                       fullText += data.delta.text || '';
                     }
-                    if (data.type === 'message_start' && data.message?.usage) {
-                      inputTokens = data.message.usage.input_tokens ?? 0;
+                    if (data.type === 'message_start') {
+                      const usage = data.message?.usage;
+                      console.log(`[ANTHROPIC-TOKENS] message_start found, usage: ${JSON.stringify(usage)}`);
+                      // Include ALL input tokens: new + cached (both creation and read)
+                      inputTokens = (usage?.input_tokens ?? 0)
+                        + (usage?.cache_creation_input_tokens ?? 0)
+                        + (usage?.cache_read_input_tokens ?? 0);
                     }
-                    if (data.type === 'message_delta' && data.usage) {
-                      outputTokens = data.usage.output_tokens ?? 0;
+                    if (data.type === 'message_delta') {
+                      console.log(`[ANTHROPIC-TOKENS] message_delta found, usage: ${JSON.stringify(data.usage)}`);
+                      outputTokens = data.usage?.output_tokens ?? 0;
                     }
-                  } catch { /* ignore parse errors */ }
+                  } catch (e) { 
+                    console.log(`[ANTHROPIC-TOKENS] Parse error: ${(e as Error).message}, line preview: ${trimmed.slice(0, 100)}`);
+                  }
                 }
               }
+              
+              console.log(`[ANTHROPIC-TOKENS] Stream complete. Events: ${debugEventTypes.filter((v,i,a) => a.indexOf(v) === i).join(',')}. inputTokens=${inputTokens}, outputTokens=${outputTokens}, chunks=${chunkCount}`);
+              
+              // Write debug info to KV for retrieval
+              if (env.METADATA_KV) {
+                await env.METADATA_KV.put('debug:last-stream-tokens', JSON.stringify({
+                  ts: new Date().toISOString(),
+                  inputTokens,
+                  outputTokens,
+                  chunkCount,
+                  events: debugEventTypes.filter((v,i,a) => a.indexOf(v) === i),
+                  sseBufferRemaining: sseBuffer.slice(0, 200),
+                }), { expirationTtl: 300 });
+              }
+              
               // Process any remaining buffer
               if (sseBuffer.trim().startsWith('data: ') && !sseBuffer.includes('[DONE]')) {
                 try {
                   const data = JSON.parse(sseBuffer.trim().slice(6));
-                  if (data.type === 'message_start' && data.message?.usage) {
-                    inputTokens = data.message.usage.input_tokens ?? 0;
+                  if (data.type === 'message_start') {
+                    const u = data.message?.usage;
+                    inputTokens = (u?.input_tokens ?? 0) + (u?.cache_creation_input_tokens ?? 0) + (u?.cache_read_input_tokens ?? 0);
                   }
-                  if (data.type === 'message_delta' && data.usage) {
+                  if (data.type === 'message_delta') {
                     outputTokens = data.usage.output_tokens ?? 0;
                   }
                 } catch { /* ignore */ }
@@ -518,7 +550,8 @@ export function createAnthropicRouter() {
                   try {
                     const data = JSON.parse(trimmed.slice(6));
                     if (data.type === 'message_start' && data.message?.usage) {
-                      inputTokens = data.message.usage.input_tokens ?? 0;
+                      const u = data.message.usage;
+                      inputTokens = (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
                     }
                     if (data.type === 'message_delta' && data.usage) {
                       outputTokens = data.usage.output_tokens ?? 0;
@@ -533,7 +566,10 @@ export function createAnthropicRouter() {
               if (sseBuffer.trim().startsWith('data: ') && !sseBuffer.includes('[DONE]')) {
                 try {
                   const data = JSON.parse(sseBuffer.trim().slice(6));
-                  if (data.type === 'message_start' && data.message?.usage) inputTokens = data.message.usage.input_tokens ?? 0;
+                  if (data.type === 'message_start' && data.message?.usage) {
+                    const u = data.message.usage;
+                    inputTokens = (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
+                  }
                   if (data.type === 'message_delta' && data.usage) outputTokens = data.usage.output_tokens ?? 0;
                 } catch { /* ignore */ }
               }
@@ -628,9 +664,10 @@ export function createAnthropicRouter() {
               });
             }
 
-            // Billing
-            const usage = responseData.usage as { input_tokens?: number; output_tokens?: number } | undefined;
-            const totalTokens = (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0);
+            // Billing — include cached tokens in total
+            const usage = responseData.usage as { input_tokens?: number; output_tokens?: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number } | undefined;
+            const allInputTokens = (usage?.input_tokens ?? 0) + (usage?.cache_creation_input_tokens ?? 0) + (usage?.cache_read_input_tokens ?? 0);
+            const totalTokens = allInputTokens + (usage?.output_tokens ?? 0);
             if (BILLING_ENABLED && totalTokens > 0) {
               const billingCtx = createBillingContext(env);
               if (billingCtx) {
@@ -653,7 +690,7 @@ export function createAnthropicRouter() {
                 sessionId, 
                 model: rawBody.model as string,
                 provider: 'anthropic',
-                inputTokens: usage?.input_tokens ?? 0,
+                inputTokens: allInputTokens,
                 outputTokens: usage?.output_tokens ?? 0,
                 memoryTokensRetrieved: memoryTokensUsed,
                 memoryTokensInjected: memoryTokensUsed,
@@ -677,8 +714,9 @@ export function createAnthropicRouter() {
         (async () => {
           try {
             const responseData = JSON.parse(new TextDecoder().decode(responseBody));
-            const usage = responseData.usage as { input_tokens?: number; output_tokens?: number } | undefined;
-            const totalTokens = (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0);
+            const usage = responseData.usage as { input_tokens?: number; output_tokens?: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number } | undefined;
+            const allInputTokens = (usage?.input_tokens ?? 0) + (usage?.cache_creation_input_tokens ?? 0) + (usage?.cache_read_input_tokens ?? 0);
+            const totalTokens = allInputTokens + (usage?.output_tokens ?? 0);
 
             if (BILLING_ENABLED && totalTokens > 0) {
               const billingCtx = createBillingContext(env);
@@ -702,7 +740,7 @@ export function createAnthropicRouter() {
                 sessionId,
                 model: rawBody.model as string,
                 provider: 'anthropic',
-                inputTokens: usage?.input_tokens ?? 0,
+                inputTokens: allInputTokens,
                 outputTokens: usage?.output_tokens ?? 0,
                 memoryTokensRetrieved: 0,
                 memoryTokensInjected: 0,

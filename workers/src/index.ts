@@ -596,6 +596,12 @@ app.post('/admin/block-user', async (c) => {
   return handleBlockUser(c.req.raw, c.env as any);
 });
 
+// TEMP: Debug endpoint for stream token parsing
+app.get('/admin/debug/stream-tokens', async (c) => {
+  const val = await (c.env as any).METADATA_KV.get('debug:last-stream-tokens');
+  return c.json(val ? JSON.parse(val) : { error: 'no debug data yet' });
+});
+
 // ========== User Management API (Dashboard) ==========
 // Mount user management routes for dashboard to call
 app.route('/api/users', usersRouter);
