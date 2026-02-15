@@ -42,12 +42,12 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8">
               <div className="text-center">
                 <div className="text-4xl md:text-5xl font-bold money-gradient">$0.20<span className="text-xl text-gray-400">/M</span></div>
-                <div className="text-gray-500 text-sm">per 1M tokens</div>
+                <div className="text-gray-500 text-sm">memory tokens</div>
               </div>
               <div className="text-4xl text-gray-600">·</div>
               <div className="text-center">
                 <div className="text-4xl md:text-5xl font-bold money-gradient">50M</div>
-                <div className="text-gray-500 text-sm">tokens free</div>
+                <div className="text-gray-500 text-sm">free to start</div>
               </div>
             </div>
           </div>
