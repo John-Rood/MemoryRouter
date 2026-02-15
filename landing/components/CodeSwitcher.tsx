@@ -28,7 +28,7 @@ const providerCode: Record<string, { python: React.ReactNode; typescript: React.
         ){'\n\n'}
         <span className="text-gray-500"># That's it. AI now remembers this user.</span>{'\n'}
         response = client.chat.completions.create({'\n'}
-        {'    '}model=<span className="text-green-400">"gpt-4o"</span>,{'\n'}
+        {'    '}model=<span className="text-green-400">"gpt-5.2"</span>,{'\n'}
         {'    '}messages=[{'{'}<span className="text-green-400">"role"</span>: <span className="text-green-400">"user"</span>, <span className="text-green-400">"content"</span>: <span className="text-green-400">"..."</span>{'}'}]{'\n'}
         )
       </>
@@ -44,7 +44,7 @@ const providerCode: Record<string, { python: React.ReactNode; typescript: React.
         {'}'});{'\n\n'}
         <span className="text-gray-500">// Same API. Memory handled automatically.</span>{'\n'}
         <span className="text-purple-400">const</span> response = <span className="text-purple-400">await</span> client.chat.completions.create({'{'}){'\n'}
-        {'  '}model: <span className="text-green-400">'gpt-4o'</span>,{'\n'}
+        {'  '}model: <span className="text-green-400">'gpt-5.2'</span>,{'\n'}
         {'  '}messages: [{'{'}role: <span className="text-green-400">'user'</span>, content: <span className="text-green-400">'...'</span>{'}'}]{'\n'}
         {'}'});
       </>
@@ -62,7 +62,7 @@ const providerCode: Record<string, { python: React.ReactNode; typescript: React.
         ){'\n\n'}
         <span className="text-gray-500"># That's it. AI now remembers this user.</span>{'\n'}
         message = client.messages.create({'\n'}
-        {'    '}model=<span className="text-green-400">"claude-sonnet-4-20250514"</span>,{'\n'}
+        {'    '}model=<span className="text-green-400">"claude-opus-4-6"</span>,{'\n'}
         {'    '}max_tokens=<span className="text-cyan-400">1024</span>,{'\n'}
         {'    '}messages=[{'{'}<span className="text-green-400">"role"</span>: <span className="text-green-400">"user"</span>, <span className="text-green-400">"content"</span>: <span className="text-green-400">"..."</span>{'}'}]{'\n'}
         )
@@ -79,7 +79,7 @@ const providerCode: Record<string, { python: React.ReactNode; typescript: React.
         {'}'});{'\n\n'}
         <span className="text-gray-500">// Same API. Memory handled automatically.</span>{'\n'}
         <span className="text-purple-400">const</span> message = <span className="text-purple-400">await</span> client.messages.create({'{'}){'\n'}
-        {'  '}model: <span className="text-green-400">'claude-sonnet-4-20250514'</span>,{'\n'}
+        {'  '}model: <span className="text-green-400">'claude-opus-4-6'</span>,{'\n'}
         {'  '}max_tokens: <span className="text-cyan-400">1024</span>,{'\n'}
         {'  '}messages: [{'{'}role: <span className="text-green-400">'user'</span>, content: <span className="text-green-400">'...'</span>{'}'}]{'\n'}
         {'}'});
@@ -98,7 +98,7 @@ const providerCode: Record<string, { python: React.ReactNode; typescript: React.
         ){'\n\n'}
         <span className="text-gray-500"># That's it. AI now remembers this user.</span>{'\n'}
         response = client.chat.completions.create({'\n'}
-        {'    '}model=<span className="text-green-400">"gemini-2.0-flash"</span>,{'\n'}
+        {'    '}model=<span className="text-green-400">"gemini-3-pro"</span>,{'\n'}
         {'    '}messages=[{'{'}<span className="text-green-400">"role"</span>: <span className="text-green-400">"user"</span>, <span className="text-green-400">"content"</span>: <span className="text-green-400">"..."</span>{'}'}]{'\n'}
         )
       </>
@@ -114,7 +114,7 @@ const providerCode: Record<string, { python: React.ReactNode; typescript: React.
         {'}'});{'\n\n'}
         <span className="text-gray-500">// Same API. Memory handled automatically.</span>{'\n'}
         <span className="text-purple-400">const</span> response = <span className="text-purple-400">await</span> client.chat.completions.create({'{'}){'\n'}
-        {'  '}model: <span className="text-green-400">'gemini-2.0-flash'</span>,{'\n'}
+        {'  '}model: <span className="text-green-400">'gemini-3-pro'</span>,{'\n'}
         {'  '}messages: [{'{'}role: <span className="text-green-400">'user'</span>, content: <span className="text-green-400">'...'</span>{'}'}]{'\n'}
         {'}'});
       </>
@@ -132,7 +132,7 @@ const providerCode: Record<string, { python: React.ReactNode; typescript: React.
         ){'\n\n'}
         <span className="text-gray-500"># That's it. AI now remembers this user.</span>{'\n'}
         response = client.chat.completions.create({'\n'}
-        {'    '}model=<span className="text-green-400">"grok-beta"</span>,{'\n'}
+        {'    '}model=<span className="text-green-400">"grok-4"</span>,{'\n'}
         {'    '}messages=[{'{'}<span className="text-green-400">"role"</span>: <span className="text-green-400">"user"</span>, <span className="text-green-400">"content"</span>: <span className="text-green-400">"..."</span>{'}'}]{'\n'}
         )
       </>
@@ -148,7 +148,7 @@ const providerCode: Record<string, { python: React.ReactNode; typescript: React.
         {'}'});{'\n\n'}
         <span className="text-gray-500">// Same API. Memory handled automatically.</span>{'\n'}
         <span className="text-purple-400">const</span> response = <span className="text-purple-400">await</span> client.chat.completions.create({'{'}){'\n'}
-        {'  '}model: <span className="text-green-400">'grok-beta'</span>,{'\n'}
+        {'  '}model: <span className="text-green-400">'grok-4'</span>,{'\n'}
         {'  '}messages: [{'{'}role: <span className="text-green-400">'user'</span>, content: <span className="text-green-400">'...'</span>{'}'}]{'\n'}
         {'}'});
       </>
@@ -166,7 +166,7 @@ const providerCode: Record<string, { python: React.ReactNode; typescript: React.
         ){'\n\n'}
         <span className="text-gray-500"># That's it. AI now remembers this user.</span>{'\n'}
         response = client.chat.completions.create({'\n'}
-        {'    '}model=<span className="text-green-400">"deepseek-chat"</span>,{'\n'}
+        {'    '}model=<span className="text-green-400">"deepseek-v3"</span>,{'\n'}
         {'    '}messages=[{'{'}<span className="text-green-400">"role"</span>: <span className="text-green-400">"user"</span>, <span className="text-green-400">"content"</span>: <span className="text-green-400">"..."</span>{'}'}]{'\n'}
         )
       </>
@@ -182,7 +182,7 @@ const providerCode: Record<string, { python: React.ReactNode; typescript: React.
         {'}'});{'\n\n'}
         <span className="text-gray-500">// Same API. Memory handled automatically.</span>{'\n'}
         <span className="text-purple-400">const</span> response = <span className="text-purple-400">await</span> client.chat.completions.create({'{'}){'\n'}
-        {'  '}model: <span className="text-green-400">'deepseek-chat'</span>,{'\n'}
+        {'  '}model: <span className="text-green-400">'deepseek-v3'</span>,{'\n'}
         {'  '}messages: [{'{'}role: <span className="text-green-400">'user'</span>, content: <span className="text-green-400">'...'</span>{'}'}]{'\n'}
         {'}'});
       </>
@@ -200,7 +200,7 @@ const providerCode: Record<string, { python: React.ReactNode; typescript: React.
         ){'\n\n'}
         <span className="text-gray-500"># That's it. AI now remembers this user.</span>{'\n'}
         response = client.chat.completions.create({'\n'}
-        {'    '}model=<span className="text-green-400">"mistral-large"</span>,{'\n'}
+        {'    '}model=<span className="text-green-400">"mistral-large-3"</span>,{'\n'}
         {'    '}messages=[{'{'}<span className="text-green-400">"role"</span>: <span className="text-green-400">"user"</span>, <span className="text-green-400">"content"</span>: <span className="text-green-400">"..."</span>{'}'}]{'\n'}
         )
       </>
@@ -216,7 +216,7 @@ const providerCode: Record<string, { python: React.ReactNode; typescript: React.
         {'}'});{'\n\n'}
         <span className="text-gray-500">// Same API. Memory handled automatically.</span>{'\n'}
         <span className="text-purple-400">const</span> response = <span className="text-purple-400">await</span> client.chat.completions.create({'{'}){'\n'}
-        {'  '}model: <span className="text-green-400">'mistral-large'</span>,{'\n'}
+        {'  '}model: <span className="text-green-400">'mistral-large-3'</span>,{'\n'}
         {'  '}messages: [{'{'}role: <span className="text-green-400">'user'</span>, content: <span className="text-green-400">'...'</span>{'}'}]{'\n'}
         {'}'});
       </>
@@ -234,7 +234,7 @@ const providerCode: Record<string, { python: React.ReactNode; typescript: React.
         ){'\n\n'}
         <span className="text-gray-500"># That's it. AI now remembers this user.</span>{'\n'}
         response = client.chat.completions.create({'\n'}
-        {'    '}model=<span className="text-green-400">"command-r-plus"</span>,{'\n'}
+        {'    '}model=<span className="text-green-400">"command-a"</span>,{'\n'}
         {'    '}messages=[{'{'}<span className="text-green-400">"role"</span>: <span className="text-green-400">"user"</span>, <span className="text-green-400">"content"</span>: <span className="text-green-400">"..."</span>{'}'}]{'\n'}
         )
       </>
@@ -250,7 +250,7 @@ const providerCode: Record<string, { python: React.ReactNode; typescript: React.
         {'}'});{'\n\n'}
         <span className="text-gray-500">// Same API. Memory handled automatically.</span>{'\n'}
         <span className="text-purple-400">const</span> response = <span className="text-purple-400">await</span> client.chat.completions.create({'{'}){'\n'}
-        {'  '}model: <span className="text-green-400">'command-r-plus'</span>,{'\n'}
+        {'  '}model: <span className="text-green-400">'command-a'</span>,{'\n'}
         {'  '}messages: [{'{'}role: <span className="text-green-400">'user'</span>, content: <span className="text-green-400">'...'</span>{'}'}]{'\n'}
         {'}'});
       </>

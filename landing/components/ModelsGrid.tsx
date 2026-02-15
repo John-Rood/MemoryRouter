@@ -21,7 +21,7 @@ const models = [
   { provider: 'openai', name: 'o1', context: '200K', badges: ['Reasoning'], desc: 'Advanced reasoning model. Thinks before responding for complex tasks.', tags: ['Chain-of-Thought', 'Math', 'Code'] },
   
   // Anthropic
-  { provider: 'anthropic', name: 'Claude Opus 4.5', context: '200K', badges: ['Flagship'], desc: 'Flagship model. Best for coding, agents, and computer use. $5/$25 per 1M tokens.', tags: ['Vision', 'Coding', 'Agentic'] },
+  { provider: 'anthropic', name: 'Claude Opus 4.6', context: '200K', badges: ['Flagship'], desc: 'Most capable Claude. Best for coding, agents, and complex reasoning.', tags: ['Vision', 'Coding', 'Agentic'] },
   { provider: 'anthropic', name: 'Claude Sonnet 4.5', context: '200K', badges: ['Popular'], desc: 'Best balance of speed, intelligence, and cost. Great for everyday tasks.', tags: ['Vision', 'Balanced', 'Analysis'] },
   { provider: 'anthropic', name: 'Claude Haiku 4.5', context: '200K', badges: [], desc: 'Fastest and cheapest Claude. Lightning-fast for simple tasks at scale.', tags: ['Vision', 'Ultra Fast', 'Low Cost'] },
   

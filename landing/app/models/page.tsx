@@ -6,7 +6,7 @@ import { ModelsGrid } from '@/components/ModelsGrid'
 
 export const metadata: Metadata = {
   title: 'Supported Models — MemoryRouter | 200+ AI Models, One Memory',
-  description: 'MemoryRouter works with GPT-5.2, Claude Opus 4.5, Gemini 3 Pro, Llama 3, and 200+ more models. Same memory, any model. One line change.',
+  description: 'MemoryRouter works with GPT-5.2, Claude Opus 4.6, Gemini 3 Pro, Llama 4, and 200+ more models. Same memory, any model. One line change.',
 }
 
 export default function ModelsPage() {
