@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MemoryRouter — The AI Tax You're Not Paying (But Should Be)</title>
-    <meta name="description" content="Persistent memory for any AI model. Every $0.50 on memory saves $2-3 on inference. Drop-in API. Works with OpenAI, Anthropic, and 100+ models.">
+    <title>MemoryRouter — Persistent Memory for Any AI Model</title>
+    <meta name="description" content="Persistent memory for any AI model. $0.20 per 1M tokens. Drop-in API. Works with OpenAI, Anthropic, and 100+ models.">
+    <link rel="icon" type="image/png" href="/public/logo.png">
+    <link rel="apple-touch-icon" href="/public/logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -105,7 +107,32 @@
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        
+        /* Provider selector */
+        .provider-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #9ca3af;
+        }
+        .provider-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+        .provider-btn-active {
+            background: rgba(57, 255, 20, 0.15) !important;
+            border-color: rgba(57, 255, 20, 0.5) !important;
+            color: #39ff14 !important;
+            box-shadow: 0 0 20px rgba(57, 255, 20, 0.2);
+        }
+        .code-fade {
+            transition: opacity 0.15s ease-out;
+        }
     </style>
+    <!-- Preconnect to app domain for faster navigation -->
+    <link rel="preconnect" href="https://app.memoryrouter.ai" crossorigin>
+    <link rel="dns-prefetch" href="https://app.memoryrouter.ai">
+    <!-- Prefetch the app's main page -->
+    <link rel="prefetch" href="https://app.memoryrouter.ai/login" as="document">
 </head>
 <body class="text-white antialiased overflow-x-hidden">
     <!-- Ambient background -->
@@ -118,19 +145,18 @@
     <nav class="fixed w-full z-50 bg-[#09090b]/80 backdrop-blur-xl border-b border-white/5">
         <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
             <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-green-400 to-cyan-400 flex items-center justify-center">
-                    <span class="text-black font-bold text-sm">M</span>
-                </div>
+                <img src="./public/logo.png" alt="MemoryRouter" width="32" height="32" class="rounded-lg">
                 <span class="text-xl font-bold">MemoryRouter</span>
             </div>
             <div class="hidden md:flex items-center gap-8">
                 <a href="#calculator" class="text-gray-400 hover:text-white transition text-sm">Calculator</a>
                 <a href="#use-cases" class="text-gray-400 hover:text-white transition text-sm">Use Cases</a>
                 <a href="#how-it-works" class="text-gray-400 hover:text-white transition text-sm">How It Works</a>
+                <a href="models.html" class="text-gray-400 hover:text-white transition text-sm">Models</a>
                 <a href="#pricing" class="text-gray-400 hover:text-white transition text-sm">Pricing</a>
                 <a href="#faq" class="text-gray-400 hover:text-white transition text-sm">FAQ</a>
             </div>
-            <a href="#waitlist" class="btn-primary px-5 py-2.5 rounded-lg text-sm transition">Get Early Access</a>
+            <a href="https://app.memoryrouter.ai" class="btn-primary px-5 py-2.5 rounded-lg text-sm transition">Get Started Free</a>
         </div>
     </nav>
 
@@ -144,26 +170,26 @@
             </div>
 
             <h1 class="text-5xl md:text-7xl lg:text-[5.5rem] font-bold mb-8 leading-[1.05] tracking-tight">
-                Your AI Has<br>
-                <span class="gradient-text-hero">Amnesia</span>
+                Stop Paying for<br>
+                <span class="gradient-text-hero">AI to Forget</span>
             </h1>
             
             <p class="text-xl md:text-2xl text-gray-400 mb-8 max-w-2xl mx-auto leading-relaxed">
-                Every API call starts from zero. You're paying to re-teach the same context, over and over.
-                <span class="text-white font-semibold">That ends today.</span>
+                Memory that makes every AI call smarter.
+                <span class="text-white font-semibold">Same memory, any model.</span>
             </p>
 
             <!-- Value prop banner -->
             <div class="inline-block bg-black/50 border border-green-500/30 rounded-2xl p-6 mb-10">
                 <div class="flex flex-col sm:flex-row items-center gap-4 sm:gap-8">
                     <div class="text-center">
-                        <div class="text-4xl md:text-5xl font-bold money-gradient">$1</div>
-                        <div class="text-gray-500 text-sm">spent on memory</div>
+                        <div class="text-4xl md:text-5xl font-bold money-gradient">$0.20</div>
+                        <div class="text-gray-500 text-sm">per 1M tokens</div>
                     </div>
-                    <div class="text-4xl text-gray-600">=</div>
+                    <div class="text-4xl text-gray-600">·</div>
                     <div class="text-center">
-                        <div class="text-4xl md:text-5xl font-bold money-gradient">$2-3</div>
-                        <div class="text-gray-500 text-sm">saved on inference</div>
+                        <div class="text-4xl md:text-5xl font-bold money-gradient">50M</div>
+                        <div class="text-gray-500 text-sm">tokens free</div>
                     </div>
                 </div>
             </div>
@@ -335,40 +361,30 @@
                 </div>
             </div>
 
-            <!-- Comparison -->
-            <div class="grid md:grid-cols-2 gap-6">
-                <div class="bg-gradient-to-br from-red-500/5 to-transparent rounded-2xl border border-red-500/10 p-8">
-                    <div class="flex items-center gap-3 mb-6">
-                        <div class="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-red-400">✗</div>
-                        <h3 class="text-xl font-bold text-red-400">Standard AI Integration</h3>
-                    </div>
-                    <div class="font-mono text-sm bg-black/30 rounded-xl p-4 mb-4 overflow-x-auto">
-                        <div class="text-gray-500">// Support chat - EVERY message:</div>
-                        <div class="text-gray-300">messages: [</div>
-                        <div class="text-red-400 pl-4">system: "Customer context... (2000 tokens)",</div>
-                        <div class="text-red-400 pl-4">system: "Product catalog... (5000 tokens)",</div>
-                        <div class="text-red-400 pl-4">system: "Past tickets... (3000 tokens)",</div>
-                        <div class="text-gray-300 pl-4">user: "What's my order status?"</div>
-                        <div class="text-gray-300">]</div>
-                    </div>
-                    <div class="text-red-400 text-sm">10,000+ tokens per simple question</div>
+            <!-- The Magic: Persistent Intelligence -->
+            <div class="bg-gradient-to-br from-green-500/5 to-transparent rounded-2xl border border-green-500/10 p-8">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center text-green-400">✨</div>
+                    <h3 class="text-xl font-bold text-green-400">Your AI Actually Knows You</h3>
                 </div>
-
-                <div class="bg-gradient-to-br from-green-500/5 to-transparent rounded-2xl border border-green-500/10 p-8">
-                    <div class="flex items-center gap-3 mb-6">
-                        <div class="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center text-green-400">✓</div>
-                        <h3 class="text-xl font-bold text-green-400">With MemoryRouter</h3>
-                    </div>
-                    <div class="font-mono text-sm bg-black/30 rounded-xl p-4 mb-4 overflow-x-auto">
-                        <div class="text-gray-500">// Support chat - EVERY message:</div>
-                        <div class="text-gray-300">messages: [</div>
-                        <div class="text-gray-300 pl-4">user: "What's my order status?"</div>
-                        <div class="text-gray-300">]</div>
-                        <div class="text-green-400 mt-2">// Memory auto-injects: customer context,</div>
-                        <div class="text-green-400">// relevant orders, past conversations</div>
-                    </div>
-                    <div class="text-green-400 text-sm">Only send what's new. Memory handles the rest.</div>
+                <div class="font-mono text-sm bg-black/30 rounded-xl p-6 mb-4 overflow-x-auto">
+                    <div class="text-gray-500">// Your code never changes. Ever.</div>
+                    <div class="text-gray-300">const ai = new OpenAI({</div>
+                    <div class="text-green-400 pl-4">baseURL: "https://api.memoryrouter.ai/v1"</div>
+                    <div class="text-gray-300">});</div>
+                    <div class="text-gray-600 mt-4">// ─────────────────────────────────────────</div>
+                    <div class="text-cyan-400 mt-4">// January 15th</div>
+                    <div class="text-gray-300">await ai.chat.completions.create({</div>
+                    <div class="text-gray-300 pl-4">messages: [{ role: "user", content: <span class="text-yellow-400">"I prefer short emails, no fluff, sign off with just my first name"</span> }]</div>
+                    <div class="text-gray-300">});</div>
+                    <div class="text-gray-600 mt-4">// ─────────────────────────────────────────</div>
+                    <div class="text-cyan-400 mt-4">// March 3rd — different session, 47 days later</div>
+                    <div class="text-gray-300">await ai.chat.completions.create({</div>
+                    <div class="text-gray-300 pl-4">messages: [{ role: "user", content: <span class="text-yellow-400">"Draft a follow-up email to the investor"</span> }]</div>
+                    <div class="text-gray-300">});</div>
+                    <div class="text-green-400 mt-4">// → Concise email, signs "- John". No style guide needed.</div>
                 </div>
+                <div class="text-green-400 text-sm font-medium">Same code. No context stuffing. Your AI actually knows you.</div>
             </div>
         </div>
     </section>
@@ -389,23 +405,23 @@
                         <div>
                             <div class="text-3xl mb-3">🎧</div>
                             <h3 class="text-2xl font-bold mb-2">Customer Support Bots</h3>
-                            <p class="text-gray-400">AI that actually knows your customers.</p>
+                            <p class="text-gray-400">AI that actually remembers your customers.</p>
                         </div>
                         <div class="text-right">
                             <div class="text-sm text-gray-500">Token savings</div>
-                            <div class="text-2xl font-bold text-green-400">73%</div>
+                            <div class="text-2xl font-bold text-green-400">50-70%</div>
                         </div>
                     </div>
                     <div class="bg-black/30 rounded-xl p-4 mb-6">
                         <div class="text-sm text-gray-500 mb-2">Before: Every message</div>
-                        <div class="text-xs text-red-400 font-mono">"Load customer profile... past 50 tickets... product history... account status..."</div>
+                        <div class="text-xs text-red-400 font-mono">"Here's the context from our last 5 conversations... their preferences... what they told us..."</div>
                         <div class="text-sm text-gray-500 mb-2 mt-4">After: Just the message</div>
-                        <div class="text-xs text-green-400 font-mono">"Why was my refund delayed?"</div>
-                        <div class="text-xs text-gray-500 mt-1">Memory: Customer context, refund history, account status auto-injected</div>
+                        <div class="text-xs text-green-400 font-mono">"Can you help with that issue I mentioned last week?"</div>
+                        <div class="text-xs text-gray-500 mt-1">Memory recalls: what the customer told you, their stated preferences, past issues discussed</div>
                     </div>
                     <ul class="space-y-2 text-sm text-gray-400">
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Remembers customer preferences</li>
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Knows past interactions across channels</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Remembers what customers told you</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Recalls past conversations across sessions</li>
                         <li class="flex items-center gap-2"><span class="text-green-400">✓</span> No more "As I mentioned before..."</li>
                     </ul>
                 </div>
@@ -416,22 +432,22 @@
                         <div>
                             <div class="text-3xl mb-3">📈</div>
                             <h3 class="text-2xl font-bold mb-2">Sales Intelligence</h3>
-                            <p class="text-gray-400">AI that remembers every deal detail.</p>
+                            <p class="text-gray-400">AI that remembers every conversation.</p>
                         </div>
                         <div class="text-right">
-                            <div class="text-sm text-gray-500">Prep time saved</div>
-                            <div class="text-2xl font-bold text-green-400">90%</div>
+                            <div class="text-sm text-gray-500">Context retained</div>
+                            <div class="text-2xl font-bold text-green-400">100%</div>
                         </div>
                     </div>
                     <div class="bg-black/30 rounded-xl p-4 mb-6">
                         <div class="text-sm text-gray-500 mb-2">How reps use it</div>
                         <div class="text-xs text-cyan-400 font-mono">"Brief me on the Acme Corp deal before my call"</div>
-                        <div class="text-xs text-gray-400 mt-2">→ AI recalls all past emails, objections, stakeholders, pricing discussions, competitor mentions, and decision timeline — instantly.</div>
+                        <div class="text-xs text-gray-400 mt-2">→ AI recalls everything you've discussed: objections mentioned, pricing conversations, competitor concerns, and what stakeholders said — across weeks of conversations.</div>
                     </div>
                     <ul class="space-y-2 text-sm text-gray-400">
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Full deal context, always available</li>
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Remembers past objections & responses</li>
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Tracks relationship history over months</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Remembers every conversation about the deal</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Recalls objections discussed & your responses</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Context persists across months</li>
                     </ul>
                 </div>
 
@@ -441,21 +457,21 @@
                         <div>
                             <div class="text-3xl mb-3">🏥</div>
                             <h3 class="text-2xl font-bold mb-2">Healthcare Assistants</h3>
-                            <p class="text-gray-400">Patient context that persists.</p>
+                            <p class="text-gray-400">Patient conversations that persist.</p>
                         </div>
                         <div class="text-right">
-                            <div class="text-sm text-gray-500">Context accuracy</div>
-                            <div class="text-2xl font-bold text-green-400">100%</div>
+                            <div class="text-sm text-gray-500">Memory retention</div>
+                            <div class="text-2xl font-bold text-green-400">90 days</div>
                         </div>
                     </div>
                     <div class="bg-black/30 rounded-xl p-4 mb-6">
                         <div class="text-sm text-gray-500 mb-2">Continuity of care</div>
-                        <div class="text-xs text-gray-400">Patient returns 3 months later. AI immediately knows:</div>
-                        <div class="text-xs text-green-400 font-mono mt-2">• Previous symptoms discussed<br>• Medications mentioned<br>• Allergies noted<br>• Preferred communication style</div>
+                        <div class="text-xs text-gray-400">Patient returns 3 months later. AI remembers what they said:</div>
+                        <div class="text-xs text-green-400 font-mono mt-2">• Symptoms they described<br>• Medications they mentioned taking<br>• Allergies they told you about<br>• How they prefer to communicate</div>
                     </div>
                     <ul class="space-y-2 text-sm text-gray-400">
                         <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Per-patient memory isolation</li>
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Longitudinal context tracking</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Remembers conversations over time</li>
                         <li class="flex items-center gap-2"><span class="text-green-400">✓</span> HIPAA-ready architecture</li>
                     </ul>
                 </div>
@@ -466,46 +482,46 @@
                         <div>
                             <div class="text-3xl mb-3">📚</div>
                             <h3 class="text-2xl font-bold mb-2">Docs & Knowledge Base</h3>
-                            <p class="text-gray-400">AI that learns what teams ask about.</p>
+                            <p class="text-gray-400">AI that remembers what users asked.</p>
                         </div>
                         <div class="text-right">
-                            <div class="text-sm text-gray-500">Query accuracy</div>
-                            <div class="text-2xl font-bold text-green-400">+40%</div>
+                            <div class="text-sm text-gray-500">Context</div>
+                            <div class="text-2xl font-bold text-green-400">Persistent</div>
                         </div>
                     </div>
                     <div class="bg-black/30 rounded-xl p-4 mb-6">
                         <div class="text-sm text-gray-500 mb-2">Smart context building</div>
-                        <div class="text-xs text-gray-400">AI remembers which docs users reference most, common follow-up questions, and successful answer patterns.</div>
-                        <div class="text-xs text-purple-400 font-mono mt-2">"How do I set up OAuth?" → AI knows you're using Node.js, already tried the basic guide, need enterprise SSO</div>
+                        <div class="text-xs text-gray-400">AI remembers what each user has asked about, their follow-up questions, and what worked for them.</div>
+                        <div class="text-xs text-purple-400 font-mono mt-2">"How do I set up OAuth?" → AI remembers you mentioned using Node.js, that you tried the basic guide, that you need enterprise SSO</div>
                     </div>
                     <ul class="space-y-2 text-sm text-gray-400">
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Learns from every interaction</li>
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Per-user context awareness</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Remembers every interaction</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Per-user conversation history</li>
                         <li class="flex items-center gap-2"><span class="text-green-400">✓</span> No re-explaining your setup</li>
                     </ul>
                 </div>
 
                 <!-- Personal AI Companion -->
-                <div class="card-glass rounded-2xl p-8 card-glow transition-all">
+                <div class="card-glass rounded-2xl p-8 card-glow transition-all border border-purple-500/20">
                     <div class="flex items-start justify-between mb-6">
                         <div>
-                            <div class="text-3xl mb-3">🤖</div>
+                            <div class="text-3xl mb-3">💜</div>
                             <h3 class="text-2xl font-bold mb-2">Personal AI Companions</h3>
-                            <p class="text-gray-400">AI that actually knows you.</p>
+                            <p class="text-gray-400">Build a real relationship with AI.</p>
                         </div>
                         <div class="text-right">
-                            <div class="text-sm text-gray-500">Engagement</div>
-                            <div class="text-2xl font-bold text-green-400">3x</div>
+                            <div class="text-sm text-gray-500">The difference</div>
+                            <div class="text-2xl font-bold text-purple-400">Everything</div>
                         </div>
                     </div>
                     <div class="bg-black/30 rounded-xl p-4 mb-6">
-                        <div class="text-sm text-gray-500 mb-2">True personalization</div>
-                        <div class="text-xs text-gray-400">Week 1: Learning your communication style<br>Month 1: Knows your goals, preferences, habits<br>Month 6: Feels like talking to an old friend</div>
+                        <div class="text-sm text-purple-400 mb-2">This is what changes everything</div>
+                        <div class="text-sm text-gray-300">Current AI meets you fresh every time — a stranger on repeat. With memory, your AI <em>actually knows you</em>. Your humor. Your struggles. What you said three months ago. It's the difference between a chatbot and a companion.</div>
                     </div>
                     <ul class="space-y-2 text-sm text-gray-400">
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Remembers conversations across months</li>
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Learns communication preferences</li>
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Builds genuine rapport over time</li>
+                        <li class="flex items-center gap-2"><span class="text-purple-400">✓</span> Conversations that compound over months</li>
+                        <li class="flex items-center gap-2"><span class="text-purple-400">✓</span> AI that learns your communication style</li>
+                        <li class="flex items-center gap-2"><span class="text-purple-400">✓</span> The foundation for AI that actually matters to people</li>
                     </ul>
                 </div>
 
@@ -515,20 +531,20 @@
                         <div>
                             <div class="text-3xl mb-3">⚖️</div>
                             <h3 class="text-2xl font-bold mb-2">Legal Assistants</h3>
-                            <p class="text-gray-400">Case context that sticks.</p>
+                            <p class="text-gray-400">Case conversations that persist.</p>
                         </div>
                         <div class="text-right">
-                            <div class="text-sm text-gray-500">Research time</div>
-                            <div class="text-2xl font-bold text-green-400">-60%</div>
+                            <div class="text-sm text-gray-500">Case memory</div>
+                            <div class="text-2xl font-bold text-green-400">Complete</div>
                         </div>
                     </div>
                     <div class="bg-black/30 rounded-xl p-4 mb-6">
                         <div class="text-sm text-gray-500 mb-2">Per-case memory</div>
-                        <div class="text-xs text-gray-400">AI remembers every document reviewed, argument developed, precedent cited, and strategy discussed — across weeks of case prep.</div>
+                        <div class="text-xs text-gray-400">AI remembers every conversation about the case: arguments discussed, precedents mentioned, strategies developed — across weeks of prep.</div>
                     </div>
                     <ul class="space-y-2 text-sm text-gray-400">
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Full case history at query time</li>
-                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Tracks evolving legal strategy</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Full conversation history per case</li>
+                        <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Recalls strategy discussions</li>
                         <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Matter-level memory isolation</li>
                     </ul>
                 </div>
@@ -609,7 +625,32 @@
             <div class="text-center mb-16">
                 <p class="text-pink-400 font-medium text-sm tracking-wide uppercase mb-3">Integration</p>
                 <h2 class="text-3xl md:text-5xl font-bold mb-4">Your Code. Now With Memory.</h2>
-                <p class="text-xl text-gray-400">Drop-in compatible with every OpenAI SDK.</p>
+                <p class="text-xl text-gray-400">Native SDK support for every major provider.</p>
+            </div>
+
+            <!-- Provider Selector -->
+            <div class="flex flex-wrap justify-center gap-2 mb-8">
+                <button onclick="setProvider('openai')" data-provider="openai" class="provider-btn provider-btn-active px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                    OpenAI
+                </button>
+                <button onclick="setProvider('anthropic')" data-provider="anthropic" class="provider-btn px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                    Anthropic
+                </button>
+                <button onclick="setProvider('google')" data-provider="google" class="provider-btn px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                    Google AI
+                </button>
+                <button onclick="setProvider('xai')" data-provider="xai" class="provider-btn px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                    xAI (Grok)
+                </button>
+                <button onclick="setProvider('deepseek')" data-provider="deepseek" class="provider-btn px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                    DeepSeek
+                </button>
+                <button onclick="setProvider('mistral')" data-provider="mistral" class="provider-btn px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                    Mistral
+                </button>
+                <button onclick="setProvider('cohere')" data-provider="cohere" class="provider-btn px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                    Cohere
+                </button>
             </div>
 
             <div class="grid lg:grid-cols-2 gap-6">
@@ -619,13 +660,13 @@
                         <span class="text-yellow-400 font-mono text-sm font-bold">Python</span>
                     </div>
                     <div class="p-5 text-sm overflow-x-auto">
-                        <pre><code><span class="text-gray-500"># pip install openai</span>
+                        <pre><code id="python-code"><span class="text-gray-500"># pip install openai</span>
 <span class="text-purple-400">from</span> openai <span class="text-purple-400">import</span> OpenAI
 
 <span class="text-gray-500"># Memory key = isolated context</span>
 client = OpenAI(
     base_url=<span class="text-green-400">"https://api.memoryrouter.ai/v1"</span>,
-    api_key=<span class="text-green-400">"mr-user-123-key"</span>
+    api_key=<span class="text-green-400">"mk_your-memory-key"</span>
 )
 
 <span class="text-gray-500"># That's it. AI now remembers this user.</span>
@@ -642,18 +683,18 @@ response = client.chat.completions.create(
                         <span class="text-blue-400 font-mono text-sm font-bold">TypeScript</span>
                     </div>
                     <div class="p-5 text-sm overflow-x-auto">
-                        <pre><code><span class="text-gray-500">// npm install openai</span>
+                        <pre><code id="typescript-code"><span class="text-gray-500">// npm install openai</span>
 <span class="text-purple-400">import</span> OpenAI <span class="text-purple-400">from</span> <span class="text-green-400">'openai'</span>;
 
 <span class="text-gray-500">// Each key = separate memory context</span>
 <span class="text-purple-400">const</span> client = <span class="text-purple-400">new</span> OpenAI({
   baseURL: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
-  apiKey: <span class="text-green-400">'mr-conversation-456'</span>
+  apiKey: <span class="text-green-400">'mk_your-memory-key'</span>
 });
 
 <span class="text-gray-500">// Same API. Memory handled automatically.</span>
 <span class="text-purple-400">const</span> response = <span class="text-purple-400">await</span> client.chat.completions.create({
-  model: <span class="text-green-400">'claude-3-5-sonnet-20241022'</span>,
+  model: <span class="text-green-400">'gpt-4o'</span>,
   messages: [{ role: <span class="text-green-400">'user'</span>, content: <span class="text-green-400">'...'</span> }]
 });</code></pre>
                     </div>
@@ -666,7 +707,7 @@ response = client.chat.completions.create(
                         <span class="text-gray-500 text-sm">— One memory per user</span>
                     </div>
                     <div class="p-5 text-sm overflow-x-auto">
-                        <pre><code><span class="text-gray-500">// SaaS pattern: each user gets isolated memory</span>
+                        <pre><code id="multitenant-code"><span class="text-gray-500">// SaaS pattern: each user gets isolated memory</span>
 <span class="text-purple-400">function</span> <span class="text-cyan-400">getClientForUser</span>(userId: <span class="text-yellow-400">string</span>) {
   <span class="text-purple-400">return new</span> OpenAI({
     baseURL: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
@@ -699,12 +740,12 @@ response = client.chat.completions.create(
                         <div>
                             <div class="text-xs text-green-400 font-bold tracking-widest uppercase mb-2">Simple Pricing</div>
                             <div class="flex items-baseline gap-2">
-                                <span class="text-6xl md:text-7xl font-bold">$1</span>
+                                <span class="text-6xl md:text-7xl font-bold">$0.20</span>
                                 <span class="text-xl text-gray-500">per 1M memory tokens</span>
                             </div>
                         </div>
                         <div class="text-left md:text-right">
-                            <div class="text-4xl font-bold money-gradient mb-1">2-3x ROI</div>
+                            <div class="text-4xl font-bold money-gradient mb-1">10x ROI</div>
                             <div class="text-gray-500">guaranteed return</div>
                         </div>
                     </div>
@@ -749,8 +790,8 @@ response = client.chat.completions.create(
                         </div>
                     </div>
 
-                    <a href="#waitlist" class="btn-primary px-8 py-4 rounded-xl text-lg w-full transition flex items-center justify-center gap-2">
-                        Join the Beta — Free Tier at Launch
+                    <a href="https://app.memoryrouter.ai" class="btn-primary px-8 py-4 rounded-xl text-lg w-full transition flex items-center justify-center gap-2">
+                        Get Started Free — 50M Tokens Included
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                         </svg>
@@ -775,7 +816,7 @@ response = client.chat.completions.create(
                         <span class="text-gray-500 group-open:rotate-180 transition-transform">▼</span>
                     </summary>
                     <div class="px-6 pb-6 text-gray-400">
-                        Without memory, you stuff context into every API call — user preferences, conversation history, project details. That's often 50-70% of your tokens. With MemoryRouter, relevant context is automatically retrieved and injected. You send less, get the same (or better) results. The $0.50/1M tokens you spend on memory saves $2-3/1M on inference.
+                        Without memory, you stuff context into every API call — user preferences, conversation history, project details. That's often 50-70% of your tokens. With MemoryRouter, relevant context is automatically retrieved and injected. You send less, get the same (or better) results. At $0.20 per million tokens, memory is the cheapest way to make your AI smarter.
                     </div>
                 </details>
 
@@ -825,7 +866,7 @@ response = client.chat.completions.create(
                         <span class="text-gray-500 group-open:rotate-180 transition-transform">▼</span>
                     </summary>
                     <div class="px-6 pb-6 text-gray-400">
-                        All of them. MemoryRouter is OpenRouter-compatible, which means 100+ models work out of the box: GPT-4o, GPT-4 Turbo, Claude 3.5 Sonnet, Claude 3 Opus, Gemini Pro, Llama 3, Mistral, and many more. If it works with the OpenAI SDK, it works with MemoryRouter.
+                        All of them. MemoryRouter works with every model from OpenAI, Anthropic, Google, Meta, Mistral, DeepSeek, and more — all models from every major provider. If it works with the OpenAI SDK, it works with MemoryRouter. <a href="models.html" class="text-green-400 hover:text-green-300 underline">See all supported models →</a>
                     </div>
                 </details>
 
@@ -852,7 +893,7 @@ response = client.chat.completions.create(
         </div>
     </section>
 
-    <!-- CTA / Waitlist -->
+    <!-- CTA - Direct to Signup -->
     <section id="waitlist" class="py-24 px-6 scroll-mt">
         <div class="max-w-3xl mx-auto text-center">
             <div class="card-glass rounded-3xl p-12 border-green-500/20 relative overflow-hidden">
@@ -860,17 +901,39 @@ response = client.chat.completions.create(
                 <div class="relative">
                     <div class="text-5xl mb-6">🚀</div>
                     <h2 class="text-3xl md:text-4xl font-bold mb-4">Stop Paying for AI Amnesia</h2>
-                    <p class="text-xl text-gray-400 mb-8">Join 500+ developers in the private beta. Free tier at launch.</p>
+                    <p class="text-xl text-gray-400 mb-8">500+ developers building with memory. Free tier included.</p>
                     
-                    <form class="flex flex-col sm:flex-row gap-4 max-w-md mx-auto mb-6">
-                        <input type="email" placeholder="you@company.com" class="flex-1 bg-black/50 border border-white/10 rounded-xl px-5 py-4 text-white placeholder-gray-500 focus:outline-none focus:border-green-500/50">
-                        <button type="submit" class="btn-primary px-8 py-4 rounded-xl font-semibold whitespace-nowrap transition">
-                            Get Early Access
+                    <a href="https://app.memoryrouter.ai" class="btn-primary px-10 py-5 rounded-xl text-lg font-semibold inline-flex items-center gap-3 transition">
+                        Get Started Free
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                        </svg>
+                    </a>
+
+                    <p class="text-gray-600 text-sm mt-6">50M tokens free. No credit card required.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Newsletter Signup -->
+    <section id="newsletter" class="py-16 px-6">
+        <div class="max-w-2xl mx-auto">
+            <div class="card-glass rounded-2xl p-8 border-white/5">
+                <div class="flex flex-col md:flex-row items-center gap-6">
+                    <div class="flex-1 text-center md:text-left">
+                        <h3 class="text-xl font-bold mb-2">Stay in the loop</h3>
+                        <p class="text-gray-400 text-sm">Deep dives on AI memory, engineering insights, and product updates. No spam, unsubscribe anytime.</p>
+                    </div>
+                    <form id="newsletter-form" class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                        <input type="email" id="newsletter-email" placeholder="you@company.com" required class="bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500/50 text-sm w-full sm:w-64">
+                        <button type="submit" id="newsletter-btn" class="bg-white/10 hover:bg-white/20 border border-white/10 px-6 py-3 rounded-lg font-medium text-sm whitespace-nowrap transition">
+                            Subscribe
                         </button>
                     </form>
-
-                    <p class="text-gray-600 text-sm">No spam. Just beta access and launch updates.</p>
                 </div>
+                <p id="newsletter-success" class="hidden text-green-400 text-sm text-center mt-4">✓ You're subscribed! Check your email.</p>
+                <p id="newsletter-error" class="hidden text-red-400 text-sm text-center mt-4">Something went wrong. Try again?</p>
             </div>
         </div>
     </section>
@@ -880,19 +943,20 @@ response = client.chat.completions.create(
         <div class="max-w-6xl mx-auto">
             <div class="flex flex-col md:flex-row items-center justify-between gap-6">
                 <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-green-400 to-cyan-400 flex items-center justify-center">
-                        <span class="text-black font-bold text-sm">M</span>
-                    </div>
+                    <img src="./public/logo.png" alt="MemoryRouter" width="32" height="32" class="rounded-lg">
                     <span class="text-lg font-bold">MemoryRouter</span>
                 </div>
-                <div class="flex items-center gap-6 text-sm text-gray-500">
+                <div class="flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-sm text-gray-500">
+                    <a href="models.html" class="hover:text-white transition">Models</a>
                     <a href="#" class="hover:text-white transition">Docs</a>
                     <a href="#" class="hover:text-white transition">GitHub</a>
                     <a href="#" class="hover:text-white transition">Twitter</a>
-                    <a href="#" class="hover:text-white transition">Discord</a>
+                    <span class="text-gray-700">•</span>
+                    <a href="/privacy" class="hover:text-white transition">Privacy</a>
+                    <a href="/terms" class="hover:text-white transition">Terms</a>
                 </div>
                 <div class="text-sm text-gray-600">
-                    © 2025 MemoryRouter
+                    © 2026 MemoryRouter
                 </div>
             </div>
         </div>
@@ -947,5 +1011,267 @@ response = client.chat.completions.create(
         slider.addEventListener('input', updateCalculator);
         updateCalculator(); // Initial calculation
     </script>
+
+    <!-- Provider Code Switcher -->
+    <script>
+        const providerExamples = {
+            openai: {
+                pythonInstall: '# pip install openai',
+                pythonImport: '<span class="text-purple-400">from</span> openai <span class="text-purple-400">import</span> OpenAI',
+                pythonSetup: `client = OpenAI(
+    base_url=<span class="text-green-400">"https://api.memoryrouter.ai/v1"</span>,
+    api_key=<span class="text-green-400">"mk_your-memory-key"</span>
+)`,
+                pythonCall: `response = client.chat.completions.create(
+    model=<span class="text-green-400">"gpt-4o"</span>,
+    messages=[{<span class="text-green-400">"role"</span>: <span class="text-green-400">"user"</span>, <span class="text-green-400">"content"</span>: <span class="text-green-400">"..."</span>}]
+)`,
+                tsInstall: '// npm install openai',
+                tsImport: `<span class="text-purple-400">import</span> OpenAI <span class="text-purple-400">from</span> <span class="text-green-400">'openai'</span>;`,
+                tsSetup: `<span class="text-purple-400">const</span> client = <span class="text-purple-400">new</span> OpenAI({
+  baseURL: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
+  apiKey: <span class="text-green-400">'mk_your-memory-key'</span>
+});`,
+                tsCall: `<span class="text-purple-400">const</span> response = <span class="text-purple-400">await</span> client.chat.completions.create({
+  model: <span class="text-green-400">'gpt-4o'</span>,
+  messages: [{ role: <span class="text-green-400">'user'</span>, content: <span class="text-green-400">'...'</span> }]
+});`,
+                mtClass: 'OpenAI',
+                isNative: true
+            },
+            anthropic: {
+                pythonInstall: '# pip install anthropic',
+                pythonImport: '<span class="text-purple-400">from</span> anthropic <span class="text-purple-400">import</span> Anthropic',
+                pythonSetup: `client = Anthropic(
+    base_url=<span class="text-green-400">"https://api.memoryrouter.ai/v1"</span>,
+    api_key=<span class="text-green-400">"mk_your-memory-key"</span>
+)`,
+                pythonCall: `response = client.messages.create(
+    model=<span class="text-green-400">"claude-sonnet-4-20250514"</span>,
+    max_tokens=<span class="text-cyan-400">1024</span>,
+    messages=[{<span class="text-green-400">"role"</span>: <span class="text-green-400">"user"</span>, <span class="text-green-400">"content"</span>: <span class="text-green-400">"..."</span>}]
+)`,
+                tsInstall: '// npm install @anthropic-ai/sdk',
+                tsImport: `<span class="text-purple-400">import</span> Anthropic <span class="text-purple-400">from</span> <span class="text-green-400">'@anthropic-ai/sdk'</span>;`,
+                tsSetup: `<span class="text-purple-400">const</span> client = <span class="text-purple-400">new</span> Anthropic({
+  baseURL: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
+  apiKey: <span class="text-green-400">'mk_your-memory-key'</span>
+});`,
+                tsCall: `<span class="text-purple-400">const</span> response = <span class="text-purple-400">await</span> client.messages.create({
+  model: <span class="text-green-400">'claude-sonnet-4-20250514'</span>,
+  max_tokens: <span class="text-cyan-400">1024</span>,
+  messages: [{ role: <span class="text-green-400">'user'</span>, content: <span class="text-green-400">'...'</span> }]
+});`,
+                mtClass: 'Anthropic',
+                isNative: true
+            },
+            google: {
+                pythonInstall: '# pip install google-generativeai',
+                pythonImport: '<span class="text-purple-400">import</span> google.generativeai <span class="text-purple-400">as</span> genai',
+                pythonSetup: `genai.configure(
+    api_key=<span class="text-green-400">"mk_your-memory-key"</span>,
+    transport=<span class="text-green-400">"rest"</span>,
+    client_options={<span class="text-green-400">"api_endpoint"</span>: <span class="text-green-400">"https://api.memoryrouter.ai"</span>}
+)`,
+                pythonCall: `model = genai.GenerativeModel(<span class="text-green-400">"gemini-1.5-pro"</span>)
+response = model.generate_content(<span class="text-green-400">"..."</span>)`,
+                tsInstall: '// npm install @google/generative-ai',
+                tsImport: `<span class="text-purple-400">import</span> { GoogleGenerativeAI } <span class="text-purple-400">from</span> <span class="text-green-400">'@google/generative-ai'</span>;`,
+                tsSetup: `<span class="text-purple-400">const</span> genAI = <span class="text-purple-400">new</span> GoogleGenerativeAI(<span class="text-green-400">'mk_your-memory-key'</span>, {
+  baseUrl: <span class="text-green-400">'https://api.memoryrouter.ai'</span>
+});
+<span class="text-purple-400">const</span> model = genAI.getGenerativeModel({ model: <span class="text-green-400">'gemini-1.5-pro'</span> });`,
+                tsCall: `<span class="text-purple-400">const</span> response = <span class="text-purple-400">await</span> model.generateContent(<span class="text-green-400">'...'</span>);`,
+                mtClass: 'GoogleGenerativeAI',
+                isNative: true
+            },
+            xai: {
+                pythonInstall: '# pip install openai  <span class="text-gray-600"># xAI uses OpenAI-compatible API</span>',
+                pythonImport: '<span class="text-purple-400">from</span> openai <span class="text-purple-400">import</span> OpenAI',
+                pythonSetup: `client = OpenAI(
+    base_url=<span class="text-green-400">"https://api.memoryrouter.ai/v1"</span>,
+    api_key=<span class="text-green-400">"mk_your-memory-key"</span>
+)`,
+                pythonCall: `response = client.chat.completions.create(
+    model=<span class="text-green-400">"grok-2"</span>,
+    messages=[{<span class="text-green-400">"role"</span>: <span class="text-green-400">"user"</span>, <span class="text-green-400">"content"</span>: <span class="text-green-400">"..."</span>}]
+)`,
+                tsInstall: '// npm install openai  <span class="text-gray-600">// xAI uses OpenAI-compatible API</span>',
+                tsImport: `<span class="text-purple-400">import</span> OpenAI <span class="text-purple-400">from</span> <span class="text-green-400">'openai'</span>;`,
+                tsSetup: `<span class="text-purple-400">const</span> client = <span class="text-purple-400">new</span> OpenAI({
+  baseURL: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
+  apiKey: <span class="text-green-400">'mk_your-memory-key'</span>
+});`,
+                tsCall: `<span class="text-purple-400">const</span> response = <span class="text-purple-400">await</span> client.chat.completions.create({
+  model: <span class="text-green-400">'grok-2'</span>,
+  messages: [{ role: <span class="text-green-400">'user'</span>, content: <span class="text-green-400">'...'</span> }]
+});`,
+                mtClass: 'OpenAI',
+                isNative: false
+            },
+            deepseek: {
+                pythonInstall: '# pip install openai  <span class="text-gray-600"># DeepSeek uses OpenAI-compatible API</span>',
+                pythonImport: '<span class="text-purple-400">from</span> openai <span class="text-purple-400">import</span> OpenAI',
+                pythonSetup: `client = OpenAI(
+    base_url=<span class="text-green-400">"https://api.memoryrouter.ai/v1"</span>,
+    api_key=<span class="text-green-400">"mk_your-memory-key"</span>
+)`,
+                pythonCall: `response = client.chat.completions.create(
+    model=<span class="text-green-400">"deepseek-chat"</span>,
+    messages=[{<span class="text-green-400">"role"</span>: <span class="text-green-400">"user"</span>, <span class="text-green-400">"content"</span>: <span class="text-green-400">"..."</span>}]
+)`,
+                tsInstall: '// npm install openai  <span class="text-gray-600">// DeepSeek uses OpenAI-compatible API</span>',
+                tsImport: `<span class="text-purple-400">import</span> OpenAI <span class="text-purple-400">from</span> <span class="text-green-400">'openai'</span>;`,
+                tsSetup: `<span class="text-purple-400">const</span> client = <span class="text-purple-400">new</span> OpenAI({
+  baseURL: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
+  apiKey: <span class="text-green-400">'mk_your-memory-key'</span>
+});`,
+                tsCall: `<span class="text-purple-400">const</span> response = <span class="text-purple-400">await</span> client.chat.completions.create({
+  model: <span class="text-green-400">'deepseek-chat'</span>,
+  messages: [{ role: <span class="text-green-400">'user'</span>, content: <span class="text-green-400">'...'</span> }]
+});`,
+                mtClass: 'OpenAI',
+                isNative: false
+            },
+            mistral: {
+                pythonInstall: '# pip install mistralai',
+                pythonImport: '<span class="text-purple-400">from</span> mistralai <span class="text-purple-400">import</span> Mistral',
+                pythonSetup: `client = Mistral(
+    server_url=<span class="text-green-400">"https://api.memoryrouter.ai/v1"</span>,
+    api_key=<span class="text-green-400">"mk_your-memory-key"</span>
+)`,
+                pythonCall: `response = client.chat.complete(
+    model=<span class="text-green-400">"mistral-large-latest"</span>,
+    messages=[{<span class="text-green-400">"role"</span>: <span class="text-green-400">"user"</span>, <span class="text-green-400">"content"</span>: <span class="text-green-400">"..."</span>}]
+)`,
+                tsInstall: '// npm install @mistralai/mistralai',
+                tsImport: `<span class="text-purple-400">import</span> { Mistral } <span class="text-purple-400">from</span> <span class="text-green-400">'@mistralai/mistralai'</span>;`,
+                tsSetup: `<span class="text-purple-400">const</span> client = <span class="text-purple-400">new</span> Mistral({
+  serverURL: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
+  apiKey: <span class="text-green-400">'mk_your-memory-key'</span>
+});`,
+                tsCall: `<span class="text-purple-400">const</span> response = <span class="text-purple-400">await</span> client.chat.complete({
+  model: <span class="text-green-400">'mistral-large-latest'</span>,
+  messages: [{ role: <span class="text-green-400">'user'</span>, content: <span class="text-green-400">'...'</span> }]
+});`,
+                mtClass: 'Mistral',
+                isNative: true
+            },
+            cohere: {
+                pythonInstall: '# pip install cohere',
+                pythonImport: '<span class="text-purple-400">import</span> cohere',
+                pythonSetup: `client = cohere.ClientV2(
+    base_url=<span class="text-green-400">"https://api.memoryrouter.ai/v1"</span>,
+    api_key=<span class="text-green-400">"mk_your-memory-key"</span>
+)`,
+                pythonCall: `response = client.chat(
+    model=<span class="text-green-400">"command-r-plus"</span>,
+    messages=[{<span class="text-green-400">"role"</span>: <span class="text-green-400">"user"</span>, <span class="text-green-400">"content"</span>: <span class="text-green-400">"..."</span>}]
+)`,
+                tsInstall: '// npm install cohere-ai',
+                tsImport: `<span class="text-purple-400">import</span> { CohereClientV2 } <span class="text-purple-400">from</span> <span class="text-green-400">'cohere-ai'</span>;`,
+                tsSetup: `<span class="text-purple-400">const</span> client = <span class="text-purple-400">new</span> CohereClientV2({
+  baseURL: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
+  token: <span class="text-green-400">'mk_your-memory-key'</span>
+});`,
+                tsCall: `<span class="text-purple-400">const</span> response = <span class="text-purple-400">await</span> client.chat({
+  model: <span class="text-green-400">'command-r-plus'</span>,
+  messages: [{ role: <span class="text-green-400">'user'</span>, content: <span class="text-green-400">'...'</span> }]
+});`,
+                mtClass: 'CohereClientV2',
+                isNative: true
+            }
+        };
+
+        function setProvider(providerId) {
+            const example = providerExamples[providerId];
+            if (!example) return;
+
+            // Update button states
+            document.querySelectorAll('.provider-btn').forEach(btn => {
+                btn.classList.remove('provider-btn-active');
+            });
+            document.querySelector(`[data-provider="${providerId}"]`).classList.add('provider-btn-active');
+
+            // Update Python code
+            const pythonCode = document.getElementById('python-code');
+            pythonCode.innerHTML = `<span class="text-gray-500">${example.pythonInstall}</span>
+${example.pythonImport}
+
+<span class="text-gray-500"># Memory key = isolated context</span>
+${example.pythonSetup}
+
+<span class="text-gray-500"># That's it. AI now remembers this user.</span>
+${example.pythonCall}`;
+
+            // Update TypeScript code
+            const tsCode = document.getElementById('typescript-code');
+            tsCode.innerHTML = `<span class="text-gray-500">${example.tsInstall}</span>
+${example.tsImport}
+
+<span class="text-gray-500">// Each key = separate memory context</span>
+${example.tsSetup}
+
+<span class="text-gray-500">// Same API. Memory handled automatically.</span>
+${example.tsCall}`;
+
+            // Update Multi-tenant code
+            const mtCode = document.getElementById('multitenant-code');
+            mtCode.innerHTML = `<span class="text-gray-500">// SaaS pattern: each user gets isolated memory</span>
+<span class="text-purple-400">function</span> <span class="text-cyan-400">getClientForUser</span>(userId: <span class="text-yellow-400">string</span>) {
+  <span class="text-purple-400">return new</span> ${example.mtClass}({
+    ${providerId === 'mistral' ? 'serverURL' : 'baseURL'}: <span class="text-green-400">'https://api.memoryrouter.ai/v1'</span>,
+    ${providerId === 'cohere' ? 'token' : 'apiKey'}: userMemoryKeys[userId]  <span class="text-gray-500">// Per-user memory isolation</span>
+  });
+}
+
+<span class="text-gray-500">// User A: "I prefer dark mode and brief responses"</span>
+<span class="text-gray-500">// User B: "I like detailed explanations with examples"</span>
+<span class="text-gray-500">// Each gets a personalized AI - memories never leak between users</span>`;
+        }
+    </script>
+
+    <!-- Newsletter Form Handler -->
+    <script>
+        const newsletterForm = document.getElementById('newsletter-form');
+        const newsletterEmail = document.getElementById('newsletter-email');
+        const newsletterBtn = document.getElementById('newsletter-btn');
+        const newsletterSuccess = document.getElementById('newsletter-success');
+        const newsletterError = document.getElementById('newsletter-error');
+
+        newsletterForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = newsletterEmail.value.trim();
+            if (!email) return;
+
+            // Disable button and show loading
+            newsletterBtn.disabled = true;
+            newsletterBtn.textContent = 'Subscribing...';
+            newsletterSuccess.classList.add('hidden');
+            newsletterError.classList.add('hidden');
+
+            try {
+                const response = await fetch('https://app.memoryrouter.ai/api/newsletter', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email }),
+                });
+
+                if (response.ok) {
+                    newsletterSuccess.classList.remove('hidden');
+                    newsletterEmail.value = '';
+                    newsletterBtn.textContent = 'Subscribed ✓';
+                } else {
+                    throw new Error('Failed');
+                }
+            } catch (err) {
+                newsletterError.classList.remove('hidden');
+                newsletterBtn.textContent = 'Subscribe';
+                newsletterBtn.disabled = false;
+            }
+        });
+    </script>
 </body>
 </html>
+<!-- cache-bust: 1769974452 -->
