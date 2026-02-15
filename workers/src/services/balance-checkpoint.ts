@@ -8,7 +8,7 @@
  * 2. If balance would go negative AND user has payment method → charge $20 FIRST
  * 3. Only then allow the request to proceed
  * 
- * Pricing: $0.50 per 1M memory tokens = $0.0000005/token = 0.00005 cents/token
+ * Pricing: $0.20 per 1M memory tokens = $0.0000002/token = 0.00002 cents/token
  * Free tier: 50M memory tokens
  */
 
@@ -52,8 +52,8 @@ export interface BillingRecord {
 // CONSTANTS
 // ============================================================================
 
-/** Price per memory token in cents: $0.50/1M = 0.00005 cents/token */
-const CENTS_PER_TOKEN = 0.00005;
+/** Price per memory token in cents: $0.20/1M = 0.00002 cents/token */
+const CENTS_PER_TOKEN = 0.00002;
 
 /** Free tier limit: 50M tokens */
 const FREE_TIER_LIMIT = 50_000_000;

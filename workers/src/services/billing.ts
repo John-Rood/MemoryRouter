@@ -7,7 +7,7 @@
  * - Balance operations
  * - Auto-reup logic
  * 
- * Pricing: $1 per 1M memory tokens = $0.000001/token = 0.0001 cents/token
+ * Pricing: $0.20 per 1M memory tokens = $0.0000002/token = 0.00002 cents/token
  * Free tier: 50M memory tokens
  */
 
@@ -133,8 +133,8 @@ export interface RecordUsageParams {
 // CONSTANTS
 // ============================================================================
 
-/** Price per memory token in cents: $1/1M = 0.0001 cents/token */
-const CENTS_PER_TOKEN = 0.0001;
+/** Price per memory token in cents: $0.20/1M = 0.00002 cents/token */
+const CENTS_PER_TOKEN = 0.00002;
 
 /** Default free tier: 50M tokens */
 const DEFAULT_FREE_TOKENS = 50_000_000;
@@ -510,8 +510,8 @@ export class BillingService {
       }
 
       // Cost is only for paid tokens
-      // $1 per 1M tokens = $0.000001 per token = 0.0001 cents per token
-      costCents = Math.ceil(paidTokensUsed * CENTS_PER_TOKEN);
+      // $0.20 per 1M tokens = $0.0000002 per token = 0.00002 cents per token
+      costCents = parseFloat((paidTokensUsed * CENTS_PER_TOKEN).toFixed(4));
     }
 
     // Insert usage record
@@ -900,7 +900,7 @@ export function createBillingService(db: D1Database): BillingService {
  * @returns Cost in cents
  */
 export function calculateCost(memoryTokens: number): number {
-  return Math.ceil(memoryTokens * CENTS_PER_TOKEN);
+  return parseFloat((memoryTokens * CENTS_PER_TOKEN).toFixed(4));
 }
 
 /**
