@@ -108,8 +108,11 @@ export async function searchMemory(params: SearchMemoryParams): Promise<SearchRe
     });
   }
 
-  // ===== DO+D1 RACE: Fastest wins =====
+  // ===== DO-FIRST with D1 FALLBACK =====
+  // DO has the full vector index (all chunks). D1 only has the last 2000.
+  // Strategy: try DO first with a timeout. If DO is cold (>2s), fall back to D1.
   const raceStart = Date.now();
+  const DO_TIMEOUT_MS = 2000;
 
   // Resolve which vaults to query
   const vaults = resolveVaultsForQuery(doNamespace, memoryKey, sessionId);
@@ -121,33 +124,44 @@ export async function searchMemory(params: SearchMemoryParams): Promise<SearchRe
     time: number;
   };
 
-  // Start ALL promises at once — no await until race completes
+  // Start DO search immediately
   const doPromise = executeSearchPlan(plan, queryEmbedding)
     .then(r => ({ source: 'do' as const, result: r, time: Date.now() - raceStart }))
     .catch(() => null);
 
+  // Start D1 search in parallel (backup)
   const d1Promise = searchD1(d1, queryEmbedding, memoryKey, sessionId, limit, kronosConfig)
     .then(r => ({ source: 'd1' as const, result: r, time: Date.now() - raceStart }))
     .catch(() => null);
 
   const bufferPromise = getBufferFromD1(d1, memoryKey, sessionId).catch(() => null);
 
-  // Race: first successful result wins
-  // Convert null results to rejections so Promise.any works correctly
-  const doRace = doPromise.then(r => r?.result ? r : Promise.reject('no result'));
-  const d1Race = d1Promise.then(r => r?.result ? r : Promise.reject('no result'));
-
+  // Wait for DO with a timeout — prefer DO because it has full coverage
   let winner: RaceResult | null = null;
-  try {
-    winner = await Promise.any([doRace, d1Race]) as RaceResult;
-  } catch {
-    // Both failed — empty result
-    winner = null;
+
+  const doWithTimeout = Promise.race([
+    doPromise,
+    new Promise<null>(resolve => setTimeout(() => resolve(null), DO_TIMEOUT_MS)),
+  ]);
+
+  const doResult = await doWithTimeout;
+  if (doResult?.result && doResult.result.chunks.length > 0) {
+    // DO responded in time with results — use it (full coverage)
+    winner = doResult;
+  } else {
+    // DO timed out or returned empty — fall back to D1
+    const d1Result = await d1Promise;
+    if (d1Result?.result) {
+      winner = d1Result;
+    } else if (doResult?.result) {
+      // D1 also empty but DO had a result (even if empty) — use DO
+      winner = doResult;
+    }
   }
 
   const raceMs = Date.now() - raceStart;
   const raceWinner = winner?.source || 'none';
-  console.log(`[MEMORY-RETRIEVAL] Race: winner=${raceWinner}, time=${winner?.time}ms, totalRace=${raceMs}ms`);
+  console.log(`[MEMORY-RETRIEVAL] Search: source=${raceWinner}, time=${winner?.time}ms, totalMs=${raceMs}ms`);
 
   // Handle buffer based on race winner
   let bufferData: { content: string; tokenCount: number; lastUpdated: number } | null = null;
