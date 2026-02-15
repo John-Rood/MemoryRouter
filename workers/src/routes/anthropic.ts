@@ -388,17 +388,24 @@ export function createAnthropicRouter() {
               let inputTokens = 0;
               let outputTokens = 0;
 
+              // Buffer for SSE lines that may span multiple chunks
+              let sseBuffer = '';
+              
               while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                const chunk = decoder.decode(value, { stream: true });
+                sseBuffer += decoder.decode(value, { stream: true });
                 
-                // Parse SSE events to extract text content
-                const lines = chunk.split('\n');
-                for (const line of lines) {
-                  if (!line.startsWith('data: ') || line.includes('[DONE]')) continue;
+                // Process complete lines only (split on double newline or newline)
+                const parts = sseBuffer.split('\n');
+                // Keep the last part as it may be incomplete
+                sseBuffer = parts.pop() || '';
+                
+                for (const line of parts) {
+                  const trimmed = line.trim();
+                  if (!trimmed.startsWith('data: ') || trimmed.includes('[DONE]')) continue;
                   try {
-                    const data = JSON.parse(line.slice(6));
+                    const data = JSON.parse(trimmed.slice(6));
                     if (data.type === 'content_block_delta' && data.delta?.type === 'text_delta') {
                       fullText += data.delta.text || '';
                     }
@@ -410,6 +417,18 @@ export function createAnthropicRouter() {
                     }
                   } catch { /* ignore parse errors */ }
                 }
+              }
+              // Process any remaining buffer
+              if (sseBuffer.trim().startsWith('data: ') && !sseBuffer.includes('[DONE]')) {
+                try {
+                  const data = JSON.parse(sseBuffer.trim().slice(6));
+                  if (data.type === 'message_start' && data.message?.usage) {
+                    inputTokens = data.message.usage.input_tokens ?? 0;
+                  }
+                  if (data.type === 'message_delta' && data.usage) {
+                    outputTokens = data.usage.output_tokens ?? 0;
+                  }
+                } catch { /* ignore */ }
               }
               reader.releaseLock();
 
@@ -486,28 +505,37 @@ export function createAnthropicRouter() {
               let inputTokens = 0;
               let outputTokens = 0;
 
+              let sseBuffer = '';
               while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n');
-                for (const line of lines) {
-                  if (!line.startsWith('data: ') || line.includes('[DONE]')) continue;
+                sseBuffer += decoder.decode(value, { stream: true });
+                const parts = sseBuffer.split('\n');
+                sseBuffer = parts.pop() || '';
+                for (const line of parts) {
+                  const trimmed = line.trim();
+                  if (!trimmed.startsWith('data: ') || trimmed.includes('[DONE]')) continue;
                   try {
-                    const data = JSON.parse(line.slice(6));
+                    const data = JSON.parse(trimmed.slice(6));
                     if (data.type === 'message_start' && data.message?.usage) {
                       inputTokens = data.message.usage.input_tokens ?? 0;
                     }
                     if (data.type === 'message_delta' && data.usage) {
                       outputTokens = data.usage.output_tokens ?? 0;
                     }
-                    // OpenAI-compatible format
                     if (data.usage?.prompt_tokens !== undefined) {
                       inputTokens = data.usage.prompt_tokens ?? 0;
                       outputTokens = data.usage.completion_tokens ?? 0;
                     }
                   } catch { /* ignore parse errors */ }
                 }
+              }
+              if (sseBuffer.trim().startsWith('data: ') && !sseBuffer.includes('[DONE]')) {
+                try {
+                  const data = JSON.parse(sseBuffer.trim().slice(6));
+                  if (data.type === 'message_start' && data.message?.usage) inputTokens = data.message.usage.input_tokens ?? 0;
+                  if (data.type === 'message_delta' && data.usage) outputTokens = data.usage.output_tokens ?? 0;
+                } catch { /* ignore */ }
               }
               reader.releaseLock();
 

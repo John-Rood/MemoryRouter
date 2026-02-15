@@ -596,6 +596,7 @@ export function createChatRouter() {
         let streamOutputTokens = 0;
         
         try {
+          let sseBuffer = '';
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -603,12 +604,16 @@ export function createChatRouter() {
             const chunk = decoder.decode(value, { stream: true });
             await streamWriter.write(chunk);
             
-            // Extract content for memory storage
-            const lines = chunk.split('\n');
-            for (const line of lines) {
-              if (line.startsWith('data: ') && !line.includes('[DONE]')) {
+            // Buffer-based SSE parsing to handle lines split across chunks
+            sseBuffer += chunk;
+            const parts = sseBuffer.split('\n');
+            sseBuffer = parts.pop() || '';
+            
+            for (const line of parts) {
+              const trimmed = line.trim();
+              if (trimmed.startsWith('data: ') && !trimmed.includes('[DONE]')) {
                 try {
-                  const data = JSON.parse(line.slice(6));
+                  const data = JSON.parse(trimmed.slice(6));
                   const content = data.choices?.[0]?.delta?.content;
                   const anthropicContent = data.delta?.text;
                   if (content) fullResponse += content;
