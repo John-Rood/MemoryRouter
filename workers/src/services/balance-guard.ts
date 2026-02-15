@@ -376,19 +376,21 @@ export class BalanceGuard {
       // Step 5: Record transaction if there was a cost
       if (costCents > 0) {
         const txId = `tx_${crypto.randomUUID().replace(/-/g, '')}`;
+        const now = new Date().toISOString();
         await this.db
           .prepare(`
             INSERT INTO transactions (
               id, user_id, type, amount_cents, 
               description, balance_after_cents, created_at
-            ) VALUES (?, ?, 'usage', ?, ?, ?, datetime('now'))
+            ) VALUES (?, ?, 'usage', ?, ?, ?, ?)
           `)
           .bind(
             txId,
             userId,
             -costCents,
-            `Memory usage: ${memoryTokens.toLocaleString()} tokens (${model})`,
-            newBalance
+            `Usage: ${memoryTokens.toLocaleString()} tokens (${model})`,
+            newBalance,
+            now
           )
           .run();
       }

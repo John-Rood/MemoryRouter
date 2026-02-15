@@ -180,12 +180,14 @@ users.get('/:userId/billing', async (c) => {
       return c.json({ error: 'Billing record not found' }, 404);
     }
 
-    // Get recent transactions
+    // Get recent transactions (normalize mixed timestamp formats for proper ordering)
     const limit = parseInt(c.req.query('limit') || '50');
     const { results: transactions } = await c.env.VECTORS_D1.prepare(`
-      SELECT * FROM transactions 
+      SELECT *, 
+        REPLACE(REPLACE(created_at, 'T', ' '), 'Z', '') as sort_ts
+      FROM transactions 
       WHERE user_id = ? 
-      ORDER BY created_at DESC 
+      ORDER BY sort_ts DESC 
       LIMIT ?
     `).bind(userId, Math.min(limit, 500)).all();
 
