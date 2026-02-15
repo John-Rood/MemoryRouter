@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Header } from '@/components/Header'
+import { FooterNewsletter } from '@/components/FooterNewsletter'
 
 export const metadata: Metadata = {
   title: 'Terms of Service — MemoryRouter',
@@ -9,16 +11,9 @@ export const metadata: Metadata = {
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-[#09090b] text-white">
-      {/* Header */}
-      <header className="border-b border-white/5 py-4 px-6">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-lg font-bold hover:text-green-400 transition">
-            ← MemoryRouter
-          </Link>
-        </div>
-      </header>
+      <Header />
 
-      <div className="max-w-4xl mx-auto px-6 py-16">
+      <div className="max-w-4xl mx-auto px-6 pt-32 pb-16">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold">Terms of Service</h1>
           <p className="text-gray-400 mt-2">Last updated: February 2, 2026</p>
@@ -95,6 +90,36 @@ export default function TermsPage() {
           </Section>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="border-t border-white/5 py-12 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+            <div>
+              <h4 className="font-semibold mb-4">Product</h4>
+              <ul className="space-y-2 text-sm">
+                <li><Link href="/#pricing" className="text-gray-400 hover:text-white transition">Pricing</Link></li>
+                <li><Link href="/models" className="text-gray-400 hover:text-white transition">Models</Link></li>
+                <li><a href="https://app.memoryrouter.ai" className="text-gray-400 hover:text-white transition">Dashboard</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-4">Legal</h4>
+              <ul className="space-y-2 text-sm">
+                <li><Link href="/privacy" className="text-gray-400 hover:text-white transition">Privacy Policy</Link></li>
+                <li><Link href="/terms" className="text-gray-400 hover:text-white transition">Terms of Service</Link></li>
+              </ul>
+            </div>
+            <div className="col-span-2 md:col-span-2">
+              <h4 className="font-semibold mb-4">Stay Updated</h4>
+              <FooterNewsletter />
+            </div>
+          </div>
+          <div className="border-t border-white/5 pt-8 text-center text-gray-500 text-sm">
+            © {new Date().getFullYear()} MemoryRouter. All rights reserved.
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }
