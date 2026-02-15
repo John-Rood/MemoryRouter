@@ -352,9 +352,9 @@ export class BalanceGuard {
         paidTokensUsed = memoryTokens;
       }
       
-      // Cost: $1 per 1M tokens = $0.000001 per token = 0.0001 cents per token
-      // Round to nearest cent (no Math.ceil — avoids 50x overcharge on small requests)
-      const costCents = Math.round(paidTokensUsed * 0.0001);
+      // Cost: $0.50 per 1M tokens = $0.0000005 per token = 0.00005 cents per token
+      // Round to nearest cent (no Math.ceil — avoids overcharge on small requests)
+      const costCents = Math.round(paidTokensUsed * 0.00005);
       
       // Step 4: Update billing record
       const newFreeTokensUsed = billingRow.free_tier_tokens_used + freeTokensUsed;
