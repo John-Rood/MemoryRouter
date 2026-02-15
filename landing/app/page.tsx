@@ -41,8 +41,8 @@ export default function Home() {
           <div className="inline-block bg-black/50 border border-green-500/30 rounded-2xl p-6 mb-10">
             <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8">
               <div className="text-center">
-                <div className="text-4xl md:text-5xl font-bold money-gradient">$0.20</div>
-                <div className="text-gray-500 text-sm">per 1M tokens</div>
+                <div className="text-4xl md:text-5xl font-bold money-gradient">$0.20/M</div>
+                <div className="text-gray-500 text-sm">tokens</div>
               </div>
               <div className="text-4xl text-gray-600">·</div>
               <div className="text-center">
