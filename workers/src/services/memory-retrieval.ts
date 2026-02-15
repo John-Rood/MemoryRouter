@@ -108,11 +108,15 @@ export async function searchMemory(params: SearchMemoryParams): Promise<SearchRe
     });
   }
 
-  // ===== DO-FIRST with D1 FALLBACK =====
-  // DO has the full vector index (all chunks). D1 only has the last 2000.
-  // Strategy: try DO first with a timeout. If DO is cold (>2s), fall back to D1.
+  // ===== SMART RACE: D1 speed for small vaults, DO completeness for large =====
+  // D1 can only search the last 2000 chunks (SQL LIMIT). DO has the full index.
+  // Strategy:
+  //   - Start both in parallel
+  //   - Small vault (≤2000): D1 has full coverage → race, fastest wins
+  //   - Large vault (>2000): D1 is incomplete → prefer DO, D1 only if DO fails
   const raceStart = Date.now();
-  const DO_TIMEOUT_MS = 2000;
+  const D1_COVERAGE_LIMIT = 2000;
+  const DO_TIMEOUT_MS = 3000; // Max wait for DO on cold start
 
   // Resolve which vaults to query
   const vaults = resolveVaultsForQuery(doNamespace, memoryKey, sessionId);
@@ -124,44 +128,56 @@ export async function searchMemory(params: SearchMemoryParams): Promise<SearchRe
     time: number;
   };
 
-  // Start DO search immediately
+  // Start both searches in parallel immediately
   const doPromise = executeSearchPlan(plan, queryEmbedding)
     .then(r => ({ source: 'do' as const, result: r, time: Date.now() - raceStart }))
     .catch(() => null);
 
-  // Start D1 search in parallel (backup)
   const d1Promise = searchD1(d1, queryEmbedding, memoryKey, sessionId, limit, kronosConfig)
     .then(r => ({ source: 'd1' as const, result: r, time: Date.now() - raceStart }))
     .catch(() => null);
 
   const bufferPromise = getBufferFromD1(d1, memoryKey, sessionId).catch(() => null);
 
-  // Wait for DO with a timeout — prefer DO because it has full coverage
+  // Quick vault size check from D1 (fast — just a COUNT)
+  const countPromise = d1.prepare(
+    `SELECT COUNT(*) as cnt FROM chunks WHERE memory_key = ?`
+  ).bind(memoryKey).first<{ cnt: number }>().catch(() => null);
+
   let winner: RaceResult | null = null;
 
-  const doWithTimeout = Promise.race([
-    doPromise,
-    new Promise<null>(resolve => setTimeout(() => resolve(null), DO_TIMEOUT_MS)),
-  ]);
+  // Wait for count + first result
+  const [d1Count, d1Result] = await Promise.all([countPromise, d1Promise]);
+  const vaultSize = d1Count?.cnt ?? 0;
+  const d1HasFullCoverage = vaultSize <= D1_COVERAGE_LIMIT;
 
-  const doResult = await doWithTimeout;
-  if (doResult?.result && doResult.result.chunks.length > 0) {
-    // DO responded in time with results — use it (full coverage)
-    winner = doResult;
+  if (d1HasFullCoverage && d1Result?.result) {
+    // Small vault: D1 covers everything → use D1 speed
+    winner = d1Result;
+    console.log(`[MEMORY-RETRIEVAL] Small vault (${vaultSize} chunks), using D1: ${d1Result.time}ms`);
   } else {
-    // DO timed out or returned empty — fall back to D1
-    const d1Result = await d1Promise;
-    if (d1Result?.result) {
+    // Large vault: D1 is incomplete → wait for DO with timeout
+    const doWithTimeout = Promise.race([
+      doPromise,
+      new Promise<null>(resolve => setTimeout(() => resolve(null), DO_TIMEOUT_MS)),
+    ]);
+
+    const doResult = await doWithTimeout;
+    if (doResult?.result && doResult.result.chunks.length > 0) {
+      winner = doResult;
+      console.log(`[MEMORY-RETRIEVAL] Large vault (${vaultSize} chunks), DO responded: ${doResult.time}ms`);
+    } else if (d1Result?.result) {
+      // DO timed out — fall back to D1 partial results
       winner = d1Result;
+      console.log(`[MEMORY-RETRIEVAL] Large vault (${vaultSize} chunks), DO timeout, D1 fallback: ${d1Result.time}ms`);
     } else if (doResult?.result) {
-      // D1 also empty but DO had a result (even if empty) — use DO
       winner = doResult;
     }
   }
 
   const raceMs = Date.now() - raceStart;
   const raceWinner = winner?.source || 'none';
-  console.log(`[MEMORY-RETRIEVAL] Search: source=${raceWinner}, time=${winner?.time}ms, totalMs=${raceMs}ms`);
+  console.log(`[MEMORY-RETRIEVAL] Search: source=${raceWinner}, vault=${vaultSize}, totalMs=${raceMs}ms`);
 
   // Handle buffer based on race winner
   let bufferData: { content: string; tokenCount: number; lastUpdated: number } | null = null;
